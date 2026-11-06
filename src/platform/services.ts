@@ -477,7 +477,7 @@ export const display = {
           { name: "\\\\.\\DISPLAY2", primary: false, width: 1920, height: 1080, workTop: 0, workHeight: 1080 - 48, workLeft: 0, workWidth: 1920 },
         ]),
   /**
-   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (1 or 1.5).
+   * `y`: window top in CSS px below the monitor's top edge (default 0); `rules`: screen_policy.rs Rules; `zoom`: panel scale (0.8 to 2, panelSize.ts PANEL_SCALES).
    * `edge` and `line`: the screen edge the window hangs from and where (CSS px from the monitor's top or left); `y` is used on top.
    * `along`: the window's length along that edge in CSS px, at least 760 (src/notch/collapsed.ts windowAlong).
    * `mode`: the Monitor setting's "follow" or "all"; with "all", `spots` holds `line` and `y` for every monitor, where mirror.rs puts a copy.
@@ -1141,6 +1141,7 @@ export const themeFiles = {
     URL.revokeObjectURL(a.href);
     return Promise.resolve("");
   },
+  wallpaper: (): Promise<string | null> => (isNative ? invoke<string | null>("get_desktop_wallpaper").catch(() => null) : Promise.resolve(null)),
 };
 // ---------- Launcher ----------
 
@@ -1417,8 +1418,6 @@ export type StorageOp = { op: "get" | "remove"; key: string } | { op: "set"; key
 export interface PluginFetch { url: string; method?: string; headers?: Record<string, string>; body?: string }
 export interface PluginResponse { status: number; contentType: string; body: string }
 
-const notInBrowser = () => Promise.reject("not-native");
-
 /**
  * Demo: the sample plugin (examples/plugins/hello-crest) is installed in memory. Removing it and picking a folder
  * again shows the real install screen with its permissions; the plugin's data and its one request are made up here.
@@ -1431,6 +1430,7 @@ const demoPlugins = (() => {
     list: () => (installed ? manifest().then((m) => [m]) : Promise.resolve([])),
     pick: () => Promise.resolve("hello-crest"),
     stage: (): Promise<StagedPlugin> => manifest().then((m) => ({ token: "demo", manifest: m, replaces: null })),
+    stageUrl: (_url: string): Promise<StagedPlugin> => manifest().then((m) => ({ token: "demo", manifest: m, replaces: null })),
     commit: () => manifest().then((m) => ((installed = true), m)),
     remove: () => ((installed = false), data.clear(), Promise.resolve()),
     storage: (op: StorageOp): Promise<unknown> => {
@@ -1440,7 +1440,7 @@ const demoPlugins = (() => {
       else data.delete(op.key);
       return Promise.resolve(null);
     },
-    fetch: (): Promise<PluginResponse> => {
+    fetch: (_req?: PluginFetch): Promise<PluginResponse> => {
       const lines = ["Keep it logically awesome.", "Design for failure.", "Half measures are as bad as nothing at all.", "Favor focus over features."];
       return Promise.resolve({ status: 200, contentType: "text/plain", body: lines[Math.floor(Math.random() * lines.length)] });
     },
@@ -1448,16 +1448,19 @@ const demoPlugins = (() => {
 })();
 
 /** Install, list and remove plugins, and run what their pages ask for (src/features/plugins/PluginView.tsx). */
+const notInBrowser = () => Promise.reject("not-native");
+
 export const pluginApi = {
   list: (): Promise<PluginManifest[]> => (isMac ? Promise.resolve([]) : isNative ? invoke<PluginManifest[]>("plugins_list") : demo ? demoPlugins.list() : Promise.resolve([])),
   /** The system's folder or .zip picker; null when cancelled. */
   pick: (zip: boolean): Promise<string | null> => (isNative ? invoke<string | null>("plugins_pick", { zip }) : demo ? demoPlugins.pick() : Promise.resolve(null)),
   stage: (path: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage", { path }) : demo ? demoPlugins.stage() : notInBrowser()),
+  stageUrl: (url: string): Promise<StagedPlugin> => (isNative ? invoke<StagedPlugin>("plugins_stage_url", { url }) : demo ? demoPlugins.stageUrl(url) : notInBrowser()),
   commit: (token: string): Promise<PluginManifest> => (isNative ? invoke<PluginManifest>("plugins_commit", { token }) : demo ? demoPlugins.commit() : notInBrowser()),
   discard: (token: string): Promise<void> => (isNative ? invoke("plugins_discard", { token }) : Promise.resolve()),
   remove: (id: string): Promise<void> => (isNative ? invoke("plugins_remove", { id }) : demo ? demoPlugins.remove() : notInBrowser()),
   storage: (id: string, op: StorageOp): Promise<unknown> => (isNative ? invoke("plugins_storage", { id, op }) : demo ? demoPlugins.storage(op) : notInBrowser()),
-  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : demo ? demoPlugins.fetch() : notInBrowser()),
+  fetch: (id: string, request: PluginFetch): Promise<PluginResponse> => (isNative ? invoke<PluginResponse>("plugins_fetch", { id, request }) : demo ? demoPlugins.fetch(request) : notInBrowser()),
 };
 
 // ---------- Window behaviour (display.rs, shell.rs) ----------

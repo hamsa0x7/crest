@@ -91,6 +91,7 @@ fn token() -> String {
 #[tauri::command]
 pub fn plugins_list(app: AppHandle) -> Vec<Manifest> {
     let Ok(dir) = plugins_dir(&app) else { return vec![] };
+    let _ = fs::create_dir_all(&dir);
     let Ok(entries) = fs::read_dir(&dir) else { return vec![] };
     let this_run = format!("-{:x}-", std::process::id());
     let mut list = Vec::new();
@@ -184,6 +185,55 @@ pub async fn plugins_stage(path: String, app: AppHandle, state: State<'_, Plugin
     })
     .await
     .map_err(|_| "failed")??;
+    let replaces = installed(&app, &manifest.id).ok().map(|m| m.version);
+    state.staged.lock().unwrap().insert(token.clone(), (staged_at, manifest.clone()));
+    Ok(Staged { token, manifest, replaces })
+}
+
+const MAX_PLUGIN_DOWNLOAD_BYTES: usize = 20 * 1024 * 1024;
+
+/// Downloads a .zip from a secure HTTPS URL into memory, checks it and stages it for confirmation.
+#[tauri::command]
+pub async fn plugins_stage_url(url: String, app: AppHandle, state: State<'_, PluginsState>) -> Result<Staged, String> {
+    if !url.starts_with("https://") {
+        return Err("domain".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|_| "read".to_string())?;
+    let res = client.get(&url).send().await.map_err(|_| "network".to_string())?;
+    if !res.status().is_success() {
+        return Err("not-found".into());
+    }
+    if let Some(len) = res.content_length() {
+        if len > MAX_PLUGIN_DOWNLOAD_BYTES as u64 {
+            return Err("too-large".into());
+        }
+    }
+    let bytes = res.bytes().await.map_err(|_| "read".to_string())?.to_vec();
+    if bytes.len() > MAX_PLUGIN_DOWNLOAD_BYTES {
+        return Err("too-large".into());
+    }
+    let bytes = bytes;
+
+    let root = plugins_dir(&app)?;
+    let token = token();
+    let target = root.join(format!(".staging-{token}"));
+    let staged_at = target.clone();
+    let manifest = tauri::async_runtime::spawn_blocking(move || -> Result<Manifest, String> {
+        let cursor = std::io::Cursor::new(bytes);
+        let bundle = bundle::read_zip(cursor)?;
+        fs::create_dir_all(&root).map_err(|_| "write".to_string())?;
+        bundle::write(&bundle, &target).map_err(|_| {
+            let _ = fs::remove_dir_all(&target);
+            "write".to_string()
+        })?;
+        Ok(bundle.manifest)
+    })
+    .await
+    .map_err(|_| "failed".to_string())??;
+
     let replaces = installed(&app, &manifest.id).ok().map(|m| m.version);
     state.staged.lock().unwrap().insert(token.clone(), (staged_at, manifest.clone()));
     Ok(Staged { token, manifest, replaces })

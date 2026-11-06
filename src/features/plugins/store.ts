@@ -2,7 +2,22 @@ import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { pluginApi, type StagedPlugin } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
-import { toolId, type PluginManifest } from "./model";
+import { toolId, type PluginManifest, type PluginPill } from "./model";
+
+export const pluginPills = createStore<Record<string, PluginPill>>({});
+
+export function setPluginPill(id: string, pill: PluginPill) {
+  pluginPills.set((cur) => ({ ...cur, [id]: pill }));
+}
+
+export function clearPluginPill(id: string) {
+  pluginPills.set((cur) => {
+    if (!cur[id]) return cur;
+    const next = { ...cur };
+    delete next[id];
+    return next;
+  });
+}
 
 /*
  * Installed plugins, as Rust read them from disk. Each is a tool `plugin:<id>` in the tool list, so the tool bar and
@@ -45,6 +60,21 @@ export async function pickPlugin(zip: boolean) {
   }
 }
 
+/** Downloads a plugin from a remote URL, stages it, and prompts the confirmation modal. */
+export async function stagePluginFromUrl(url: string) {
+  if (install.get().phase !== "idle") return;
+  install.set({ phase: "busy", staged: null, error: null });
+  holdOpen(true);
+  try {
+    const staged = await pluginApi.stageUrl(url);
+    install.set({ phase: "confirm", staged, error: null });
+  } catch (e) {
+    install.set({ phase: "idle", staged: null, error: String(e) });
+  } finally {
+    holdOpen(false);
+  }
+}
+
 export async function confirmInstall() {
   const staged = install.get().staged;
   if (!staged) return;
@@ -69,6 +99,7 @@ export function cancelInstall() {
 }
 
 export function setPluginEnabled(id: string, enabled: boolean) {
+  if (!enabled) clearPluginPill(id);
   const tool = toolId(id);
   updateSettings((cur) => ({
     tools: cur.tools.some((x) => x.id === tool) ? cur.tools.map((x) => (x.id === tool ? { ...x, enabled } : x)) : [...cur.tools, { id: tool, enabled }],
@@ -77,6 +108,7 @@ export function setPluginEnabled(id: string, enabled: boolean) {
 
 /** Removes the plugin's files and its storage. */
 export async function removePlugin(id: string) {
+  clearPluginPill(id);
   try {
     await pluginApi.remove(id);
     install.set((s) => ({ ...s, error: null }));

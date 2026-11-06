@@ -83,3 +83,17 @@ test("icon names match the Rust list", () => {
   const block = /pub const ICONS: &\[&str\] = &\[([\s\S]*?)\];/.exec(rust)![1];
   assert.deepEqual([...block.matchAll(/"([a-z]+)"/g)].map((m) => m[1]), [...ICON_NAMES]);
 });
+
+test("pill.set and pill.clear are validated", () => {
+  assert.equal(msg({ type: "pill.clear" }).kind, "ok");
+  assert.equal(msg({ type: "pill.clear", extra: 1 }).kind, "error");
+  assert.equal(msg({ type: "pill.set", text: "$95k" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", icon: "chart" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", color: "#10B981" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", text: "BTC", icon: "chart", color: "#10b981" }).kind, "ok");
+  assert.equal(msg({ type: "pill.set", text: "x".repeat(33) }).kind, "error");
+  assert.equal(msg({ type: "pill.set", icon: "invalid-icon" }).kind, "error");
+  assert.equal(msg({ type: "pill.set", color: "blue" }).kind, "error");
+  assert.equal(msg({ type: "pill.set", color: "#gg00ff" }).kind, "error");
+  assert.equal(msg({ type: "pill.set", extra: true }).kind, "error");
+});
