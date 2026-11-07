@@ -149,7 +149,7 @@ export function Notch() {
   // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
   // Held to the monitor like a saved size is.
-  const size = overridden ? { w: override.w, h: Math.min(override.h, limits(tab.size, monitorMetrics().height).maxH) } : toolSize;
+  const rawSize = overridden ? { w: override.w, h: Math.min(override.h, limits(tab.size, monitorMetrics().height).maxH) } : toolSize;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -178,6 +178,9 @@ export function Notch() {
   monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
   monitors.use(); // with "All monitors" the span is the narrowest one's
   const area = dragArea(), span = sharedSpan(side ? area.height : area.width, side);
+  const sidePanelH = Math.min(640, Math.max(500, span - 100));
+  const sidePanelW = overridden ? Math.min(480, Math.max(380, override.w)) : 420;
+  const size = side ? { w: sidePanelW, h: sidePanelH } : rawSize;
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
   const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
@@ -479,7 +482,7 @@ export function Notch() {
                 key="open"
                 data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
-                className={`absolute isolate flex flex-col ${PANEL_ANCHOR[edge]}`}
+                className={`absolute isolate flex ${side ? (edge === "left" ? "flex-row" : "flex-row-reverse") : "flex-col"} ${PANEL_ANCHOR[edge]}`}
                 style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
@@ -489,7 +492,11 @@ export function Notch() {
               >
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. */}
                 <div aria-hidden data-ambience={tinted ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
-                <Header title={t(tab.label)} />
+                {side && (
+                  <SideDock tabs={visible} activeId={tab.id} edge={edge as "left" | "right"} />
+                )}
+                <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+                  <Header title={t(tab.label)} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -507,7 +514,9 @@ export function Notch() {
                   </AnimatePresence>
                 </div>
 
-                <Dock tabs={visible} activeId={tab.id} />
+                </div>
+
+                {!side && <Dock tabs={visible} activeId={tab.id} />}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
               </motion.div>
@@ -640,16 +649,65 @@ function switchTo(id: string) {
   navigate(id);
 }
 
+/** Tool bar on the outer screen edge when docked left or right. */
+function SideDock({ tabs, activeId, edge }: { tabs: NotchTab[]; activeId: string; edge: "left" | "right" }) {
+  const lastTool = useRef(tabs[0]?.id);
+  if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
+  const inSettings = activeId === settingsTab.id;
+  const updateReady = update.use().phase === "available";
+  const unseen = useUnseen().length > 0;
+  const badge = updateReady || unseen;
+
+  const strip = useRef<HTMLDivElement>(null);
+  const more = useScrollEdges(strip, "y");
+  const fade = more.start || more.end ? `linear-gradient(180deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
+
+  return (
+    <div className={`flex shrink-0 flex-col items-center py-3 ${edge === "left" ? "ps-2 pe-1" : "pe-2 ps-1"}`}>
+      <div className="flex w-12 flex-1 min-h-0 flex-col items-center rounded-[16px] bg-fill-2 p-1">
+        <div
+          ref={strip}
+          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] w-full"
+          style={{ maskImage: fade, WebkitMaskImage: fade }}
+        >
+          {tabs.map((tab) => (
+            <DockButton
+              key={tab.id}
+              label={t(tab.label)}
+              icon={tab.icon}
+              hue={tab.hue}
+              active={tab.id === activeId}
+              onClick={() => switchTo(tab.id)}
+            />
+          ))}
+        </div>
+        <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-separator" />
+        <DockButton
+          label={t(settingsTab.label)}
+          icon={GearSix}
+          active={inSettings}
+          badge={badge}
+          onClick={() => {
+            stayUntilVisit();
+            if (inSettings) navigate(lastTool.current ?? tabs[0].id);
+            else navigate(settingsTab.id, badge ? "updates" : null);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */
-function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
+function useScrollEdges(ref: RefObject<HTMLDivElement | null>, direction: "x" | "y" = "x") {
   const [edges, setEdges] = useState({ start: false, end: false });
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const read = () => {
       // Right to left, scrollLeft runs from 0 down to negative values.
-      const pos = Math.abs(el.scrollLeft);
-      const room = el.scrollWidth - el.clientWidth;
+      const pos = direction === "y" ? el.scrollTop : Math.abs(el.scrollLeft);
+      const room = direction === "y" ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
       const next = { start: pos > 1, end: room - pos > 1 };
       setEdges((cur) => (cur.start === next.start && cur.end === next.end ? cur : next));
     };
@@ -661,7 +719,7 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
       el.removeEventListener("scroll", read);
       size.disconnect();
     };
-  }, [ref]);
+  }, [ref, direction]);
   return edges;
 }
 
@@ -679,7 +737,7 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; a
       aria-label={props.label}
       title={props.label}
       onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
+      className={`pressable relative flex h-9 w-10 min-w-6 shrink-0 items-center justify-center rounded-[12px] transition-colors duration-150 ${
         props.active ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
       style={color ? { color } : undefined}

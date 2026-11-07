@@ -6,7 +6,7 @@ on:
       release_version:
         description: "Release version (e.g. X.1.1)"
         type: string
-        default: "X.1.1"
+        default: "X.1.2"
       publish_release:
         description: "Publish as GitHub Release"
         type: boolean
