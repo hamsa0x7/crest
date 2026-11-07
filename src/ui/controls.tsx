@@ -27,7 +27,7 @@ export function Segmented<T extends string>(props: {
 }) {
   const h = props.size === "sm" ? "h-5 px-2" : "h-6 px-3";
   return (
-    <div id={props.id} className="flex shrink-0 rounded-full bg-fill-1 p-0.5">
+    <div className="flex shrink-0 rounded-full bg-fill-1 p-0.5">
       {props.options.map((o) => {
         const active = o.value === props.value;
         return (
@@ -143,9 +143,9 @@ export function Row({
 }) {
   return (
     <div data-row className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div data-row-label className="truncate text-body text-label">{label}</div>
-        {hint && <div data-row-hint className="text-caption text-label-3 [overflow-wrap:anywhere]">{hint}</div>}
+        {hint && <div data-row-hint className="text-caption text-label-3 break-words">{hint}</div>}
       </div>
       {children}
     </div>

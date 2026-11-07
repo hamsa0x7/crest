@@ -32,7 +32,6 @@ import { startCapture } from "./features/capture/store";
 import { startDownloads } from "./features/downloads/store";
 import { startPlugins } from "./features/plugins/store";
 import { startMeeting } from "./features/meeting/store";
-import { BackgroundRunner } from "./features/plugins/BackgroundRunner";
 import { demo, showcase } from "./dev/showcase-data";
 import { startShowcase } from "./dev/showcase";
 import { startDemo } from "./dev/demo";
@@ -130,7 +129,6 @@ function App() {
     <MotionConfig reducedMotion="user">
       {!isNative && <DesktopMock />}
       <Notch />
-      <BackgroundRunner />
     </MotionConfig>
   );
 }

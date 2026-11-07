@@ -153,7 +153,7 @@ function Hours({ data }: { data: Forecast }) {
   const hours = (data.hourly ?? []).filter((h) => hourStart(h.time, data.offset) > from).slice(0, 8);
   if (hours.length === 0) return null;
   return (
-    <div className="grid shrink-0 rounded-[14px] bg-fill-1 px-1 py-1.5 [@container(max-height:225px)]:hidden" style={{ gridTemplateColumns: `repeat(${hours.length}, minmax(0, 1fr))` }}>
+    <div className="grid shrink-0 overflow-x-auto rounded-[14px] bg-fill-1 px-1 py-1.5 [scrollbar-width:none] [@container(max-height:225px)]:hidden" style={{ gridTemplateColumns: `repeat(${hours.length}, minmax(36px, 1fr))` }}>
       {hours.map((h, i) => {
         const { icon: I, text, hue } = describe(h.code, h.day);
         return (

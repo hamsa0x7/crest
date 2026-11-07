@@ -123,7 +123,7 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
     }
-    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12"), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} />);
+    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12", closed.secondTimezone, closed.secondTimezoneLabel), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} secondZone={closed.secondTimezone} secondLabel={closed.secondTimezoneLabel} />);
     else if (id === "title" && caption) {
       const text = measureText(caption);
       parts.push({ item: { id, kind: "title", text }, draw: (p) => titleLyric

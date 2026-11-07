@@ -33,7 +33,7 @@ const FALLBACK_CATALOG: Catalog = {
   plugins: [],
 };
 
-const CATALOG_URL = "https://raw.githubusercontent.com/hamsa0x7/crest/main/plugins/catalog.json";
+const CATALOG_URL = "https://raw.githubusercontent.com/andrealo20/crest/main/plugins/catalog.json";
 
 export function MarketplaceView() {
   const installedList = plugins.use();
