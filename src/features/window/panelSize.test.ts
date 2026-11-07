@@ -14,6 +14,13 @@ test("limits: 80 % of the default, a floor, the window and the monitor", () => {
   assert.equal(limits(def, Number.NaN).maxH, PANEL_MAX.h);
 });
 
+test("limits supports custom user configured limits", () => {
+  const custom = { minW: 600, maxH: 700 };
+  const l = limits(def, undefined, custom);
+  assert.equal(l.minW, 600);
+  assert.equal(l.maxH, 700);
+});
+
 test("clamping and the saved size", () => {
   const l = limits(def);
   assert.deepEqual(clampSize({ w: 9999, h: 1 }, l), { w: 740, h: 200 });

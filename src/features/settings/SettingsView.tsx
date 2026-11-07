@@ -846,6 +846,81 @@ function Display() {
       <Row label={t("Geteilte Aktivitäts-Blase")} hint={t("Zweite Aktivität in separater runder Blase anzeigen")}>
         <Switch label={t("Geteilte Aktivitäts-Blase")} checked={d.satelliteBubble} onChange={(satelliteBubble) => updateSettings((cur) => ({ display: { ...cur.display, satelliteBubble } }))} />
       </Row>
+      <Row label={t("Tab-Einklappen")} hint={t("Klappt die Notch beim Bewegen über Browser-Tabs ein, um Klicks nicht zu blockieren")}>
+        <Switch label={t("Tab-Einklappen")} checked={d.tabTuck} onChange={(tabTuck) => updateSettings((cur) => ({ display: { ...cur.display, tabTuck } }))} />
+      </Row>
+      {d.tabTuck && (
+        <Row label={t("Einklapp-Stil")} hint={t("Darstellung im eingeklappten Zustand")}>
+          <Segmented
+            id="tuck-style"
+            size="sm"
+            value={d.tuckStyle}
+            onChange={(tuckStyle) => updateSettings((cur) => ({ display: { ...cur.display, tuckStyle } }))}
+            options={[
+              { value: "eyes", label: t("Begleiter-Augen") },
+              { value: "line", label: t("Haarlinie") },
+            ]}
+          />
+        </Row>
+      )}
+      <Row label={t("Tab-Leisten-Schutz")} hint={t("Ignoriert schnelle Mausbewegungen über Browser-Tabs und Fensterleisten")}>
+        <Switch label={t("Tab-Leisten-Schutz")} checked={d.tabStripImmunity} onChange={(tabStripImmunity) => updateSettings((cur) => ({ display: { ...cur.display, tabStripImmunity } }))} />
+      </Row>
+      {d.tabStripImmunity && (
+        <Row label={t("Schutzzonen-Höhe")} hint={t("Höhe des Ausschlussbereichs am oberen Bildschirmrand")}>
+          <div className="flex w-44 items-center gap-2">
+            <Slider
+              label={t("Schutzzonen-Höhe")}
+              value={d.immunityHeight}
+              min={20}
+              max={80}
+              step={5}
+              onChange={(immunityHeight) => updateSettings((cur) => ({ display: { ...cur.display, immunityHeight } }))}
+            />
+            <span className="w-10 text-right text-caption text-label-2 tabular-nums">{d.immunityHeight}px</span>
+          </div>
+        </Row>
+      )}
+      <Row label={t("Mausrad-Aktivitätswechsel")} hint={t("Mausrad über geschlossener Notch wechselt zwischen aktiven Hintergrund-Tools")}>
+        <Switch label={t("Mausrad-Aktivitätswechsel")} checked={d.wheelActivityCycling} onChange={(wheelActivityCycling) => updateSettings((cur) => ({ display: { ...cur.display, wheelActivityCycling } }))} />
+      </Row>
+      <Row label={t("Gedrückt halten zum Fixieren")} hint={t("500 ms Klicken auf die geschlossene Notch hält sie dauerhaft geöffnet")}>
+        <Switch label={t("Gedrückt halten zum Fixieren")} checked={d.pressToPin} onChange={(pressToPin) => updateSettings((cur) => ({ display: { ...cur.display, pressToPin } }))} />
+      </Row>
+      <Row label={t("Notch sperren (Strg + Alt + L)")} hint={t("Friert alle Hover- und Klick-Reaktionen mit Schüttel-Animation ein")}>
+        <Switch label={t("Notch sperren (Strg + Alt + L)")} checked={d.notchLocked} onChange={(notchLocked) => updateSettings((cur) => ({ display: { ...cur.display, notchLocked } }))} />
+      </Row>
+      {d.notchLocked && (
+        <Row label={t("Klicks bei Sperre durchleiten")} hint={t("Klicks auf die gesperrte Notch gehen direkt an das Hintergrundfenster")}>
+          <Switch label={t("Klicks bei Sperre durchleiten")} checked={d.lockClickThrough} onChange={(lockClickThrough) => updateSettings((cur) => ({ display: { ...cur.display, lockClickThrough } }))} />
+        </Row>
+      )}
+      <Row label={t("Minimale Breite des Panels")} hint={t("Mindestbreite des geöffneten Fensters")}>
+        <div className="flex w-44 items-center gap-2">
+          <Slider
+            label={t("Minimale Breite des Panels")}
+            value={d.panelMinWidth}
+            min={520}
+            max={880}
+            step={20}
+            onChange={(panelMinWidth) => updateSettings((cur) => ({ display: { ...cur.display, panelMinWidth } }))}
+          />
+          <span className="w-10 text-right text-caption text-label-2 tabular-nums">{d.panelMinWidth}px</span>
+        </div>
+      </Row>
+      <Row label={t("Maximale Höhe des Panels")} hint={t("Höchstmaß des geöffneten Fensters")}>
+        <div className="flex w-44 items-center gap-2">
+          <Slider
+            label={t("Maximale Höhe des Panels")}
+            value={d.panelMaxHeight}
+            min={400}
+            max={800}
+            step={20}
+            onChange={(panelMaxHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelMaxHeight } }))}
+          />
+          <span className="w-10 text-right text-caption text-label-2 tabular-nums">{d.panelMaxHeight}px</span>
+        </div>
+      </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>

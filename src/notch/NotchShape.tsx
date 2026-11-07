@@ -27,6 +27,8 @@ interface Props {
   glassOpacity?: number;
   surfaceSheen?: boolean;
   refractiveHighlight?: boolean;
+  shaking?: boolean;
+  lockFeedback?: "locked" | "unlocked" | null;
   children?: ReactNode;
 }
 
@@ -59,6 +61,8 @@ export function NotchShape({
   glassOpacity = 75,
   surfaceSheen = true,
   refractiveHighlight = true,
+  shaking = false,
+  lockFeedback = null,
   children,
 }: Props) {
   const shouldBirth = useRef(birthAnimation && !hasBirthedSession).current;
@@ -124,6 +128,8 @@ export function NotchShape({
     <motion.div
       data-notch-shape
       className="relative"
+      animate={shaking ? { x: [-6, 6, -4, 4, -2, 2, 0] } : undefined}
+      transition={{ duration: 0.45, ease: "easeInOut" }}
       // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
       style={{
         width: wPx,
@@ -268,6 +274,20 @@ export function NotchShape({
               }}
             />
           </>
+        )}
+        {lockFeedback && (
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none z-10"
+            style={{
+              boxShadow:
+                lockFeedback === "locked"
+                  ? "inset 0 0 0 2px var(--red), 0 0 12px var(--red)"
+                  : "inset 0 0 0 2px var(--green), 0 0 12px var(--green)",
+              borderRadius: "inherit",
+              opacity: 0.85,
+            }}
+          />
         )}
         <motion.div style={{ opacity: contentOpacity }} className="relative z-1 h-full w-full">
           {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}

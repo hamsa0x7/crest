@@ -142,12 +142,12 @@ export function Row({
   children?: ReactNode;
 }) {
   return (
-    <div data-row className="flex min-h-9 items-center justify-between gap-3 px-3 py-1.5">
-      <div className="min-w-0 flex-1">
-        <div data-row-label className="truncate text-body text-label">{label}</div>
+    <div data-row className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-1.5">
+      <div className="min-w-[130px] flex-1">
+        <div data-row-label className="text-body text-label">{label}</div>
         {hint && <div data-row-hint className="text-caption text-label-3 break-words">{hint}</div>}
       </div>
-      {children}
+      <div className="flex shrink-0 items-center justify-end">{children}</div>
     </div>
   );
 }

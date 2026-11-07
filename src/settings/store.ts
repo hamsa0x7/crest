@@ -85,6 +85,16 @@ export interface Settings {
     refractiveHighlight: boolean;
     chargerAnimation: "cinematic" | "subtle" | "off";
     dockMagnifyDots: boolean;
+    panelMinWidth: number;
+    panelMaxHeight: number;
+    tabTuck: boolean;
+    tuckStyle: "line" | "eyes";
+    tabStripImmunity: boolean;
+    immunityHeight: number;
+    wheelActivityCycling: boolean;
+    pressToPin: boolean;
+    notchLocked: boolean;
+    lockClickThrough: boolean;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -199,7 +209,12 @@ const defaults: Settings = {
   display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
     rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
     frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
-    chargerAnimation: "cinematic", dockMagnifyDots: true },
+    chargerAnimation: "cinematic", dockMagnifyDots: true,
+    panelMinWidth: 520, panelMaxHeight: 540,
+    tabTuck: false, tuckStyle: "eyes",
+    tabStripImmunity: true, immunityHeight: 40,
+    wheelActivityCycling: true, pressToPin: true,
+    notchLocked: false, lockClickThrough: false },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -342,6 +357,27 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
         ? (s.display!.chargerAnimation as "cinematic" | "subtle" | "off")
         : defaults.display.chargerAnimation,
       dockMagnifyDots: typeof s.display?.dockMagnifyDots === "boolean" ? s.display.dockMagnifyDots : defaults.display.dockMagnifyDots,
+      panelMinWidth:
+        typeof s.display?.panelMinWidth === "number" && Number.isFinite(s.display.panelMinWidth)
+          ? Math.max(520, Math.min(880, Math.round(s.display.panelMinWidth)))
+          : defaults.display.panelMinWidth,
+      panelMaxHeight:
+        typeof s.display?.panelMaxHeight === "number" && Number.isFinite(s.display.panelMaxHeight)
+          ? Math.max(400, Math.min(800, Math.round(s.display.panelMaxHeight)))
+          : defaults.display.panelMaxHeight,
+      tabTuck: typeof s.display?.tabTuck === "boolean" ? s.display.tabTuck : defaults.display.tabTuck,
+      tuckStyle: ["line", "eyes"].includes(s.display?.tuckStyle as string)
+        ? (s.display!.tuckStyle as "line" | "eyes")
+        : defaults.display.tuckStyle,
+      tabStripImmunity: typeof s.display?.tabStripImmunity === "boolean" ? s.display.tabStripImmunity : defaults.display.tabStripImmunity,
+      immunityHeight:
+        typeof s.display?.immunityHeight === "number" && Number.isFinite(s.display.immunityHeight)
+          ? Math.max(20, Math.min(80, Math.round(s.display.immunityHeight)))
+          : defaults.display.immunityHeight,
+      wheelActivityCycling: typeof s.display?.wheelActivityCycling === "boolean" ? s.display.wheelActivityCycling : defaults.display.wheelActivityCycling,
+      pressToPin: typeof s.display?.pressToPin === "boolean" ? s.display.pressToPin : defaults.display.pressToPin,
+      notchLocked: typeof s.display?.notchLocked === "boolean" ? s.display.notchLocked : defaults.display.notchLocked,
+      lockClickThrough: typeof s.display?.lockClickThrough === "boolean" ? s.display.lockClickThrough : defaults.display.lockClickThrough,
     },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },

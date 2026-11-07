@@ -30,11 +30,14 @@ export interface Limits {
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 /** `monitorH`: the monitor's height in CSS px; the panel keeps 20 px free below it. */
-export function limits(def: Size, monitorH?: number): Limits {
-  const minW = Math.min(PANEL_MAX.w, Math.max(FLOOR.w, Math.round(def.w * MIN_SHARE)));
-  const minH = Math.min(PANEL_MAX.h, Math.max(FLOOR.h, Math.round(def.h * MIN_SHARE)));
-  const maxH = finite(monitorH) ? Math.min(PANEL_MAX.h, Math.round(monitorH - 20)) : PANEL_MAX.h;
-  return { minW, maxW: PANEL_MAX.w, minH, maxH: Math.max(minH, maxH) };
+export function limits(def: Size, monitorH?: number, customLimits?: { minW?: number; maxH?: number; maxW?: number }): Limits {
+  const capW = customLimits?.maxW ? customLimits.maxW : (customLimits?.minW ? Math.max(PANEL_MAX.w, customLimits.minW) : PANEL_MAX.w);
+  const capH = customLimits?.maxH ?? PANEL_MAX.h;
+  const floorW = customLimits?.minW ?? FLOOR.w;
+  const minW = Math.min(capW, Math.max(floorW, Math.round(def.w * MIN_SHARE)));
+  const minH = Math.min(capH, Math.max(FLOOR.h, Math.round(def.h * MIN_SHARE)));
+  const maxH = finite(monitorH) ? Math.min(capH, Math.round(monitorH - 20)) : capH;
+  return { minW, maxW: capW, minH, maxH: Math.max(minH, maxH) };
 }
 
 export function clampSize(s: Size, l: Limits): Size {

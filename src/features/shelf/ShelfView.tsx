@@ -305,7 +305,7 @@ export function ShelfView() {
   const picked = sel.keys.length;
 
   return (
-    <div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...dropHandlers}>
+    <div className="relative flex h-full flex-col px-4 pt-1 pb-2 [container-type:inline-size]" {...dropHandlers}>
       <HeaderActions>
         {failed !== null && (
           <span role="alert" title={failed} className="me-1 max-w-52 truncate text-caption text-red">
@@ -348,7 +348,7 @@ export function ShelfView() {
           </>
         )}
       </HeaderActions>
-      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 @[440px]:flex-nowrap flex-wrap content-start gap-2 overflow-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);
@@ -361,7 +361,7 @@ export function ShelfView() {
                 initial={{ opacity: 0, transform: "scale(0.94)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
                 exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
-                className="group relative h-full max-h-[220px] w-[112px] shrink-0"
+                className="group relative h-[180px] @[440px]:h-full @[440px]:max-h-[220px] w-[104px] @[440px]:w-[112px] shrink-0"
                 onPointerDown={(e) => onPointerDown(e, key)}
                 onPointerMove={onPointerMove}
                 onPointerUp={() => (press.current = null)}

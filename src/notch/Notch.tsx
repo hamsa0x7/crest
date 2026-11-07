@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, animate, frame, motion, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
 import { GearSix, PushPin, Selection } from "@phosphor-icons/react";
 import { content, springs } from "../design/motion";
@@ -33,6 +33,8 @@ import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
+import { notchLocked, lockFeedback, pulseLockFeedback, toggleLock } from "./lock";
+import { CompanionEyes } from "./CompanionEyes";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
 import { settings } from "../settings/store";
@@ -68,6 +70,45 @@ export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
   const focus = focusMode.use();
   const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings } = settings.use();
+  const [shaking, setShaking] = useState(false);
+  const lockFeedbackVal = lockFeedback.use();
+  const isLocked = notchLocked.use() || displaySettings.notchLocked;
+  const [isTucked, setIsTucked] = useState(false);
+  const tuckDwellRef = useRef<number | undefined>(undefined);
+  const pressHoldTimer = useRef<number | undefined>(undefined);
+  const enterImmunityTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && (e.code === "KeyL" || e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        toggleLock();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const safeOnPointerEnter = useCallback(() => {
+    if (isLocked) return;
+    if (displaySettings.tabStripImmunity && status === "closed") {
+      window.clearTimeout(enterImmunityTimer.current);
+      enterImmunityTimer.current = window.setTimeout(() => {
+        onPointerEnter();
+      }, 180);
+      return;
+    }
+    onPointerEnter();
+  }, [displaySettings.tabStripImmunity, status, onPointerEnter, isLocked]);
+
+  const safeOnPointerLeave = useCallback(() => {
+    window.clearTimeout(enterImmunityTimer.current);
+    window.clearTimeout(pressHoldTimer.current);
+    pointed.current = { tool: null, at: 0 };
+    setIsTucked(false);
+    if (!isNative && !focus) onPointerLeave();
+  }, [onPointerLeave, focus]);
+
   // Resize mode (ClosedResize.tsx): the closed shape shows grips instead of its parts and neither opens nor moves; a grip's drag draws at once.
   const editing = closedEdit.use();
   const liveSize = closedLive.use();
@@ -156,8 +197,13 @@ export function Notch() {
   // Held to the monitor like a saved size is.
   const extra = sizeExtra.use();
   const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
-  const maxH = limits(tab.size, monitorMetrics().height).maxH;
-  const rawSize = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
+  const customLimits = { minW: displaySettings.panelMinWidth, maxH: displaySettings.panelMaxHeight };
+  const maxH = limits(tab.size, monitorMetrics().height, customLimits).maxH;
+  const rawSize = overridden
+    ? { w: override.w, h: Math.min(override.h, maxH) }
+    : extraH
+    ? { w: Math.max(customLimits.minW ?? 520, toolSize.w), h: Math.min(toolSize.h + extraH, maxH) }
+    : { w: Math.max(customLimits.minW ?? 520, toolSize.w), h: Math.min(toolSize.h, maxH) };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -186,9 +232,8 @@ export function Notch() {
   monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
   monitors.use(); // with "All monitors" the span is the narrowest one's
   const area = dragArea(), span = sharedSpan(side ? area.height : area.width, side);
-  const sideDockW = 56;
-  const sidePanelW = overridden ? Math.min(span, Math.max(380, override.w)) : Math.min(span, rawSize.w + sideDockW);
-  const sidePanelH = overridden ? override.h : rawSize.h;
+  const sidePanelH = Math.min(640, Math.max(500, span - 100));
+  const sidePanelW = overridden ? Math.min(500, Math.max(380, override.w)) : 440;
   const size = side ? { w: sidePanelW, h: sidePanelH } : rawSize;
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
   const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
@@ -257,9 +302,15 @@ export function Notch() {
       ? "compact"
       : "rest";
 
-  const shape = lineShape
+  const normalShape = lineShape
     ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
     : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize, earRadius, hoverPeekKind);
+  const shape =
+    isTucked && status !== "open"
+      ? displaySettings.tuckStyle === "eyes"
+        ? { w: 56, h: 16, r: 8, ear: 0, rt: 8 }
+        : lineGeometry(Math.min(sizes.lineLength, span), 2, false, false)
+      : normalShape;
   const tightHit = lineShape && !editing;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
   const openW = side ? size.h : size.w;
@@ -297,8 +348,8 @@ export function Notch() {
 
   // Hover stays off in focus mode (a card there takes the pointer, see below) and while a question waits, or the card would vanish under the pointer.
   // Open, the enter still has to run: it cancels the close timer a leave started.
-  const hoverOff = editing || focus || (asking && status !== "open");
-  useNativeBridge(hitRef, topValue, hoverOff ? NOOP : onPointerEnter, onPointerLeave, edge);
+  const hoverOff = editing || focus || isLocked || (asking && status !== "open");
+  useNativeBridge(hitRef, topValue, hoverOff ? NOOP : safeOnPointerEnter, safeOnPointerLeave, edge);
   // Focus mode is click-through, except while a card with buttons shows (a question, a finished timer, a reminder, the recording): its buttons need the pointer.
   useEffect(() => setPassthrough(focus && !noticeTime), [focus, noticeTime]);
   // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
@@ -314,12 +365,34 @@ export function Notch() {
   // Three quick clicks toggle focus mode (in the browser also off; natively Rust counts).
   const onClick = (e: React.MouseEvent) => {
     if (drag.moved() || editing) return;
+    if (isLocked) {
+      if (displaySettings.lockClickThrough) return;
+      setShaking(true);
+      pulseLockFeedback("locked");
+      window.setTimeout(() => setShaking(false), 450);
+      return;
+    }
     if (e.detail >= FOCUS_CLICKS && !isInteractive(e.target)) return setFocusMode(!focus);
     if (focus || status === "open") return;
     // A click on a part of the closed row opens its tool (a click elsewhere, as usual).
     const part = partTarget(e);
     if (part) openOn(part);
     else open();
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (focus || editing || isLocked) return;
+    if (status !== "open" && displaySettings.pressToPin) {
+      window.clearTimeout(pressHoldTimer.current);
+      pressHoldTimer.current = window.setTimeout(() => {
+        if (!drag.moved()) {
+          pinned.set(true);
+          open();
+          pulseLockFeedback("unlocked");
+        }
+      }, 500);
+    }
+    drag.onPointerDown(e);
   };
 
   /** Opens on `tab` (null = as usual). */
@@ -339,13 +412,33 @@ export function Notch() {
   // The wheel over the open panel switches tools, one step per gesture, unless something under the pointer scrolls or took it.
   const wheelAt = useRef(0);
   const onWheel = (e: React.WheelEvent) => {
-    if (status !== "open" || !behavior.wheelTools || pageTabs.includes(tab)) return;
-    if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
-    const now = performance.now(), quiet = now - wheelAt.current > 350;
-    wheelAt.current = now;
-    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    const next = quiet && delta !== 0 ? cycle(visible.map((t) => t.id), tab.id, delta > 0 ? 1 : -1) : null;
-    if (next) navigate(next);
+    if (status === "open") {
+      if (!behavior.wheelTools || pageTabs.includes(tab)) return;
+      if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
+      const now = performance.now(), quiet = now - wheelAt.current > 350;
+      wheelAt.current = now;
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      const next = quiet && delta !== 0 ? cycle(visible.map((t) => t.id), tab.id, delta > 0 ? 1 : -1) : null;
+      if (next) navigate(next);
+      return;
+    }
+    if (displaySettings.wheelActivityCycling && !isLocked) {
+      const now = performance.now();
+      if (now - wheelAt.current < 250) return;
+      wheelAt.current = now;
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+      const candidateIds = ["media", "timer", "system", "weather", "todos", "shelf"];
+      const activeIds = visible.map((t) => t.id).filter((id) => candidateIds.includes(id));
+      if (activeIds.length > 1) {
+        const currentTool = pointed.current.tool && activeIds.includes(pointed.current.tool) ? pointed.current.tool : activeIds[0];
+        const nextTool = cycle(activeIds, currentTool, delta > 0 ? 1 : -1);
+        if (nextTool) {
+          pointed.current = { tool: nextTool, at: Date.now() + 6000 };
+          navigate(nextTool);
+        }
+      }
+    }
   };
 
   // Shortcut: opening takes focus (Esc, typing), closing gives it back.
@@ -440,15 +533,23 @@ export function Notch() {
         onPointerMove={(e) => {
           visited();
           sticky.onPointerMove(e);
-          if (status !== "open") pointed.current = { tool: partTarget(e), at: Date.now() };
+          if (status !== "open") {
+            pointed.current = { tool: partTarget(e), at: Date.now() };
+            if (displaySettings.tabTuck && edge === "top") {
+              if (e.clientY <= 14 && !isTucked) {
+                setIsTucked(true);
+              }
+              window.clearTimeout(tuckDwellRef.current);
+              tuckDwellRef.current = window.setTimeout(() => {
+                setIsTucked(false);
+              }, 400);
+            }
+          }
         }}
-        onPointerDown={focus || editing ? undefined : drag.onPointerDown}
+        onPointerDown={focus || editing ? undefined : onPointerDown}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
-        onPointerEnter={isNative || hoverOff ? undefined : onPointerEnter}
-        onPointerLeave={() => {
-          pointed.current = { tool: null, at: 0 };
-          if (!isNative && !focus) onPointerLeave();
-        }}
+        onPointerEnter={isNative || hoverOff ? undefined : safeOnPointerEnter}
+        onPointerLeave={safeOnPointerLeave}
         onClick={onClick}
         onContextMenu={onContextMenu}
         onWheel={onWheel}
@@ -470,9 +571,17 @@ export function Notch() {
           glassOpacity={displaySettings.glassOpacity}
           surfaceSheen={displaySettings.surfaceSheen}
           refractiveHighlight={displaySettings.refractiveHighlight}
+          shaking={shaking}
+          lockFeedback={lockFeedbackVal}
         >
           
-          {chargerEvent.use().active && displaySettings.chargerAnimation !== "off" && (
+          {isTucked && displaySettings.tuckStyle === "eyes" ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CompanionEyes glowColor={accent} />
+            </div>
+          ) : (
+            <>
+              {chargerEvent.use().active && displaySettings.chargerAnimation !== "off" && (
             <BlackHoleCharger
               style={displaySettings.chargerAnimation}
               percent={chargerEvent.use().percent}
@@ -506,6 +615,8 @@ export function Notch() {
           {/* Open they stand in the header. */}
           {status === "open" && !line && !idleLine && <PrivacyDots />}
 
+            </>
+          )}
           <AnimatePresence>
             {status === "open" && (
               <motion.div
@@ -650,13 +761,14 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
 
   // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
   // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools.
+  const pillRef = useRef<HTMLDivElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip);
-  useStripScroll(strip, "x");
+  useStripScroll(strip, "x", pillRef);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
-      <div className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
+      <div ref={pillRef} className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
         <div
           ref={strip}
           className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]"
@@ -717,14 +829,15 @@ function SideDock({ tabs, activeId, edge }: { tabs: NotchTab[]; activeId: string
   const unseen = useUnseen().length > 0;
   const badge = updateReady || unseen;
 
+  const pillRef = useRef<HTMLDivElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip, "y");
-  useStripScroll(strip, "y");
+  useStripScroll(strip, "y", pillRef);
   const fade = more.start || more.end ? `linear-gradient(180deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
 
   return (
     <div className={`flex shrink-0 flex-col items-center py-3 ${edge === "left" ? "ps-2 pe-1" : "pe-2 ps-1"}`}>
-      <div className="flex w-12 flex-1 min-h-0 flex-col items-center rounded-[16px] bg-fill-2 p-1">
+      <div ref={pillRef} className="flex w-12 flex-1 min-h-0 flex-col items-center rounded-[16px] bg-fill-2 p-1">
         <div
           ref={strip}
           className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] w-full"
@@ -759,10 +872,11 @@ function SideDock({ tabs, activeId, edge }: { tabs: NotchTab[]; activeId: string
 }
 
 /** Handles mouse wheel mapping (vertical wheel to horizontal scroll) and smooth edge-hover scrolling. */
-function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | "y" = "x") {
+function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | "y" = "x", hitRef?: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    const hit = hitRef?.current ?? el;
+    if (!el || !hit) return;
 
     // 1. Mouse wheel support: on horizontal strip, convert deltaY to scrollLeft
     const onWheel = (e: WheelEvent) => {
@@ -774,7 +888,7 @@ function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | 
         }
       }
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
+    hit.addEventListener("wheel", onWheel, { passive: false });
 
     // 2. Cursor edge proximity auto-scrolling
     let rafId: number | null = null;
@@ -793,11 +907,11 @@ function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | 
       }
     };
 
-    const EDGE_ZONE = 40;
-    const MAX_SPEED = 6;
+    const EDGE_ZONE = 48;
+    const MAX_SPEED = 7;
 
     const onPointerMove = (e: PointerEvent) => {
-      const rect = el.getBoundingClientRect();
+      const rect = hit.getBoundingClientRect();
       if (direction === "x") {
         const distStart = e.clientX - rect.left;
         const distEnd = rect.right - e.clientX;
@@ -839,20 +953,20 @@ function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | 
       }
     };
 
-    el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerleave", stop);
-    el.addEventListener("pointerup", stop);
-    el.addEventListener("pointercancel", stop);
+    hit.addEventListener("pointermove", onPointerMove);
+    hit.addEventListener("pointerleave", stop);
+    hit.addEventListener("pointerup", stop);
+    hit.addEventListener("pointercancel", stop);
 
     return () => {
       stop();
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerleave", stop);
-      el.removeEventListener("pointerup", stop);
-      el.removeEventListener("pointercancel", stop);
+      hit.removeEventListener("wheel", onWheel);
+      hit.removeEventListener("pointermove", onPointerMove);
+      hit.removeEventListener("pointerleave", stop);
+      hit.removeEventListener("pointerup", stop);
+      hit.removeEventListener("pointercancel", stop);
     };
-  }, [ref, direction]);
+  }, [ref, direction, hitRef]);
 }
 
 /** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */

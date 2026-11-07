@@ -34,7 +34,7 @@ export function WeatherView() {
   }, [place]);
 
   return (
-    <div className="relative flex h-full flex-col px-4 pt-1 pb-3">
+    <div className="relative flex h-full flex-col px-4 pt-1 pb-3 [container-type:inline-size]">
       <AnimatePresence mode="popLayout" initial={false}>
         {searching || (!place && detectFailed) ? (
           <motion.div key="search" className="h-full" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: content.enter }} exit={{ opacity: 0, transition: content.exit }}>
@@ -50,7 +50,7 @@ export function WeatherView() {
             <Skeleton className="h-20 w-full" />
           </motion.div>
         ) : (
-          <motion.div key="data" className="flex h-full gap-2" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
+          <motion.div key="data" className="flex h-full flex-col @[460px]:flex-row gap-2 overflow-y-auto [scrollbar-width:none]" initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)", transition: content.enter }}>
             <Now data={data} name={place.name} detail={place.detail} auto={!!place.auto} onChangePlace={() => setSearching(true)} />
             {/* A size container: Hours (66 px) steps aside below 226 px, what it and the seven days (152 px) need. */}
             <div className="flex min-w-0 flex-1 flex-col gap-2 [container-type:size]">
@@ -86,7 +86,7 @@ function Now({ data, name, detail, auto, onChangePlace }: { data: Forecast; name
   const today = data.daily[0];
   const c = data.current;
   return (
-    <div className="flex w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
+    <div className="flex w-full @[460px]:w-[212px] shrink-0 flex-col rounded-[16px] p-3 text-white" style={{ background: sky(c.code, c.day) }}>
       <button onClick={onChangePlace} className="flex min-w-0 items-center gap-1 self-start text-footnote font-semibold hover:opacity-80" title={detail ? `${detail} · ${t("Ort ändern")}` : t("Ort ändern")}>
         {auto ? <NavigationArrow size={11} weight="fill" /> : <MapPin size={11} weight="fill" />}
         <span className="truncate">{name}</span>
