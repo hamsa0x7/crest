@@ -3,6 +3,10 @@ name: Build x64 Installer & Release
 on:
   workflow_dispatch:
     inputs:
+      release_version:
+        description: "Release version (e.g. X.1.1)"
+        type: string
+        default: "X.1.1"
       publish_release:
         description: "Publish as GitHub Release"
         type: boolean
@@ -45,34 +49,54 @@ jobs:
         id: meta
         shell: pwsh
         run: |
-          $ver = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          if ("${{ github.event.inputs.release_version }}") {
+            $ver = "${{ github.event.inputs.release_version }}"
+          } elseif ("${{ github.ref }}" -like "refs/tags/v*") {
+            $ver = "${{ github.ref }}".Substring(11)
+          } else {
+            $ver = "X.1.1"
+          }
           echo "version=$ver" >> $env:GITHUB_OUTPUT
           echo "tag=v$ver" >> $env:GITHUB_OUTPUT
-          Write-Host "Target version: $ver"
+          Write-Host "Target release version: $ver, tag: v$ver"
 
       - name: Build Frontend
         run: npm run build
 
-      - name: Build Standalone NSIS Installer (Crest_${{ steps.meta.outputs.version }}_x64-setup.exe)
+      - name: Build Standalone NSIS Installer
         shell: pwsh
         run: |
           npm run tauri -- build --target x86_64-pc-windows-msvc --no-sign
+
+      - name: Format Installer Executable Name
+        shell: pwsh
+        run: |
+          $nsisDir = "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          $original = Get-ChildItem "$nsisDir/*.exe" | Select-Object -First 1
+          if ($original) {
+            $targetName = "Crest_${{ steps.meta.outputs.version }}_x64-setup.exe"
+            $targetPath = Join-Path $nsisDir $targetName
+            if ($original.FullName -ne $targetPath) {
+              Move-Item -Path $original.FullName -Destination $targetPath -Force
+              Write-Host "Renamed $($original.Name) -> $targetName"
+            }
+          }
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Crest-${{ steps.meta.outputs.version }}-x64-Setup
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Crest_${{ steps.meta.outputs.version }}_x64-setup.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: ${{ github.event_name == 'push' || github.event.inputs.publish_release == true }}
+        if: ${{ github.event_name == 'push' || (github.event.inputs.publish_release != false && github.event.inputs.publish_release != 'false') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: Crest v${{ steps.meta.outputs.version }}
           draft: false
           prerelease: false
-          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Crest_${{ steps.meta.outputs.version }}_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
