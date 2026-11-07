@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Release version (e.g. X.1.1)"
+        description: "Release version (leave 'auto' to auto-increment from latest release)"
         type: string
-        default: "X.1.2"
+        default: "auto"
       publish_release:
         description: "Publish as GitHub Release"
         type: boolean
@@ -49,12 +49,30 @@ jobs:
         id: meta
         shell: pwsh
         run: |
-          if ("${{ github.event.inputs.release_version }}") {
-            $ver = "${{ github.event.inputs.release_version }}"
+          git fetch --tags --force
+          $inputVer = "${{ github.event.inputs.release_version }}"
+          if ($inputVer -and $inputVer -ne "auto" -and $inputVer.Trim() -ne "") {
+            $ver = $inputVer.Trim()
           } elseif ("${{ github.ref }}" -like "refs/tags/v*") {
             $ver = "${{ github.ref }}".Substring(11)
           } else {
-            $ver = "X.1.1"
+            # Auto-increment patch version based on highest existing vX.* tag
+            $matchingTags = git tag --list "vX.*" | ForEach-Object {
+              if ($_ -match '^vX\.(\d+)\.(\d+)$') {
+                [PSCustomObject]@{
+                  Major = [int]$matches[1]
+                  Minor = [int]$matches[2]
+                }
+              }
+            } | Sort-Object -Property @{Expression="Major"; Descending=$true}, @{Expression="Minor"; Descending=$true}
+
+            if ($matchingTags) {
+              $latest = if ($matchingTags -is [array]) { $matchingTags[0] } else { $matchingTags }
+              $nextMinor = $latest.Minor + 1
+              $ver = "X.$($latest.Major).$nextMinor"
+            } else {
+              $ver = "X.1.3"
+            }
           }
           echo "version=$ver" >> $env:GITHUB_OUTPUT
           echo "tag=v$ver" >> $env:GITHUB_OUTPUT
