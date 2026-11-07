@@ -71,6 +71,8 @@ export interface Settings {
     earRadius: number;
     /** Rising orb birth animation ("Naissance") on initial launch sequence. */
     birthAnimation: boolean;
+    hoverPeek: boolean;
+    satelliteBubble: boolean;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -180,7 +182,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -295,6 +297,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
           ? Math.max(8, Math.min(24, Math.round(s.display.earRadius)))
           : defaults.display.earRadius,
       birthAnimation: typeof s.display?.birthAnimation === "boolean" ? s.display.birthAnimation : defaults.display.birthAnimation,
+      hoverPeek: typeof s.display?.hoverPeek === "boolean" ? s.display.hoverPeek : defaults.display.hoverPeek,
+      satelliteBubble: typeof s.display?.satelliteBubble === "boolean" ? s.display.satelliteBubble : defaults.display.satelliteBubble,
     },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },

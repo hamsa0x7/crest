@@ -102,7 +102,7 @@ export function PetArt({ id, mood, pace, size, paused }: { id: PetId; mood: PetM
  * the pet stands on its own shadow. On the bottom and side edges the frame turns the wrapper, so the pet is turned back upright.
  * Natively the nest reports its own zone to Rust, which makes the window take the pointer there and says when it leaves.
  */
-export function Nest({ pet, edge, top, shapeWidth, shapeTransition, notice, hovered }: { pet: PetSettings & { id: PetId }; edge: Edge; top: MotionValue<number>; shapeWidth: number; shapeTransition: Transition; notice: boolean; hovered: boolean }) {
+export function Nest({ pet, edge, top, shapeWidth, shapeTransition, notice, hovered, satelliteOffset }: { pet: PetSettings & { id: PetId }; edge: Edge; top: MotionValue<number>; shapeWidth: number; shapeTransition: Transition; notice: boolean; hovered: boolean; satelliteOffset?: boolean }) {
   const { mood, pace } = usePetMood(notice, hovered);
   const right = pet.side === "right";
   const [big, setBig] = useState(false);
@@ -134,7 +134,8 @@ export function Nest({ pet, edge, top, shapeWidth, shapeTransition, notice, hove
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [top, edge]);
   const scale = (pet.size / NEST_BOX) * (big ? NEST_ZOOM : 1);
-  const x = right ? shapeWidth / 2 + NEST_GAP : -(shapeWidth / 2 + NEST_GAP + NEST_BOX);
+  const gap = right && satelliteOffset ? NEST_GAP + 38 : NEST_GAP;
+  const x = right ? shapeWidth / 2 + gap : -(shapeWidth / 2 + NEST_GAP + NEST_BOX);
   return (
     <motion.div
       ref={ref}

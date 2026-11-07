@@ -840,6 +840,12 @@ function Display() {
       <Row label={t("Start-Animation")} hint={t("Kurze aufsteigende Blase beim Start der App")}>
         <Switch label={t("Start-Animation")} checked={d.birthAnimation} onChange={(birthAnimation) => updateSettings((cur) => ({ display: { ...cur.display, birthAnimation } }))} />
       </Row>
+      <Row label={t("Hover-Vorschau")} hint={t("Kompakte Steuerelemente für Musik und Timer beim Darüberfahren anzeigen")}>
+        <Switch label={t("Hover-Vorschau")} checked={d.hoverPeek} onChange={(hoverPeek) => updateSettings((cur) => ({ display: { ...cur.display, hoverPeek } }))} />
+      </Row>
+      <Row label={t("Geteilte Aktivitäts-Blase")} hint={t("Zweite Aktivität in separater runder Blase anzeigen")}>
+        <Switch label={t("Geteilte Aktivitäts-Blase")} checked={d.satelliteBubble} onChange={(satelliteBubble) => updateSettings((cur) => ({ display: { ...cur.display, satelliteBubble } }))} />
+      </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>

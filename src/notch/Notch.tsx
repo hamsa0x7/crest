@@ -17,7 +17,10 @@ import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, type NotchGeometry } from "./geometry";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, peekHudGeometry, type NotchGeometry, type PresentationState } from "./geometry";
+import { HoverPeek } from "./HoverPeek";
+import { SatelliteBubble, type ActiveActivity } from "./SatelliteBubble";
+import { downloads } from "../features/downloads/store";
 import { across, frameCss, pointerIn, windowLine, type Edge } from "./edge";
 import { columnRoom, columnSurface } from "./column";
 import { capsuleY, hasBridge, panelTop, windowYFor } from "./capsule";
@@ -196,9 +199,54 @@ export function Notch() {
   const shapeTop = status !== "open" ? (lineShape ? toPageCss(sizes.lineTop, behavior.scale) : notice ? panelTop(capsuleTop, shapeH) : capsuleTop) : bridged ? 0 : panelTop(capsuleTop, size.h);
   const top = (isNative ? 0 : winTop) + shapeTop;
 
+  const running = timer.use().endsAt !== null;
+  const dl = downloads.use();
+  const isMediaPlaying = !!np?.isPlaying;
+
+  const activities: ActiveActivity[] = [];
+  if (isMediaPlaying) activities.push({ id: "media", tool: "media" });
+  if (running) activities.push({ id: "timer", tool: "timer" });
+  if (asking) activities.push({ id: "agent", tool: "notices" });
+  if (dl.length > 0) activities.push({ id: "downloads", tool: "shelf" });
+
+  const secondaryActivity = activities[1] ?? null;
+  const splitActive =
+    displaySettings.satelliteBubble !== false &&
+    activities.length >= 2 &&
+    status !== "open" &&
+    !lineShape &&
+    !side &&
+    !editing &&
+    !focus &&
+    !hiddenForFullscreen;
+
+  const hoverPeekKind: "media" | "timer" | null =
+    status === "peek" &&
+    displaySettings.hoverPeek !== false &&
+    !side &&
+    !editing &&
+    !focus
+      ? isMediaPlaying
+        ? "media"
+        : running
+        ? "timer"
+        : null
+      : null;
+
+  const presentationState: PresentationState =
+    status === "open"
+      ? "expanded"
+      : status === "peek"
+      ? hoverPeekKind ? "peek" : "compact"
+      : splitActive
+      ? "split"
+      : activities.length > 0
+      ? "compact"
+      : "rest";
+
   const shape = lineShape
     ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
-    : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize, earRadius);
+    : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize, earRadius, hoverPeekKind);
   const tightHit = lineShape && !editing;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
   const openW = side ? size.h : size.w;
@@ -353,6 +401,7 @@ export function Notch() {
   return (
     <div
       ref={rootRef}
+      data-presentation-state={presentationState}
       className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center transition-opacity duration-200"
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
       style={{
@@ -366,12 +415,13 @@ export function Notch() {
       <motion.div
         ref={hitRef}
         data-notch-hit
+        data-presentation-state={presentationState}
         // The line is meant to stay out of the way: only a hair of extra hit zone, so
         // the cursor has to be on it (the normal notch gets the generous Fitts margin).
         // In resize mode the zone reaches below the shape, over its size and the Done button.
         className={`pointer-events-auto relative flex flex-col items-center ${tightHit ? "px-1 pb-1" : editing ? (side ? "px-6 pb-28" : "px-6 pb-12") : "px-4 pb-3"}`}
         // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
-        style={{ minWidth: sticky.minWidth, minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
+        style={{ minWidth: splitActive ? Math.max(sticky.minWidth ?? 0, shape.w + 92) : sticky.minWidth, minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
         onPointerMove={(e) => {
           visited();
           sticky.onPointerMove(e);
@@ -399,11 +449,14 @@ export function Notch() {
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
-            <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: side ? "50% 50%" : "50% 0" }}>
+            {hoverPeekKind ? (
+              <HoverPeek kind={hoverPeekKind} onOpen={openOn} />
+            ) : (
+              <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: side ? "50% 50%" : "50% 0" }}>
               <AnimatePresence>
                 {side
                   ? showColumn && <CompactColumn key="column" parts={showRow} room={columnRoom(scale, span)} onSize={setColumn} />
-                  : showRow && <CompactRow key="row" room={rowRoom(surface, scale, span)} scale={scale} covered={notice !== null} onWidth={setRowWidth} />}
+                  : showRow && <CompactRow key="row" room={rowRoom(surface, scale, span)} scale={scale} covered={notice !== null} onWidth={setRowWidth} satellitePart={splitActive ? secondaryActivity?.id : null} />}
               </AnimatePresence>
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
               <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} />}</AnimatePresence>
@@ -412,6 +465,7 @@ export function Notch() {
                 <PrivacyDots centered={side} beside={!focus && notice ? notice.width / 2 + (surface === "capsule" ? ROW.insetCapsule : ROW.insetNotch) / 2 : undefined} />
               )}
             </div>
+            )}
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
           {editing && status !== "open" && <ClosedResize style={style} edge={edge} widest={span} />}
@@ -451,19 +505,33 @@ export function Notch() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
+
                 <Dock tabs={visible} activeId={tab.id} />
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
               </motion.div>
-            )}
+
+                      )}
           </AnimatePresence>
         </NotchShape>
+
+        <AnimatePresence>
+          {splitActive && secondaryActivity && (
+            <SatelliteBubble
+              key="satellite"
+              activity={secondaryActivity}
+              shapeWidth={shape.w}
+              top={bridged ? topValue : undefined}
+              onOpen={openOn}
+            />
+          )}
+        </AnimatePresence>
 
         {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>
       {/* The pet's nest, beside the shape and outside its hit zone. */}
       <AnimatePresence>
-        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} shapeTransition={transition} notice={notice !== null || (showColumn && column.notice)} hovered={status === "peek"} />}
+        {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} shapeTransition={transition} notice={notice !== null || (showColumn && column.notice)} hovered={status === "peek"} satelliteOffset={splitActive} />}
       </AnimatePresence>
     </div>
   );
@@ -684,10 +752,15 @@ const HIT_PAD_SIDE = 32;
 const HIT_PAD_BOTTOM = 12;
 
 /** `w` and `h` are the closed size; the hover nudge grows from it, so it also fits the live state. `side`: the column's closed shape on a side edge, where the open page lies across the frame. */
-function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, h: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null, earRadius = 6): NotchGeometry {
+function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, h: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null, earRadius = 6, hoverPeekKind?: "media" | "timer" | null): NotchGeometry {
   if (side) return status === "open" ? openGeometry(size.h, size.w, false, earRadius > 0 ? Math.round(earRadius * 1.08) : 0) : columnGeometry(side.w, side.h, status === "peek", earRadius);
   if (status === "open") return openGeometry(size.w, size.h, floating, earRadius > 0 ? Math.round(earRadius * 1.08) : 0);
-  return status === "peek" ? peekGeometry(surface, w, h, earRadius > 0 ? earRadius + 1 : 0) : closedGeometry(surface, w, h, earRadius);
+  if (status === "peek") {
+    if (hoverPeekKind === "media") return peekHudGeometry(surface, 320, 44, earRadius > 0 ? earRadius + 2 : 0);
+    if (hoverPeekKind === "timer") return peekHudGeometry(surface, 270, 44, earRadius > 0 ? earRadius + 2 : 0);
+    return peekGeometry(surface, w, h, earRadius > 0 ? earRadius + 1 : 0);
+  }
+  return closedGeometry(surface, w, h, earRadius);
 }
 
 /** The shape's top in the wrapper as a value that springs with the shape, and follows the pointer while dragging. */

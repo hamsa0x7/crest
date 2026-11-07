@@ -73,7 +73,7 @@ function useRememberedLyric(np: { title?: string; artist?: string } | null, live
  * (closed or peeking, not the line, not focus, not hidden for fullscreen), so its audio, timers and polling stop with it.
  * Laid out at its designed size and drawn `scale` times as big (Notch.tsx): `room` is the widest it gets at that size.
  */
-export function CompactRow({ room, scale, covered, onWidth }: { room: number; scale: number; covered: boolean; onWidth: (content: number) => void }) {
+export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { room: number; scale: number; covered: boolean; onWidth: (content: number) => void; satellitePart?: string | null }) {
   useRowVisible();
   fontEpoch.use();
   const s = settings.use(), closed = s.closed;
@@ -112,14 +112,14 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     if (!closed.parts[id] && id !== "readings") continue;
     // A running timer and a Discord call stay next to the line; they only show while active anyway.
     if (lyricOnly && id !== "timer" && id !== "discord") continue;
-    if (id === "timer" && running) fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
+    if (id === "timer" && running && satellitePart !== "timer") fixed(id, timerWidth(timer.get().duration), () => <TimerPart paused={covered} />);
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
     else if (id === "weather" && weather) fixed(id, weatherWidth(), () => <WeatherPart now={weather} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
-    else if (id === "downloads" && dl.length) {
+    else if (id === "downloads" && dl.length && satellitePart !== "downloads") {
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
     }

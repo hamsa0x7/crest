@@ -3,6 +3,17 @@ import { createStore } from "../lib/store";
 import { setPinned } from "../platform/native";
 import { hoverDelayMs, settings } from "../settings/store";
 import { closeDelayMs } from "../features/window/model";
+import { media } from "../platform/media";
+import { timer as timerStore } from "../features/timer/store";
+
+/** Whether hover peek mode is currently applicable (media active or timer running). */
+export function isHoverPeekActive(): boolean {
+  const s = settings.get();
+  if (s.display.hoverPeek === false) return false;
+  const isPlaying = !!media.get()?.isPlaying;
+  const timerRunning = timerStore.get().endsAt !== null;
+  return isPlaying || timerRunning;
+}
 
 export type NotchStatus = "closed" | "peek" | "open";
 
@@ -130,7 +141,7 @@ export function useNotchState() {
       setStatus("peek");
       // "Click" mode: only nudge, open on click.
       const s = settings.get();
-      if (s.openMode === "hover") later(hoverDelayMs[s.hoverDelay], "open");
+      if (s.openMode === "hover" && !isHoverPeekActive()) later(hoverDelayMs[s.hoverDelay], "open");
     }
   }, [setStatus, later]);
 

@@ -53,3 +53,18 @@ export function columnGeometry(w: number, h: number, peek: boolean, earRadius = 
 export function openGeometry(w: number, h: number, floating = false, earRadius = 14): NotchGeometry {
   return floating ? { w, h, r: 30, ear: 0, rt: 30 } : { w, h, r: 30, ear: earRadius, rt: 0 };
 }
+
+/** Presentation states supported by the Multi-Presentation Geometry Engine (Ref: kanade). */
+export type PresentationState = "rest" | "compact" | "split" | "peek" | "expanded";
+
+/** Hover peek HUD geometry: compact interactive HUD revealing media/timer controls. */
+export function peekHudGeometry(style: "notch" | "capsule", w: number, h = 44, earRadius = 8): NotchGeometry {
+  return style === "capsule"
+    ? { w, h, r: h / 2, ear: 0, rt: h / 2 }
+    : { w, h, r: 16, ear: earRadius, rt: 0 };
+}
+
+/** Detached circular satellite bubble geometry (Ref: kanade, yata, quiera-island). */
+export function satelliteGeometry(h = 30): NotchGeometry {
+  return { w: h, h, r: h / 2, ear: 0, rt: h / 2 };
+}
