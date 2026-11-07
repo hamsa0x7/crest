@@ -1,0 +1,78 @@
+name: Build x64 Installer & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish as GitHub Release"
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Cargo Dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Extract App Version
+        id: meta
+        shell: pwsh
+        run: |
+          $ver = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+          echo "tag=v$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Target version: $ver"
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Build Standalone NSIS Installer (Crest_${{ steps.meta.outputs.version }}_x64-setup.exe)
+        shell: pwsh
+        run: |
+          npm run tauri -- build --target x86_64-pc-windows-msvc --no-sign
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Crest-${{ steps.meta.outputs.version }}-x64-Setup
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: ${{ github.event_name == 'push' || github.event.inputs.publish_release == true }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Crest v${{ steps.meta.outputs.version }}
+          draft: false
+          prerelease: false
+          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
