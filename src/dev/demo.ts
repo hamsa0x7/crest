@@ -25,6 +25,7 @@ import { checkForUpdate, update } from "../lib/update";
 import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
 import { PET_IDS } from "../notch/row/parts";
+import { viewZoom } from "../notch/viewZoom";
 
 /*
  * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
@@ -149,6 +150,7 @@ export function startDemo() {
   fitNarrowScreens();
   window.visualViewport?.addEventListener("resize", fitNarrowScreens);
   nav.subscribe(() => (post({ event: "tool", tool: nav.get().tabId }), fitNarrowScreens()));
+  settings.subscribe(fitNarrowScreens);
   const ready = sendReadyOnChange();
   const state = sendStateOnChange();
   settings.subscribe(ready);
@@ -217,7 +219,7 @@ function fitNarrowScreens() {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   const vv = window.visualViewport;
   if (bare || !meta || !vv) return;
-  const needed = notchOpen ? Math.max(520, findTab(nav.get().tabId)?.size.w ?? 0) : 520;
+  const needed = (notchOpen ? Math.max(520, findTab(nav.get().tabId)?.size.w ?? 0) : 520) * viewZoom();
   // The screen's width in CSS px, whatever the page scale or a pinch.
   const device = Math.round(vv.width * vv.scale);
   const content = device >= needed ? "width=device-width, initial-scale=1.0" : `width=${needed}`;

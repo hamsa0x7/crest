@@ -31,7 +31,7 @@ import { useMirror } from "./mirror";
 import { ROW, rowRoom, surfaceWidth } from "./row/layout";
 import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
-import { sizeOverride } from "./size";
+import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
 import { drop, takeDropped } from "../platform/drop";
@@ -50,6 +50,9 @@ import { refreshTheme, useClosedInk, useThemedAccent } from "../features/themes/
 import { useHue, type Hue } from "../features/themes/hues";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
+import { viewZoom } from "./viewZoom";
+import { CoverBackdrop, coverBackdrop } from "../features/now-playing/CoverBackdrop";
+import { darkInk } from "../features/themes/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
 const RESUME_MS = 60_000;
@@ -103,6 +106,7 @@ export function Notch() {
   const accent = useThemedAccent(np?.accent);
   const closedInk = useClosedInk(np?.accent);
   const tinted = themes.coverTint && !!np?.artwork;
+  const backdrop = coverBackdrop.use() !== null;
 
   // Like the Dynamic Island: opening jumps to the running activity's tool,
   // but only after a pause. Closed briefly (copying a key, grabbing a file) → you
@@ -150,7 +154,10 @@ export function Notch() {
   // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
   // Held to the monitor like a saved size is.
-  const rawSize = overridden ? { w: override.w, h: Math.min(override.h, limits(tab.size, monitorMetrics().height).maxH) } : toolSize;
+  const extra = sizeExtra.use();
+  const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
+  const maxH = limits(tab.size, monitorMetrics().height).maxH;
+  const rawSize = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -194,9 +201,10 @@ export function Notch() {
   // Natively the window sits at windowY and the capsule drag.y below the monitor's top; in the browser the
   // viewport stands in for the monitor and the window is only imagined, so the same rules place the panel.
   const workTop = monitorMetrics().workTop;
-  const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : window.innerHeight);
+  const viewH = window.innerHeight / viewZoom(), viewW = window.innerWidth / viewZoom();
+  const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : viewH);
   const bridged = hasBridge(style, capY, workTop);
-  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, window.innerHeight, workTop);
+  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, viewH, workTop);
   const capsuleTop = style === "capsule" ? capY - winTop : 0;
   const lineShape = line || (lineIdle && status !== "open");
   // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs (a notice card the same, so it stays in the window).
@@ -413,7 +421,9 @@ export function Notch() {
         ["--accent" as string]: accent,
         opacity: focus && !line ? 0.5 : 1,
         transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
-        ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? window.innerHeight : window.innerWidth, transformOrigin: "0 0" }),
+        ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? viewH : viewW, transformOrigin: "0 0" }),
+        // In the browser the layer stands in for the window Rust zooms natively.
+        ...(!isNative && behavior.scale !== 100 && { zoom: behavior.scale / 100 }),
       }}
     >
       {/* Hit zone: bigger than the visible shape (Fitts) and flush with the top edge, unless the capsule floats. */}
@@ -503,7 +513,7 @@ export function Notch() {
                 data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
                 className={`absolute isolate flex ${side ? (edge === "left" ? "flex-row" : "flex-row-reverse") : "flex-col"} ${PANEL_ANCHOR[edge]}`}
-                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }) }}
+                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }), ...(backdrop && darkInk()) }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
                 initial={{ opacity: 0, transform: SLIDE_IN[edge] }}
@@ -512,6 +522,8 @@ export function Notch() {
               >
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. */}
                 <div aria-hidden data-ambience={tinted ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
+                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
+                <CoverBackdrop />
                 {side && (
                   <SideDock tabs={visible} activeId={tab.id} edge={edge as "left" | "right"} />
                 )}
@@ -538,7 +550,8 @@ export function Notch() {
 
                 {!side && <Dock tabs={visible} activeId={tab.id} />}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
-                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={size} />}
+                {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
+                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
               </motion.div>
 
                       )}
