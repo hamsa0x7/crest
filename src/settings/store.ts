@@ -65,6 +65,12 @@ export interface Settings {
     idleStyle: "notch" | "capsule" | "line";
     /** Distance of the capsule from the top edge of the monitor in CSS px at 100 % (set by dragging or in the settings, 0 to 8000). */
     y: number;
+    /** Smooth concave flare ears at the top of the notch joining the screen bezel (notch idle/open only). */
+    ears: boolean;
+    /** Ear curvature radius in CSS px (8 to 24, default 13). */
+    earRadius: number;
+    /** Rising orb birth animation ("Naissance") on initial launch sequence. */
+    birthAnimation: boolean;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -174,7 +180,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5 },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -278,7 +284,18 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     usage: { ...defaults.usage, ...s.usage },
     aiUsage: normalizeCards(s.aiUsage),
     // A saved y that is not a finite number (null, a string) would place the capsule nowhere; a Mac has no Follow or All modes (an older build offered them).
-    display: { ...defaults.display, ...s.display, y: fitCapsuleTop(s.display?.y), monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode) },
+    display: {
+      ...defaults.display,
+      ...s.display,
+      y: fitCapsuleTop(s.display?.y),
+      monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode),
+      ears: typeof s.display?.ears === "boolean" ? s.display.ears : defaults.display.ears,
+      earRadius:
+        typeof s.display?.earRadius === "number" && Number.isFinite(s.display.earRadius)
+          ? Math.max(8, Math.min(24, Math.round(s.display.earRadius)))
+          : defaults.display.earRadius,
+      birthAnimation: typeof s.display?.birthAnimation === "boolean" ? s.display.birthAnimation : defaults.display.birthAnimation,
+    },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },
     alarm: { ...defaults.alarm, ...s.alarm },

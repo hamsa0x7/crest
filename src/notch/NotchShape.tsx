@@ -12,35 +12,61 @@ interface Props {
   edge?: Edge;
   /** The line: nothing is centred across it, so its thickness takes whole device pixels instead of an even number, and half px steps show. */
   thin?: boolean;
+  /** Rising orb birth animation ("Naissance") on initial launch sequence. */
+  birthAnimation?: boolean;
   children?: ReactNode;
 }
 
+/** Ensures the rising orb birth sequence only fires once per application session. */
+let hasBirthedSession = false;
+
 /**
  * The shape (black closed, the theme background open): a body with rounded bottom corners + two concave "ears"
- * at the top that blend the notch into the screen edge (the capsule has no
- * ears and rounds its top corners instead).
+ * at the top rendered with cubic Bézier SVG paths that seamlessly blend into the screen bezel (the capsule
+ * has no ears and rounds its top corners instead).
  *
  * All dimensions are motion values animated directly by springs, no React
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, children }: Props) {
-  const w = useMotionValue(geometry.w);
-  const h = useMotionValue(geometry.h);
-  const r = useMotionValue(geometry.r);
-  const ear = useMotionValue(geometry.ear);
-  const rt = useMotionValue(geometry.rt);
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, birthAnimation = false, children }: Props) {
+  const shouldBirth = useRef(birthAnimation && !hasBirthedSession).current;
+  if (!hasBirthedSession) {
+    hasBirthedSession = true;
+  }
+
+  const w = useMotionValue(shouldBirth ? 34 : geometry.w);
+  const h = useMotionValue(shouldBirth ? 34 : geometry.h);
+  const r = useMotionValue(shouldBirth ? 17 : geometry.r);
+  const ear = useMotionValue(shouldBirth ? 0 : geometry.ear);
+  const rt = useMotionValue(shouldBirth ? 17 : geometry.rt);
+  const birthY = useMotionValue(shouldBirth ? 14 : 0);
+  const contentOpacity = useMotionValue(shouldBirth ? 0 : 1);
   const shadow = useMotionValue(elevated ? 1 : 0);
   const earOffset = useTransform(ear, (e) => -e + 0.5); // 0.5px overlap against hairlines
   // Whole device pixels: the shape is centered, so an odd or fractional size puts its edges
   // (and the cover pinned to them) on subpixels that shift every frame, which reads as jitter.
   const wPx = useTransform(w, snap);
   const hPx = useTransform(h, thin ? whole : snap);
+  const earDisplay = useTransform(ear, (v) => (v > 0.5 ? "block" : "none"));
 
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
       first.current = false;
+      if (shouldBirth) {
+        const tBirth = { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const };
+        const controls = [
+          animate(birthY, 0, { duration: 0.4, ease: [0.16, 1, 0.3, 1] }),
+          animate(w, geometry.w, tBirth),
+          animate(h, geometry.h, tBirth),
+          animate(r, geometry.r, tBirth),
+          animate(rt, geometry.rt, tBirth),
+          animate(ear, geometry.ear, { duration: 0.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }),
+          animate(contentOpacity, 1, { duration: 0.35, delay: 0.25, ease: "easeOut" }),
+        ];
+        return () => controls.forEach((c) => c.stop());
+      }
       return;
     }
     // Settle to within 0.01 px: the live activity follows the width on subpixels, and
@@ -62,30 +88,43 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
       data-notch-shape
       className="relative"
       // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
-      style={{ width: wPx, height: hPx, ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)" }}
+      style={{
+        width: wPx,
+        height: hPx,
+        y: birthY,
+        ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)",
+      }}
     >
-      <motion.span
+      <motion.svg
         aria-hidden
-        className="absolute top-0"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute top-0 pointer-events-none"
         style={{
           left: earOffset,
           width: ear,
           height: ear,
-          background:
-            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
+          fill: "var(--shape)",
+          display: earDisplay,
         }}
-      />
-      <motion.span
+      >
+        <path d="M 0 0 L 100 0 L 100 100 C 100 45, 55 0, 0 0 Z" />
+      </motion.svg>
+      <motion.svg
         aria-hidden
-        className="absolute top-0"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute top-0 pointer-events-none"
         style={{
           right: earOffset,
           width: ear,
           height: ear,
-          background:
-            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), var(--shape) 100%)",
+          fill: "var(--shape)",
+          display: earDisplay,
         }}
-      />
+      >
+        <path d="M 100 0 L 0 0 L 0 100 C 0 45, 45 0, 100 0 Z" />
+      </motion.svg>
       <motion.div
         aria-hidden
         className="absolute inset-0"
@@ -105,7 +144,9 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
         className="absolute inset-0 overflow-clip bg-(--shape)"
         style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r, containerType: edge === "top" ? undefined : "size" }}
       >
-        {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
+        <motion.div style={{ opacity: contentOpacity }} className="h-full w-full">
+          {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
+        </motion.div>
       </motion.div>
     </motion.div>
   );

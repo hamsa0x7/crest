@@ -35,21 +35,21 @@ export function lineGeometry(w: number, h: number, floating: boolean, peek: bool
 }
 
 /** Idle at width w and height h: the notch hangs from the edge with ears (MacBook proportions), the capsule is round all over. The notch's corners keep their size at every height. */
-export function closedGeometry(style: "notch" | "capsule", w: number, h = 30): NotchGeometry {
-  return style === "capsule" ? { w, h, r: h / 2, ear: 0, rt: h / 2 } : { w, h, r: 10, ear: 6, rt: 0 };
+export function closedGeometry(style: "notch" | "capsule", w: number, h = 30, earRadius = 6): NotchGeometry {
+  return style === "capsule" ? { w, h, r: h / 2, ear: 0, rt: h / 2 } : { w, h, r: 10, ear: earRadius, rt: 0 };
 }
 
 /** Hover on a closed shape of width w and height h: slightly larger, as feedback. */
-export function peekGeometry(style: "notch" | "capsule", w: number, h = 30): NotchGeometry {
-  return style === "capsule" ? { w: w + 16, h: h + 4, r: h / 2 + 2, ear: 0, rt: h / 2 + 2 } : { w: w + 16, h: h + 4, r: 12, ear: 7, rt: 0 };
+export function peekGeometry(style: "notch" | "capsule", w: number, h = 30, earRadius = 7): NotchGeometry {
+  return style === "capsule" ? { w: w + 16, h: h + 4, r: h / 2 + 2, ear: 0, rt: h / 2 + 2 } : { w: w + 16, h: h + 4, r: 12, ear: earRadius, rt: 0 };
 }
 
 /** The notch on a side edge, in its frame: `w` along the edge, `h` away from it (column.ts); hovered it grows like the notch on top. */
-export function columnGeometry(w: number, h: number, peek: boolean): NotchGeometry {
-  return peek ? { w: w + 16, h: h + 4, r: 12, ear: 7, rt: 0 } : { w, h, r: 10, ear: 6, rt: 0 };
+export function columnGeometry(w: number, h: number, peek: boolean, earRadius = 6): NotchGeometry {
+  return peek ? { w: w + 16, h: h + 4, r: 12, ear: earRadius > 0 ? earRadius + 1 : 0, rt: 0 } : { w, h, r: 10, ear: earRadius, rt: 0 };
 }
 
 /** Open state: size comes from the active tab, radii are fixed; floating (a capsule away from the edge) rounds the top too. */
-export function openGeometry(w: number, h: number, floating = false): NotchGeometry {
-  return floating ? { w, h, r: 30, ear: 0, rt: 30 } : { w, h, r: 30, ear: 14, rt: 0 };
+export function openGeometry(w: number, h: number, floating = false, earRadius = 14): NotchGeometry {
+  return floating ? { w, h, r: 30, ear: 0, rt: 30 } : { w, h, r: 30, ear: earRadius, rt: 0 };
 }

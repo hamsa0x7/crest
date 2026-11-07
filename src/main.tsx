@@ -106,7 +106,7 @@ settings.subscribe(syncClipboardMode);
 
 // The tray menu is Rust's; its texts follow the language from here.
 language.subscribe(() =>
-  setTrayTexts({ open: t("Crest Ã¶ffnen"), settings: t("Einstellungen â€¦"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung Ã¶ffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
+  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
 );
 const languageReady = startLanguage(settings);
 

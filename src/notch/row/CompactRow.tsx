@@ -156,8 +156,8 @@ export function CompactRow({ room, scale, covered, onWidth }: { room: number; sc
     const gap = I && pill.text ? 4 : 0;
     const totalW = iconW + textW + gap;
     fixed(`plugin-pill:${id}`, totalW, () => (
-      <span className="flex items-center gap-1 text-caption font-medium shrink-0" style={pill.color ? { color: pill.color } : undefined}>
-        {I && <I size={13} weight="bold" className="shrink-0" />}
+      <span className="flex items-center gap-1 text-footnote font-medium text-label shrink-0" style={pill.color ? { color: pill.color } : undefined}>
+        {I && <I size={14} weight="bold" className="shrink-0" />}
         {pill.text && <span>{pill.text}</span>}
       </span>
     ));

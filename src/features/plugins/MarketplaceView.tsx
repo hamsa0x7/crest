@@ -76,7 +76,7 @@ export function MarketplaceView() {
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="divide-y divide-separator">
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         <MagnifyingGlass size={14} weight="bold" className="shrink-0 text-label-3" />
         <TextField

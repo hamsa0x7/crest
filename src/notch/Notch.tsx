@@ -158,8 +158,9 @@ export function Notch() {
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
   // Notices cover the row; on the idle line and in dimmed focus mode only urgent ones show (timer, reminder, and on the line a status alert). While one shows the shape takes its width.
+  const earRadius = displaySettings.ears ? (displaySettings.earRadius ?? 13) : 0;
   // The capsule snaps with its closed shape, read when a drag moves (closedW and closedH are set below).
-  const drag = useDragToMove(status, () => closedGeometry(surface, closedW, closedH));
+  const drag = useDragToMove(status, () => closedGeometry(surface, closedW, closedH, earRadius));
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
   const edge = edgeOf(style, drag.dock);
   const side = across(edge);
@@ -197,10 +198,12 @@ export function Notch() {
 
   const shape = lineShape
     ? lineGeometry(Math.min(sizes.lineLength, span), sizes.lineThickness, sizes.lineTop > 0, !line && status === "peek")
-    : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize);
+    : shapeFor(status, surface, closedW, shapeH, size, !bridged, sideSize, earRadius);
   const tightHit = lineShape && !editing;
   // On a side edge the open panel reaches across the screen as far as the page is wide.
-  const sticky = useStickyHitZone(status, side ? size.w : size.h, edge);
+  const openW = side ? size.h : size.w;
+  const openH = side ? size.w : size.h;
+  const sticky = useStickyHitZone(status, openW, openH, edge);
   const transition = useTransitionFor(status, shape);
   const topValue = useSpringTop(top, transition, drag.dragging);
   // The pet's nest stands beside the closed shape, its top a little below the shape's (topValue: as padding or margin, the shape's top).
@@ -366,9 +369,9 @@ export function Notch() {
         // The line is meant to stay out of the way: only a hair of extra hit zone, so
         // the cursor has to be on it (the normal notch gets the generous Fitts margin).
         // In resize mode the zone reaches below the shape, over its size and the Done button.
-        className={`pointer-events-auto relative ${tightHit ? "px-1 pb-1" : editing ? (side ? "px-6 pb-28" : "px-6 pb-12") : "px-4 pb-3"}`}
+        className={`pointer-events-auto relative flex flex-col items-center ${tightHit ? "px-1 pb-1" : editing ? (side ? "px-6 pb-28" : "px-6 pb-12") : "px-4 pb-3"}`}
         // Bridged, the strip up to the screen edge is part of the zone (pushing the pointer up opens it); floating, only the capsule is (CollapsedHover.cs).
-        style={{ minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
+        style={{ minWidth: sticky.minWidth, minHeight: sticky.minHeight, cursor: drag.dragging ? "grabbing" : undefined, paddingTop: bridged ? topValue : 0, marginTop: bridged ? 0 : topValue }}
         onPointerMove={(e) => {
           visited();
           sticky.onPointerMove(e);
@@ -385,7 +388,14 @@ export function Notch() {
         onContextMenu={onContextMenu}
         onWheel={onWheel}
       >
-        <NotchShape geometry={shape} transition={transition} elevated={status === "open"} edge={edge} thin={lineShape}>
+        <NotchShape
+          geometry={shape}
+          transition={transition}
+          elevated={status === "open"}
+          edge={edge}
+          thin={lineShape}
+          birthAnimation={displaySettings.birthAnimation && status !== "open" && !lineShape}
+        >
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -629,39 +639,55 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; a
 }
 
 /**
- * With the dock at the bottom, a shorter tool moves it up, so the cursor would
- * suddenly be outside and the notch would close. So the hit zone only shrinks
- * once the cursor is back over the shape (or the notch closes).
+ * With the dock at the bottom, a shorter tool moves it up, and a narrower tool
+ * moves the sides in, so the cursor would suddenly be outside and the notch would
+ * close. So the hit zone only shrinks once the cursor is back over the shape (or
+ * the notch closes).
  * Applies natively too: Rust gets this zone's rectangle.
  */
-function useStickyHitZone(status: NotchStatus, height: number, edge: Edge) {
+function useStickyHitZone(status: NotchStatus, width: number, height: number, edge: Edge) {
+  const [minWidth, setMinWidth] = useState<number | undefined>(undefined);
   const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
-  const prev = useRef(height);
+  const prev = useRef({ w: width, h: height });
   useLayoutEffect(() => {
-    if (status !== "open") setMinHeight(undefined);
-    else if (height < prev.current) {
-      const from = prev.current + HIT_PAD_BOTTOM;
-      setMinHeight((m) => Math.max(m ?? 0, from));
+    if (status !== "open") {
+      setMinWidth(undefined);
+      setMinHeight(undefined);
+    } else {
+      if (width < prev.current.w) {
+        const fromW = prev.current.w + HIT_PAD_SIDE;
+        setMinWidth((m) => Math.max(m ?? 0, fromW));
+      }
+      if (height < prev.current.h) {
+        const fromH = prev.current.h + HIT_PAD_BOTTOM;
+        setMinHeight((m) => Math.max(m ?? 0, fromH));
+      }
     }
-    prev.current = height;
-  }, [status, height]);
+    prev.current = { w: width, h: height };
+  }, [status, width, height]);
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (minHeight === undefined) return;
-    // Measured away from the edge it hangs from: on top that is the client y below the zone's top.
-    if (pointerIn(edge, e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY).depth < height) setMinHeight(undefined);
+    if (minWidth === undefined && minHeight === undefined) return;
+    const { depth, along } = pointerIn(edge, e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY);
+    // Measured away from and along the edge it hangs from: cursor is back inside the active shape.
+    if (depth >= 0 && depth < height && Math.abs(along) < width / 2) {
+      setMinWidth(undefined);
+      setMinHeight(undefined);
+    }
   };
-  return { minHeight, onPointerMove };
+  return { minWidth, minHeight, onPointerMove };
 }
 
+/** px-4 on each side of the hit zone (16 + 16). */
+const HIT_PAD_SIDE = 32;
 /** pb-3 of the hit zone. */
 const HIT_PAD_BOTTOM = 12;
 
 /** `w` and `h` are the closed size; the hover nudge grows from it, so it also fits the live state. `side`: the column's closed shape on a side edge, where the open page lies across the frame. */
-function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, h: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null): NotchGeometry {
-  if (side) return status === "open" ? openGeometry(size.h, size.w) : columnGeometry(side.w, side.h, status === "peek");
-  if (status === "open") return openGeometry(size.w, size.h, floating);
-  return status === "peek" ? peekGeometry(surface, w, h) : closedGeometry(surface, w, h);
+function shapeFor(status: NotchStatus, surface: "notch" | "capsule", w: number, h: number, size: { w: number; h: number }, floating: boolean, side: { w: number; h: number } | null, earRadius = 6): NotchGeometry {
+  if (side) return status === "open" ? openGeometry(size.h, size.w, false, earRadius > 0 ? Math.round(earRadius * 1.08) : 0) : columnGeometry(side.w, side.h, status === "peek", earRadius);
+  if (status === "open") return openGeometry(size.w, size.h, floating, earRadius > 0 ? Math.round(earRadius * 1.08) : 0);
+  return status === "peek" ? peekGeometry(surface, w, h, earRadius > 0 ? earRadius + 1 : 0) : closedGeometry(surface, w, h, earRadius);
 }
 
 /** The shape's top in the wrapper as a value that springs with the shape, and follows the pointer while dragging. */

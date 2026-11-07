@@ -2,7 +2,7 @@
 import { t } from "../i18n";
 import { settings, updateSettings, type Settings } from "../settings/store";
 import { toSaved } from "../features/window/panelSize";
-import { Button, Row, Slider } from "../ui/controls";
+import { Button, Row, Slider, Switch } from "../ui/controls";
 import { CAPSULE_TOP_DEFAULT, CLOSED_SIZE_DEFAULTS, LIMITS, type ClosedSize } from "./collapsed";
 import { monitor, monitorMetrics } from "./monitor";
 import { closedEdit } from "./ClosedResize";
@@ -24,11 +24,15 @@ export function SizeSettings() {
   monitor.use();
   const style = s.display.idleStyle, c = s.closedSize, m = monitorMetrics();
   const set = (patch: Partial<ClosedSize>) => updateSettings((cur) => ({ closedSize: { ...cur.closedSize, ...patch } }));
-  const isDefault = KEYS[style].every((k) => c[k] === CLOSED_SIZE_DEFAULTS[k]) && (style !== "capsule" || s.display.y === CAPSULE_TOP_DEFAULT);
+  const isDefault =
+    KEYS[style].every((k) => c[k] === CLOSED_SIZE_DEFAULTS[k]) &&
+    (style !== "capsule" || s.display.y === CAPSULE_TOP_DEFAULT) &&
+    (style !== "notch" || (s.display.ears === true && s.display.earRadius === 13));
   const reset = () =>
     updateSettings((cur) => ({
       closedSize: { ...cur.closedSize, ...Object.fromEntries(KEYS[style].map((k) => [k, CLOSED_SIZE_DEFAULTS[k]])) },
       ...(style === "capsule" && { display: { ...cur.display, y: CAPSULE_TOP_DEFAULT } }),
+      ...(style === "notch" && { display: { ...cur.display, ears: true, earRadius: 13 } }),
     }));
   // Widths are in the page's CSS px, as the monitor's size; display.y is saved at 100 %.
   const wide = Math.floor(m.width);
@@ -49,6 +53,20 @@ export function SizeSettings() {
         <>
           <SizeRow label={t("Breite")} value={c.notchWidth} min={LIMITS.notchWidth[0]} max={Math.min(LIMITS.notchWidth[1], wide)} onChange={(notchWidth) => set({ notchWidth })} />
           <SizeRow label={t("Höhe")} value={c.notchHeight} min={LIMITS.notchHeight[0]} max={LIMITS.notchHeight[1]} onChange={(notchHeight) => set({ notchHeight })} />
+          <Row label={t("Geschwungene Ecken")} hint={t("Organische Rundungen, die nahtlos in den Bildschirmrand übergehen")}>
+            <Switch label={t("Geschwungene Ecken")} checked={s.display.ears} onChange={(ears) => updateSettings((cur) => ({ display: { ...cur.display, ears } }))} />
+          </Row>
+          {s.display.ears && (
+            <SizeRow
+              label={t("Ecken-Radius")}
+              hint={t("Krümmungsradius der oberen Rundungen am Bildschirmrand")}
+              value={s.display.earRadius}
+              min={8}
+              max={24}
+              step={1}
+              onChange={(earRadius) => updateSettings((cur) => ({ display: { ...cur.display, earRadius } }))}
+            />
+          )}
         </>
       )}
       {style === "capsule" && (

@@ -837,6 +837,9 @@ function Display() {
       <SizeSettings />
       <ClosedParts />
       {d.idleStyle !== "line" && <PetSettingsRows />}
+      <Row label={t("Start-Animation")} hint={t("Kurze aufsteigende Blase beim Start der App")}>
+        <Switch label={t("Start-Animation")} checked={d.birthAnimation} onChange={(birthAnimation) => updateSettings((cur) => ({ display: { ...cur.display, birthAnimation } }))} />
+      </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>
         <Switch label={t("Fortschritt auf der Linie")} checked={s.closed.lineProgress} onChange={(lineProgress) => updateSettings((cur) => ({ closed: { ...cur.closed, lineProgress } }))} />
       </Row>

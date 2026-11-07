@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CLOSED_SIZE_DEFAULTS, contentScale, defaultClosed, fitCapsuleTop, normalizeClosedSize, resizeClosed, roundThickness, sideLength, windowAlong, type ClosedSize } from "./collapsed.ts";
-import { closedGeometry, lineGeometry, peekGeometry } from "./geometry.ts";
+import { closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry } from "./geometry.ts";
 import { rowRoom, surfaceWidth } from "./row/layout.ts";
 import { COLUMN_ROOM, columnRoom, columnSurface } from "./column.ts";
 import { capsuleY, windowYFor } from "./capsule.ts";
@@ -138,4 +138,15 @@ test("resize grips: the ends widen both sides, the far side sets the height, hel
   assert.deepEqual(resizeClosed(s, "line", "depth", 0, 1.3, 1920), { lineThickness: 6.5 });
   assert.deepEqual(resizeClosed(s, "line", "end", 5, 0, 1920), { lineLength: 160 });
   assert.deepEqual(defaultClosed("capsule", "depth"), { capsuleHeight: 30 });
+});
+
+test("ear radius customization: custom values, disabled ears, and open geometry", () => {
+  assert.deepEqual(closedGeometry("notch", 200, 30, 13), { w: 200, h: 30, r: 10, ear: 13, rt: 0 });
+  assert.deepEqual(closedGeometry("notch", 200, 30, 0), { w: 200, h: 30, r: 10, ear: 0, rt: 0 });
+  assert.deepEqual(peekGeometry("notch", 200, 30, 14), { w: 216, h: 34, r: 12, ear: 14, rt: 0 });
+  assert.deepEqual(columnGeometry(200, 30, false, 13), { w: 200, h: 30, r: 10, ear: 13, rt: 0 });
+  assert.deepEqual(columnGeometry(200, 30, true, 13), { w: 216, h: 34, r: 12, ear: 14, rt: 0 });
+  assert.deepEqual(openGeometry(400, 300, false, 14), { w: 400, h: 300, r: 30, ear: 14, rt: 0 });
+  assert.deepEqual(openGeometry(400, 300, false, 0), { w: 400, h: 300, r: 30, ear: 0, rt: 0 });
+  assert.deepEqual(openGeometry(400, 300, true, 14), { w: 400, h: 300, r: 30, ear: 0, rt: 30 });
 });
