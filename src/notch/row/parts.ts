@@ -15,7 +15,8 @@ export const PET_SIZE = { min: 32, max: 96, default: 48 } as const;
 export const NEST_GAP = 20;
 /** A click makes the pet this much bigger, until the pointer leaves it. */
 export const NEST_ZOOM = 1.5;
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean; statusAlerts: StatusAlerts; pet: PetSettings }
+export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean;
+  secondTimezone: string | null; secondTimezoneLabel: string; statusAlerts: StatusAlerts; pet: PetSettings }
 /** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
 export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; hideOsd: boolean; mic: boolean }
 
@@ -24,6 +25,7 @@ export const CLOSED_DEFAULTS: ClosedSettings = {
   parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
+  secondTimezone: null, secondTimezoneLabel: "",
   statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false, mic: true },
   pet: { id: null, size: PET_SIZE.default, side: "right" },
 };
@@ -43,6 +45,8 @@ export function normalizeClosed(saved: unknown): ClosedSettings {
     readings: Object.fromEntries(READING_KEYS.map((k) => [k, bool(readings[k], d.readings[k])])) as Record<ReadingKey, boolean>,
     clockSeconds: bool(s.clockSeconds, d.clockSeconds), lineProgress: bool(s.lineProgress, d.lineProgress), quotaAlerts: bool(s.quotaAlerts, d.quotaAlerts),
     downloadAlerts: bool(s.downloadAlerts, d.downloadAlerts),
+    secondTimezone: typeof s.secondTimezone === "string" && s.secondTimezone.trim() ? s.secondTimezone.trim() : null,
+    secondTimezoneLabel: typeof s.secondTimezoneLabel === "string" ? s.secondTimezoneLabel.slice(0, 10) : "",
     statusAlerts: Object.fromEntries(Object.entries(d.statusAlerts).map(([k, v]) => [k, bool(alerts[k], v)])) as unknown as StatusAlerts,
     pet: normalizePet(s.pet),
   };

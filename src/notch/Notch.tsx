@@ -12,7 +12,8 @@ import { CompactRow } from "./row/CompactRow";
 import { CompactColumn } from "./row/CompactColumn";
 import { NoticeLayer } from "./row/NoticeLayer";
 import { Nest } from "./pet/Nest";
-import { statusAlert } from "../features/status/store";
+import { statusAlert, chargerEvent } from "../features/status/store";
+import { BlackHoleCharger } from "./BlackHoleCharger";
 import { effectiveIdleStyle, screen } from "../features/window/store";
 import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
@@ -460,6 +461,15 @@ export function Notch() {
           surfaceSheen={displaySettings.surfaceSheen}
           refractiveHighlight={displaySettings.refractiveHighlight}
         >
+          
+          {chargerEvent.use().active && displaySettings.chargerAnimation !== "off" && (
+            <BlackHoleCharger
+              style={displaySettings.chargerAnimation}
+              percent={chargerEvent.use().percent}
+              charging={chargerEvent.use().charging}
+              onDismiss={() => chargerEvent.set({ active: false, charging: false, percent: null })}
+            />
+          )}
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -622,6 +632,8 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   // Dot on the gear = update ready or unseen changes → jump straight to that section.
   const unseen = useUnseen().length > 0;
   const badge = updateReady || unseen;
+  const magnify = settings.use().display.dockMagnifyDots;
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
   // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools.
@@ -632,10 +644,33 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   return (
     <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
-        <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" style={{ maskImage: fade, WebkitMaskImage: fade }}>
-          {tabs.map((tab) => (
-            <DockButton key={tab.id} label={t(tab.label)} icon={tab.icon} hue={tab.hue} active={tab.id === activeId} onClick={() => switchTo(tab.id)} />
-          ))}
+        <div
+          ref={strip}
+          className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]"
+          onPointerLeave={() => setHoveredIdx(null)}
+          style={{ maskImage: fade, WebkitMaskImage: fade }}
+        >
+          {tabs.map((tab, idx) => {
+            let scale = 1.0;
+            if (magnify && hoveredIdx !== null) {
+              const dist = Math.abs(idx - hoveredIdx);
+              if (dist === 0) scale = 1.25;
+              else if (dist === 1) scale = 1.12;
+              else if (dist === 2) scale = 1.04;
+            }
+            return (
+              <DockButton
+                key={tab.id}
+                label={t(tab.label)}
+                icon={tab.icon}
+                hue={tab.hue}
+                active={tab.id === activeId}
+                scale={scale}
+                onPointerEnter={() => setHoveredIdx(idx)}
+                onClick={() => switchTo(tab.id)}
+              />
+            );
+          })}
         </div>
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-separator" />
         <DockButton
@@ -832,7 +867,7 @@ function useScrollEdges(ref: RefObject<HTMLDivElement | null>, direction: "x" | 
   return edges;
 }
 
-function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean }) {
+function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; active: boolean; onClick: () => void; badge?: boolean; scale?: number; onPointerEnter?: () => void }) {
   const I = props.icon;
   const color = useHue(props.hue);
   const ref = useRef<HTMLButtonElement>(null);
@@ -849,7 +884,12 @@ function DockButton(props: { label: string; icon: NotchTab["icon"]; hue?: Hue; a
       className={`pressable relative flex h-9 w-10 min-w-6 shrink-0 items-center justify-center rounded-[12px] transition-colors duration-150 ${
         props.active ? "text-label" : color ? "" : "text-label-2 hover:text-label"
       }`}
-      style={color ? { color } : undefined}
+      onPointerEnter={props.onPointerEnter}
+      style={{
+        ...(color ? { color } : {}),
+        transform: props.scale && props.scale !== 1.0 ? `scale(${props.scale})` : undefined,
+        transformOrigin: "bottom center",
+      }}
     >
       {/* The current tool: a brighter pill with a mark under the icon, sliding from tool to tool. */}
       {props.active && (

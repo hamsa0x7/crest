@@ -135,3 +135,26 @@ export function moveZone(list: string[], zone: string, by: -1 | 1): string[] {
   [next[i], next[j]] = [next[j], next[i]];
   return next;
 }
+
+/** Standard short abbreviation or code for common timezones (e.g. UTC, NYC, LON, TYO, BER). */
+export function defaultZoneAbbrev(zone: string): string {
+  const map: Record<string, string> = {
+    UTC: "UTC",
+    "America/New_York": "NYC",
+    "America/Los_Angeles": "LA",
+    "America/Chicago": "CHI",
+    "Europe/London": "LON",
+    "Europe/Berlin": "BER",
+    "Europe/Paris": "PAR",
+    "Asia/Tokyo": "TYO",
+    "Asia/Shanghai": "SHA",
+    "Asia/Hong_Kong": "HKG",
+    "Asia/Singapore": "SIN",
+    "Asia/Kolkata": "DEL",
+    "Asia/Dubai": "DXB",
+    "Australia/Sydney": "SYD",
+  };
+  if (map[zone]) return map[zone];
+  const city = cityName(zone);
+  return city.slice(0, 3).toUpperCase();
+}

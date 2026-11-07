@@ -1141,6 +1141,7 @@ export const themeFiles = {
     URL.revokeObjectURL(a.href);
     return Promise.resolve("");
   },
+  wallpaper: (): Promise<string | null> => (isNative ? invoke<string | null>("get_desktop_wallpaper").catch(() => null) : Promise.resolve(null)),
 };
 // ---------- Launcher ----------
 

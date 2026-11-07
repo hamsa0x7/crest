@@ -3,6 +3,8 @@ import { animate, motion, useMotionValue, useTransform, type Transition } from "
 import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
 
+import { getRimGradient, getRimGlowShadow, getFrostedShapeColor, type RimPreset } from "./rim";
+
 interface Props {
   geometry: NotchGeometry;
   transition: Transition;
@@ -16,6 +18,15 @@ interface Props {
   birthAnimation?: boolean;
   /** Whether album cover tint is active on the open notch. */
   tinted?: boolean;
+  rimPreset?: RimPreset;
+  rimThickness?: number;
+  rimGlow?: number;
+  rimCustomStart?: string;
+  rimCustomEnd?: string;
+  frostedGlass?: boolean;
+  glassOpacity?: number;
+  surfaceSheen?: boolean;
+  refractiveHighlight?: boolean;
   children?: ReactNode;
 }
 
@@ -31,11 +42,35 @@ let hasBirthedSession = false;
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, birthAnimation = false, tinted = false, children }: Props) {
+export function NotchShape({
+  geometry,
+  transition,
+  elevated,
+  edge = "top",
+  thin = false,
+  birthAnimation = false,
+  tinted = false,
+  rimPreset = "none",
+  rimThickness = 1.2,
+  rimGlow = 35,
+  rimCustomStart = "#60a5fa",
+  rimCustomEnd = "#c084fc",
+  frostedGlass = false,
+  glassOpacity = 75,
+  surfaceSheen = true,
+  refractiveHighlight = true,
+  children,
+}: Props) {
   const shouldBirth = useRef(birthAnimation && !hasBirthedSession).current;
   if (!hasBirthedSession) {
     hasBirthedSession = true;
   }
+
+  const rimGradient = getRimGradient(rimPreset, rimCustomStart, rimCustomEnd);
+  const rimGlowShadow = getRimGlowShadow(rimPreset, rimGlow, rimCustomStart);
+
+  const baseShape = elevated ? "var(--color-notch)" : "var(--notch-closed)";
+  const shapeColor = getFrostedShapeColor(baseShape, frostedGlass, glassOpacity);
 
   const w = useMotionValue(shouldBirth ? 34 : geometry.w);
   const h = useMotionValue(shouldBirth ? 34 : geometry.h);
@@ -94,7 +129,7 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
         width: wPx,
         height: hPx,
         y: birthY,
-        ["--shape" as string]: elevated ? "var(--color-notch)" : "var(--notch-closed)",
+        ["--shape" as string]: shapeColor,
       }}
     >
       <motion.svg
@@ -137,9 +172,22 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
           style={{ fill: "var(--accent)" }}
         />
       </motion.svg>
+      {rimGlowShadow && (
+        <motion.div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            borderTopLeftRadius: rt,
+            borderTopRightRadius: rt,
+            borderBottomLeftRadius: r,
+            borderBottomRightRadius: r,
+            boxShadow: rimGlowShadow,
+          }}
+        />
+      )}
       <motion.div
         aria-hidden
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           opacity: shadow,
           borderTopLeftRadius: rt,
@@ -151,12 +199,77 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
           boxShadow: "0 10px 20px -10px rgb(0 0 0 / 0.7), 0 3px 8px rgb(0 0 0 / 0.35)",
         }}
       />
+      {rimGradient && (
+        <motion.div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none z-10"
+          style={
+            {
+              borderTopLeftRadius: rt,
+              borderTopRightRadius: rt,
+              borderBottomLeftRadius: r,
+              borderBottomRightRadius: r,
+              padding: `${rimThickness}px`,
+              background: rimGradient,
+              WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+              WebkitMaskComposite: "xor",
+              maskComposite: "exclude",
+            } as any
+          }
+        />
+      )}
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.
         className="absolute inset-0 overflow-clip bg-(--shape)"
-        style={{ borderTopLeftRadius: rt, borderTopRightRadius: rt, borderBottomLeftRadius: r, borderBottomRightRadius: r, containerType: edge === "top" ? undefined : "size" }}
+        style={{
+          borderTopLeftRadius: rt,
+          borderTopRightRadius: rt,
+          borderBottomLeftRadius: r,
+          borderBottomRightRadius: r,
+          containerType: edge === "top" ? undefined : "size",
+          backdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          WebkitBackdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          background: frostedGlass
+            ? "linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, transparent 60px), linear-gradient(145deg, rgba(255, 255, 255, 0.06) 0%, transparent 40%), linear-gradient(165deg, transparent 40%, rgba(0, 0, 0, 0.2) 100%), var(--shape)"
+            : undefined,
+        }}
       >
-        <motion.div style={{ opacity: contentOpacity }} className="h-full w-full">
+        {frostedGlass && surfaceSheen && (
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 35%, transparent 60%)",
+              mixBlendMode: "screen",
+            }}
+          />
+        )}
+        {frostedGlass && refractiveHighlight && (
+          <>
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                boxShadow:
+                  "inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), inset 1px 0 0 rgba(255, 255, 255, 0.15), inset -1px 0 0 rgba(255, 255, 255, 0.15)",
+              }}
+            />
+            <div
+              aria-hidden
+              className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+              style={{
+                width: "48%",
+                height: "2px",
+                borderRadius: "9999px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent)",
+                filter: "blur(0.4px)",
+              }}
+            />
+          </>
+        )}
+        <motion.div style={{ opacity: contentOpacity }} className="relative z-1 h-full w-full">
           {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
         </motion.div>
       </motion.div>

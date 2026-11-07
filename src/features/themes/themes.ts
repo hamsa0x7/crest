@@ -38,6 +38,8 @@ export interface ThemeSettings {
   coverTint: boolean;
   /** The whole app's font (FONTS), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
+  /** Material You dynamic color palette extracted from desktop wallpaper. */
+  materialYou?: boolean;
 }
 
 /** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
@@ -504,6 +506,7 @@ export const THEME_DEFAULTS: ThemeSettings = {
   iconColors: false,
   coverTint: false,
   font: "inter",
+  materialYou: false,
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -536,5 +539,6 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     iconColors: typeof s.iconColors === "boolean" ? s.iconColors : legacyIconColors,
     coverTint: s.coverTint === true,
     font: typeof s.font === "string" && Object.hasOwn(FONTS, s.font) ? s.font : THEME_DEFAULTS.font,
+    materialYou: s.materialYou === true,
   };
 }

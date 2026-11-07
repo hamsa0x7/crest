@@ -83,6 +83,46 @@ pub async fn themes_write(app: AppHandle, id: String, text: String) -> Result<St
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// Queries the active Windows desktop wallpaper file path for dynamic accent palette generation.
+#[tauri::command]
+pub async fn get_desktop_wallpaper() -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::WindowsAndMessaging::{SystemParametersInfoW, SPI_GETDESKWALLPAPER, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS};
+        let mut buffer = [0u16; 512];
+        let ok = unsafe {
+            SystemParametersInfoW(
+                SPI_GETDESKWALLPAPER,
+                buffer.len() as u32,
+                Some(buffer.as_mut_ptr() as *mut _),
+                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+            )
+        };
+        if ok.is_ok() {
+            let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
+            let path_str = String::from_utf16_lossy(&buffer[..len]);
+            if !path_str.trim().is_empty() && std::path::Path::new(&path_str).exists() {
+                return Ok(Some(path_str));
+            }
+        }
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let transcoded = std::path::Path::new(&appdata)
+                .join("Microsoft")
+                .join("Windows")
+                .join("Themes")
+                .join("TranscodedWallpaper");
+            if transcoded.exists() {
+                return Ok(Some(transcoded.to_string_lossy().into_owned()));
+            }
+        }
+        Ok(None)
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(None)
+    }
+}
+
 /// Only lowercase ASCII letters, digits, `-`, `_` and inner dots, at most 64 characters: no path can leave the folder.
 /// Windows' reserved device names (`con`, `nul`, `com1`, also as `con.x`) are refused.
 fn safe_name(id: &str) -> Option<String> {

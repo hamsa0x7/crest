@@ -3,6 +3,7 @@ import { isMac } from "../platform/native";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
+import type { RimPreset } from "../notch/rim";
 import { normalizeClockLook, normalizeLook, normalizeLookColor, type ClockLook, type LookColor, type TimerLook } from "../features/timer/looks";
 import { normalizeFocusSound, type FocusSound } from "../features/timer/focusSound";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
@@ -73,6 +74,17 @@ export interface Settings {
     birthAnimation: boolean;
     hoverPeek: boolean;
     satelliteBubble: boolean;
+    rimPreset: RimPreset;
+    rimThickness: number;
+    rimGlow: number;
+    rimCustomStart: string;
+    rimCustomEnd: string;
+    frostedGlass: boolean;
+    glassOpacity: number;
+    surfaceSheen: boolean;
+    refractiveHighlight: boolean;
+    chargerAnimation: "cinematic" | "subtle" | "off";
+    dockMagnifyDots: boolean;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -182,7 +194,10 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true },
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
+    rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
+    frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
+    chargerAnimation: "cinematic", dockMagnifyDots: true },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -299,6 +314,31 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       birthAnimation: typeof s.display?.birthAnimation === "boolean" ? s.display.birthAnimation : defaults.display.birthAnimation,
       hoverPeek: typeof s.display?.hoverPeek === "boolean" ? s.display.hoverPeek : defaults.display.hoverPeek,
       satelliteBubble: typeof s.display?.satelliteBubble === "boolean" ? s.display.satelliteBubble : defaults.display.satelliteBubble,
+      rimPreset: ["none", "silver", "frosted", "aurora", "cyberpunk", "gold", "custom"].includes(s.display?.rimPreset as string)
+        ? (s.display!.rimPreset as RimPreset)
+        : defaults.display.rimPreset,
+      rimThickness:
+        typeof s.display?.rimThickness === "number" && Number.isFinite(s.display.rimThickness)
+          ? Math.max(0.5, Math.min(2.5, s.display.rimThickness))
+          : defaults.display.rimThickness,
+      rimGlow:
+        typeof s.display?.rimGlow === "number" && Number.isFinite(s.display.rimGlow)
+          ? Math.max(0, Math.min(100, Math.round(s.display.rimGlow)))
+          : defaults.display.rimGlow,
+      rimCustomStart: typeof s.display?.rimCustomStart === "string" ? s.display.rimCustomStart : defaults.display.rimCustomStart,
+      rimCustomEnd: typeof s.display?.rimCustomEnd === "string" ? s.display.rimCustomEnd : defaults.display.rimCustomEnd,
+      frostedGlass: typeof s.display?.frostedGlass === "boolean" ? s.display.frostedGlass : defaults.display.frostedGlass,
+      glassOpacity:
+        typeof s.display?.glassOpacity === "number" && Number.isFinite(s.display.glassOpacity)
+          ? Math.max(20, Math.min(95, Math.round(s.display.glassOpacity)))
+          : defaults.display.glassOpacity,
+      surfaceSheen: typeof s.display?.surfaceSheen === "boolean" ? s.display.surfaceSheen : defaults.display.surfaceSheen,
+      refractiveHighlight:
+        typeof s.display?.refractiveHighlight === "boolean" ? s.display.refractiveHighlight : defaults.display.refractiveHighlight,
+      chargerAnimation: ["cinematic", "subtle", "off"].includes(s.display?.chargerAnimation as string)
+        ? (s.display!.chargerAnimation as "cinematic" | "subtle" | "off")
+        : defaults.display.chargerAnimation,
+      dockMagnifyDots: typeof s.display?.dockMagnifyDots === "boolean" ? s.display.dockMagnifyDots : defaults.display.dockMagnifyDots,
     },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },

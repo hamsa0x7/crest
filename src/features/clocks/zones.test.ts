@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_ZONES, allZones, cityName, dayDelta, formatClock, formatDiff, formatUtc, hourOfDay, isDay, isZone, moveZone, normalizeZones, regionName, searchZones, wallTime, zoneOffset } from "./zones.ts";
+import { MAX_ZONES, allZones, cityName, dayDelta, defaultZoneAbbrev, formatClock, formatDiff, formatUtc, hourOfDay, isDay, isZone, moveZone, normalizeZones, regionName, searchZones, wallTime, zoneOffset } from "./zones.ts";
 
 const utc = (y: number, mo: number, d: number, h = 0, mi = 0) => Date.UTC(y, mo - 1, d, h, mi);
 
@@ -119,4 +119,15 @@ test("reordering moves one place and stops at the ends", () => {
   assert.deepEqual(moveZone(list, "c", 1), list);
   assert.deepEqual(moveZone(list, "x", 1), list);
   assert.deepEqual(list, ["a", "b", "c"]); // Never changed in place.
+});
+
+
+test("defaultZoneAbbrev maps common timezones to concise city abbreviations", () => {
+  assert.equal(defaultZoneAbbrev("UTC"), "UTC");
+  assert.equal(defaultZoneAbbrev("America/New_York"), "NYC");
+  assert.equal(defaultZoneAbbrev("America/Los_Angeles"), "LA");
+  assert.equal(defaultZoneAbbrev("Europe/London"), "LON");
+  assert.equal(defaultZoneAbbrev("Asia/Tokyo"), "TYO");
+  assert.equal(defaultZoneAbbrev("Europe/Berlin"), "BER");
+  assert.equal(defaultZoneAbbrev("Europe/Rome"), "ROM");
 });

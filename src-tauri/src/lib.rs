@@ -444,6 +444,7 @@ pub fn run() {
             themes::themes_folder,
             themes::themes_read,
             themes::themes_write,
+            themes::get_desktop_wallpaper,
             #[cfg(windows)]
             launcher::launcher_apps,
             #[cfg(windows)]

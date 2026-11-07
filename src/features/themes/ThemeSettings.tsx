@@ -1,8 +1,10 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
-import { Button, Group, Row, Select, StyleCards, Switch, TextField } from "../../ui/controls";
+import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
+import { RIM_PRESETS, type RimPreset } from "../../notch/rim";
+import { accentFrom } from "../../lib/accent";
 import { formatTime } from "../../lib/format";
-import { openFile, revealFile } from "../../platform/services";
+import { openFile, revealFile, themeFiles } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
@@ -40,6 +42,9 @@ export function ThemeSettings() {
     <>
       <ThemeChoice />
       <DayNight />
+      <MaterialYouSettings />
+      <RimSettings />
+      <FrostedGlassSettings />
       <ThemeEditor />
       <ThemeFiles />
     </>
@@ -380,6 +385,169 @@ function ThemeFiles() {
         </div>
       </Row>
       {message && <div className="px-3 py-2 text-caption text-label-2">{message}</div>}
+    </Group>
+  );
+}
+
+function MaterialYouSettings() {
+  const s = settings.use();
+  const my = Boolean(s.themes.materialYou);
+  const [busy, setBusy] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setBusy(true);
+    setStatusText(null);
+    try {
+      const path = await themeFiles.wallpaper();
+      if (path) {
+        const url = path.startsWith("http") ? path : `asset://localhost/${encodeURIComponent(path.replace(/\\/g, "/"))}`;
+        const accent = await accentFrom(url);
+        document.documentElement.style.setProperty("--theme-accent", accent);
+        document.documentElement.style.setProperty("--theme-accent-bright", accent);
+        setStatusText(t("Farbe aus Hintergrundbild übernommen"));
+      } else {
+        setStatusText(t("Kein Hintergrundbild gefunden"));
+      }
+    } catch {
+      setStatusText(t("Fehler beim Lesen des Hintergrundbilds"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Group title={t("Material You & Dynamische Farben")} id="settings-material-you">
+      <Row
+        label={t("Material You Palette")}
+        hint={t("Farben dynamisch aus dem Windows-Desktop-Hintergrundbild ableiten")}
+      >
+        <Switch
+          label={t("Material You Palette")}
+          checked={my}
+          onChange={(materialYou) => {
+            updateSettings((cur) => ({ themes: { ...cur.themes, materialYou } }));
+            if (materialYou) void refresh();
+          }}
+        />
+      </Row>
+      {my && (
+        <Row label={t("Hintergrundbild aktualisieren")} hint={statusText ?? t("Liest das aktuelle Desktop-Hintergrundbild erneut aus")}>
+          <Button disabled={busy} onClick={() => void refresh()}>
+            {t("Jetzt synchronisieren")}
+          </Button>
+        </Row>
+      )}
+    </Group>
+  );
+}
+
+function RimSettings() {
+  const s = settings.use();
+  const d = s.display;
+  const updateDisplay = (patch: Partial<typeof d>) => updateSettings((cur) => ({ display: { ...cur.display, ...patch } }));
+
+  return (
+    <Group title={t("Rand-Akzente & Leuchten")} id="settings-rim">
+      <Row label={t("Rand-Stil")} hint={t("Farbverlauf entlang der Notch-Kante")}>
+        <Select
+          width="w-48"
+          value={d.rimPreset}
+          onChange={(v) => updateDisplay({ rimPreset: v as RimPreset })}
+          options={RIM_PRESETS.map((p) => ({ value: p.id, label: t(p.label) }))}
+        />
+      </Row>
+      {d.rimPreset !== "none" && (
+        <>
+          <Row label={t("Rand-Dicke")} hint={`${d.rimThickness.toFixed(1)} px`}>
+            <Slider
+              min={0.5}
+              max={2.5}
+              step={0.1}
+              value={d.rimThickness}
+              onChange={(rimThickness) => updateDisplay({ rimThickness })}
+              label={t("Rand-Dicke")}
+            />
+          </Row>
+          <Row label={t("Leucht-Intensität")} hint={`${d.rimGlow} %`}>
+            <Slider
+              min={0}
+              max={100}
+              step={5}
+              value={d.rimGlow}
+              onChange={(rimGlow) => updateDisplay({ rimGlow })}
+              label={t("Leucht-Intensität")}
+            />
+          </Row>
+          {d.rimPreset === "custom" && (
+            <>
+              <Row label={t("Start-Farbe")}>
+                <TextField
+                  value={d.rimCustomStart}
+                  onChange={(rimCustomStart) => updateDisplay({ rimCustomStart })}
+                  placeholder="#60a5fa"
+                />
+              </Row>
+              <Row label={t("End-Farbe")}>
+                <TextField
+                  value={d.rimCustomEnd}
+                  onChange={(rimCustomEnd) => updateDisplay({ rimCustomEnd })}
+                  placeholder="#c084fc"
+                />
+              </Row>
+            </>
+          )}
+        </>
+      )}
+    </Group>
+  );
+}
+
+function FrostedGlassSettings() {
+  const s = settings.use();
+  const d = s.display;
+  const updateDisplay = (patch: Partial<typeof d>) => updateSettings((cur) => ({ display: { ...cur.display, ...patch } }));
+
+  return (
+    <Group title={t("Flüssiges Mattglas")} id="settings-frosted-glass">
+      <Row
+        label={t("Mattglas-Hintergrund")}
+        hint={t("Echtzeit-Hintergrundunschärfe im Acryl/Mica-Stil")}
+      >
+        <Switch
+          label={t("Mattglas-Hintergrund")}
+          checked={d.frostedGlass}
+          onChange={(frostedGlass) => updateDisplay({ frostedGlass })}
+        />
+      </Row>
+      {d.frostedGlass && (
+        <>
+          <Row label={t("Deckkraft")} hint={`${d.glassOpacity} %`}>
+            <Slider
+              min={20}
+              max={95}
+              step={5}
+              value={d.glassOpacity}
+              onChange={(glassOpacity) => updateDisplay({ glassOpacity })}
+              label={t("Deckkraft")}
+            />
+          </Row>
+          <Row label={t("Oberflächen-Glanz")} hint={t("Subtiler Glanzreflex auf der Glasoberfläche")}>
+            <Switch
+              label={t("Oberflächen-Glanz")}
+              checked={d.surfaceSheen}
+              onChange={(surfaceSheen) => updateDisplay({ surfaceSheen })}
+            />
+          </Row>
+          <Row label={t("Lichtbrechende Kante")} hint={t("Heller Glanzstreifen an der Kante")}>
+            <Switch
+              label={t("Lichtbrechende Kante")}
+              checked={d.refractiveHighlight}
+              onChange={(refractiveHighlight) => updateDisplay({ refractiveHighlight })}
+            />
+          </Row>
+        </>
+      )}
     </Group>
   );
 }

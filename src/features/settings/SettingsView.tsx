@@ -1088,7 +1088,29 @@ function ClosedParts() {
                       onChange={(v) => (v || readingsOn > 1) && setClosed((cur) => ({ readings: { ...cur.readings, [k]: v } }))}
                     />
                   ))}
-                {on && id === "clock" && <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />}
+                {on && id === "clock" && (
+                  <div className="flex items-center gap-2">
+                    <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />
+                    <Select
+                      width="w-32"
+                      value={c.secondTimezone ?? ""}
+                      onChange={(v) => setClosed(() => ({ secondTimezone: v || null }))}
+                      options={[
+                        { value: "", label: t("2. Zone") },
+                        { value: "UTC", label: "UTC" },
+                        { value: "America/New_York", label: "New York" },
+                        { value: "America/Los_Angeles", label: "Los Angeles" },
+                        { value: "Europe/London", label: "London" },
+                        { value: "Europe/Berlin", label: "Berlin" },
+                        { value: "Asia/Tokyo", label: "Tokyo" },
+                        { value: "Asia/Shanghai", label: "Shanghai" },
+                        { value: "Asia/Kolkata", label: "Kolkata" },
+                        { value: "Asia/Dubai", label: "Dubai" },
+                        { value: "Australia/Sydney", label: "Sydney" },
+                      ]}
+                    />
+                  </div>
+                )}
                 {on && id === "title" && <SubSwitch label={t("Songtext")} checked={music.titleLyrics} onChange={(titleLyrics) => setMusic({ titleLyrics })} />}
                 <Switch label={t(label)} checked={on} onChange={(v) => setClosed((cur) => ({ parts: { ...cur.parts, [id]: v } }))} />
               </div>

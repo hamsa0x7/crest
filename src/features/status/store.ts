@@ -10,6 +10,13 @@ import { STATUS, btAlert, levelAlert, lockAlert, micAlert, netAlert, osdArmed, o
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
 
+/** Event emitted when power charger connects or disconnects (triggers Black Hole animation). */
+export const chargerEvent = createStore<{ active: boolean; charging: boolean; percent: number | null }>({
+  active: false,
+  charging: false,
+  percent: null,
+});
+
 let started = false;
 
 /** Listens to sysevents.rs from the seed on and turns each change into an alert by the rules in status.ts. */
@@ -39,6 +46,9 @@ export function startStatusWatch() {
     power: (next) => {
       const before = { ...low };
       const alert = powerAlert(power, next, low, t);
+      if (power && power.ac !== next.ac) {
+        chargerEvent.set({ active: true, charging: next.ac, percent: next.percent });
+      }
       power = next;
       const on = settings.get().closed.statusAlerts.power;
       // A low-battery warning dropped for focus mode or a fullscreen app is not used up: the next reading gives it again.
