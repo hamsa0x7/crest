@@ -14,6 +14,8 @@ interface Props {
   thin?: boolean;
   /** Rising orb birth animation ("Naissance") on initial launch sequence. */
   birthAnimation?: boolean;
+  /** Whether album cover tint is active on the open notch. */
+  tinted?: boolean;
   children?: ReactNode;
 }
 
@@ -29,7 +31,7 @@ let hasBirthedSession = false;
  * re-render per frame. Animations are interruptible and keep their velocity
  * (important when hovering in and out quickly).
  */
-export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, birthAnimation = false, children }: Props) {
+export function NotchShape({ geometry, transition, elevated, edge = "top", thin = false, birthAnimation = false, tinted = false, children }: Props) {
   const shouldBirth = useRef(birthAnimation && !hasBirthedSession).current;
   if (!hasBirthedSession) {
     hasBirthedSession = true;
@@ -109,6 +111,11 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
         }}
       >
         <path d="M 0 0 L 100 0 L 100 100 C 100 45, 55 0, 0 0 Z" />
+        <path
+          d="M 0 0 L 100 0 L 100 100 C 100 45, 55 0, 0 0 Z"
+          data-ear-ambience={elevated && tinted ? "on" : "off"}
+          style={{ fill: "var(--accent)" }}
+        />
       </motion.svg>
       <motion.svg
         aria-hidden
@@ -124,6 +131,11 @@ export function NotchShape({ geometry, transition, elevated, edge = "top", thin 
         }}
       >
         <path d="M 100 0 L 0 0 L 0 100 C 0 45, 45 0, 100 0 Z" />
+        <path
+          d="M 100 0 L 0 0 L 0 100 C 0 45, 45 0, 100 0 Z"
+          data-ear-ambience={elevated && tinted ? "on" : "off"}
+          style={{ fill: "var(--accent)" }}
+        />
       </motion.svg>
       <motion.div
         aria-hidden

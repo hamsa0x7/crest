@@ -56,6 +56,14 @@
 [data-ambience="on"] { opacity: 0.32; }
 :root[data-theme="light"] [data-ambience="on"] { opacity: 0.2; }
 
+/* Concave ears match the open panel's cover tint */
+[data-ear-ambience] {
+  opacity: 0;
+  transition: opacity 600ms ease, fill 600ms ease;
+}
+[data-ear-ambience="on"] { opacity: 0.26; }
+:root[data-theme="light"] [data-ear-ambience="on"] { opacity: 0.16; }
+
 /* The notch's own colour: black closed, the theme's background open (NotchShape.tsx). */
 [data-notch-shape] {
   transition: --shape 300ms var(--ease-out);
@@ -64,7 +72,8 @@
 @media (prefers-reduced-motion: reduce) {
   :root,
   [data-notch-shape],
-  [data-ambience] {
+  [data-ambience],
+  [data-ear-ambience] {
     transition: none;
   }
 }
@@ -76,7 +85,8 @@
  * low share. !important beats the inline theme on <html>, the closed row and the accent.
  */
 @media (forced-colors: active) {
-  [data-ambience] {
+  [data-ambience],
+  [data-ear-ambience] {
     display: none;
   }
   :root,

@@ -445,6 +445,7 @@ export function Notch() {
           edge={edge}
           thin={lineShape}
           birthAnimation={displaySettings.birthAnimation && status !== "open" && !lineShape}
+          tinted={tinted}
         >
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
