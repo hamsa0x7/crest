@@ -529,8 +529,25 @@ fn antigravity_app() -> Option<AntigravityApp> {
         .filter(|p| p.exe().is_some_and(|e| e.to_string_lossy().to_lowercase().contains("antigravity")))
         .find_map(|p| csrf_token(p.cmd()))?;
     let log = app_data()?.join("Antigravity").join("logs").join("language_server.log");
-    let port = read_tail(&log, 64 * 1024).and_then(|text| logged_http_port(&text))?;
+    let port = find_language_server_port(&log)?;
     Some(AntigravityApp { port, token })
+}
+
+/// Reads the language server log to find the latest HTTP port,
+/// even when the log file has grown far beyond a small tail window.
+fn find_language_server_port(log: &std::path::Path) -> Option<u16> {
+    use std::io::{BufRead, BufReader};
+    let file = std::fs::File::open(log).ok()?;
+    let reader = BufReader::new(file);
+    let mut last_port = None;
+    for line in reader.lines().map_while(Result::ok) {
+        if line.contains("random port at ") && line.contains("for HTTP") {
+            if let Some(port) = logged_http_port(&line) {
+                last_port = Some(port);
+            }
+        }
+    }
+    last_port
 }
 
 /// `--csrf_token X` or `--csrf_token=X` among a process's arguments.
@@ -595,7 +612,7 @@ fn run_agy() -> Result<String, Fail> {
     let installed = std::env::var_os("LOCALAPPDATA").map(|dir| PathBuf::from(dir).join("agy").join("bin").join("agy.exe"));
     // A Mac app opened from the Finder has no shell PATH: also where Homebrew and installers put the CLI.
     let mac: &[&str] = if cfg!(target_os = "macos") { &["/opt/homebrew/bin/agy", "/usr/local/bin/agy"] } else { &[] };
-    let mut child = [Some(PathBuf::from("agy")), installed]
+    let mut child = [installed, Some(PathBuf::from("agy"))]
         .into_iter()
         .flatten()
         .chain(mac.iter().map(PathBuf::from))
