@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Проверяет среду выполнения, мониторы, захват звука, GPU и шину уведомлений",
   "Warnungen gefunden": "Обнаружены предупреждения",
   "Wird geprüft …": "Проверка …",
-  "{passed} von {total} Prüfungen bestanden": "Пройдено проверок: {passed} из {total}"
+  "{passed} von {total} Prüfungen bestanden": "Пройдено проверок: {passed} из {total}",
+  "Panel-Breite": "Ширина панели",
+  "Panel-Höhe": "Высота панели",
+  "Feste Breite aller Werkzeugfenster": "Фиксированная ширина всех панелей инструментов",
+  "Feste Höhe aller Werkzeugfenster": "Фиксированная высота всех панелей инструментов"
 }

@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Checks runtime environment, displays, audio loopback, GPU and notification bus",
   "Warnungen gefunden": "Warnings found",
   "Wird geprüft …": "Checking …",
-  "{passed} von {total} Prüfungen bestanden": "{passed} of {total} checks passed"
+  "{passed} von {total} Prüfungen bestanden": "{passed} of {total} checks passed",
+  "Panel-Breite": "Panel width",
+  "Panel-Höhe": "Panel height",
+  "Feste Breite aller Werkzeugfenster": "Fixed width across all tool panels",
+  "Feste Höhe aller Werkzeugfenster": "Fixed height across all tool panels"
 }

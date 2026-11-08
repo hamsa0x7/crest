@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "実行環境、ディスプレイ、オーディオループバック、GPU、通知バスを検証します",
   "Warnungen gefunden": "警告が検出されました",
   "Wird geprüft …": "診断中 …",
-  "{passed} von {total} Prüfungen bestanden": "{total} 件中 {passed} 件のテストに合格"
+  "{passed} von {total} Prüfungen bestanden": "{total} 件中 {passed} 件のテストに合格",
+  "Panel-Breite": "パネルの幅",
+  "Panel-Höhe": "パネルの高さ",
+  "Feste Breite aller Werkzeugfenster": "すべてのツールパネルで固定幅",
+  "Feste Höhe aller Werkzeugfenster": "すべてのツールパネルで固定高さ"
 }

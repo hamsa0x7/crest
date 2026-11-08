@@ -1005,30 +1005,30 @@ function Display() {
           <Switch label={t("Klicks bei Sperre durchleiten")} checked={d.lockClickThrough} onChange={(lockClickThrough) => updateSettings((cur) => ({ display: { ...cur.display, lockClickThrough } }))} />
         </Row>
       )}
-      <Row label={t("Minimale Breite des Panels")} hint={t("Mindestbreite des geöffneten Fensters")}>
+      <Row label={t("Panel-Breite")} hint={t("Feste Breite aller Werkzeugfenster")}>
         <div className="flex w-52 items-center gap-2">
           <Slider
-            label={t("Minimale Breite des Panels")}
-            value={d.panelMinWidth}
-            min={520}
+            label={t("Panel-Breite")}
+            value={d.panelWidth ?? 640}
+            min={640}
             max={880}
             step={1}
-            onChange={(panelMinWidth) => updateSettings((cur) => ({ display: { ...cur.display, panelMinWidth } }))}
+            onChange={(panelWidth) => updateSettings((cur) => ({ display: { ...cur.display, panelWidth, panelMinWidth: panelWidth } }))}
           />
-          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelMinWidth} px</span>
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelWidth ?? 640} px</span>
         </div>
       </Row>
-      <Row label={t("Maximale Höhe des Panels")} hint={t("Höchstmaß des geöffneten Fensters")}>
+      <Row label={t("Panel-Höhe")} hint={t("Feste Höhe aller Werkzeugfenster")}>
         <div className="flex w-52 items-center gap-2">
           <Slider
-            label={t("Maximale Höhe des Panels")}
-            value={d.panelMaxHeight}
-            min={400}
+            label={t("Panel-Höhe")}
+            value={d.panelHeight ?? 480}
+            min={480}
             max={800}
             step={1}
-            onChange={(panelMaxHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelMaxHeight } }))}
+            onChange={(panelHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelHeight, panelMaxHeight: panelHeight } }))}
           />
-          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelMaxHeight} px</span>
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelHeight ?? 480} px</span>
         </div>
       </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>

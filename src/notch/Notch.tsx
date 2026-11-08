@@ -15,7 +15,7 @@ import { Nest } from "./pet/Nest";
 import { statusAlert, chargerEvent } from "../features/status/store";
 import { BlackHoleCharger } from "./BlackHoleCharger";
 import { effectiveIdleStyle, screen } from "../features/window/store";
-import { ResizeHandles, stepToolSize, useToolSize, wheelTaken } from "../features/window/panel";
+import { ResizeHandles, stepToolSize, useLiveSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
 import { windowShell } from "../platform/services";
 import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, peekHudGeometry, type NotchGeometry, type PresentationState } from "./geometry";
@@ -29,9 +29,9 @@ import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
 import { ROW, rowRoom, surfaceWidth } from "./row/layout";
-import { limits, toPageCss } from "../features/window/panelSize";
+import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
-import { sizeExtra, sizeOverride } from "./size";
+import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import { notchLocked, lockFeedback, pulseLockFeedback, toggleLock } from "./lock";
 import { CompanionEyes } from "./CompanionEyes";
@@ -191,19 +191,15 @@ export function Notch() {
   useQuickDrop(status, open, dismiss);
 
   const override = sizeOverride.use();
-  const toolSize = useToolSize(tab.id, tab.size);
-  // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
-  // Held to the monitor like a saved size is.
-  const extra = sizeExtra.use();
-  const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
-  const customLimits = { minW: displaySettings.panelMinWidth, maxH: displaySettings.panelMaxHeight };
-  const maxH = limits(tab.size, monitorMetrics().height, customLimits).maxH;
+  const dragging = useLiveSize();
+  const fixedW = Math.max(640, dragging?.w ?? displaySettings.panelWidth ?? displaySettings.panelMinWidth ?? 640);
+  const fixedH = Math.max(480, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 480);
+  const monH = monitorMetrics().height;
+  const clampedH = Math.min(fixedH, Math.max(400, monH - 24));
   const rawSize = overridden
-    ? { w: override.w, h: Math.min(override.h, maxH) }
-    : extraH
-    ? { w: Math.max(customLimits.minW ?? 520, toolSize.w), h: Math.min(toolSize.h + extraH, maxH) }
-    : { w: Math.max(customLimits.minW ?? 520, toolSize.w), h: Math.min(toolSize.h, maxH) };
+    ? { w: Math.max(fixedW, override.w), h: Math.min(Math.max(fixedH, override.h), monH - 24) }
+    : { w: fixedW, h: clampedH };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -668,7 +664,7 @@ export function Notch() {
                 {!side && <Dock tabs={visible} activeId={tab.id} />}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
-                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} />}
+                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={{ w: fixedW, h: clampedH }} size={{ w: fixedW, h: clampedH }} />}
               </motion.div>
 
                       )}

@@ -3,13 +3,16 @@ import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
-import { settings } from "../../settings/store";
+import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { dragSize, limits, sizeFor, stepSize, type Direction, type Edge, type Size } from "./panelSize";
-import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
 const live = createStore<({ tabId: string } & Size) | null>(null);
+
+export function useLiveSize(): Size | null {
+  return live.use();
+}
 
 /** The open size of a tool: dragging, else saved, else its default, within its limits on this monitor. */
 export function useToolSize(id: string, def: Size): Size {
@@ -20,19 +23,26 @@ export function useToolSize(id: string, def: Size): Size {
   return sizeFor(def, saved, monitorMetrics().height);
 }
 
-function save(id: string, size: Size | null) {
-  updateBehavior((b) => {
-    const sizes = { ...b.sizes };
-    if (size) sizes[id] = size;
-    else delete sizes[id];
-    return { sizes };
-  });
+function save(_id: string, size: Size | null) {
+  updateSettings((cur) => ({
+    display: {
+      ...cur.display,
+      panelWidth: size ? Math.max(640, size.w) : 640,
+      panelHeight: size ? Math.max(480, size.h) : 480,
+      panelMinWidth: size ? Math.max(640, size.w) : 640,
+      panelMaxHeight: size ? Math.max(480, size.h) : 480,
+    },
+  }));
 }
 
 /** One press of the resize shortcut on the open tool. */
-export function stepToolSize(id: string, def: Size, dir: Direction) {
-  const lim = limits(def, monitorMetrics().height);
-  save(id, stepSize(sizeFor(def, settings.get().behavior.sizes[id], monitorMetrics().height), dir, lim));
+export function stepToolSize(id: string, _def: Size, dir: Direction) {
+  const lim = limits({ w: 640, h: 480 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
+  const current = {
+    w: settings.get().display.panelWidth ?? 640,
+    h: settings.get().display.panelHeight ?? 480,
+  };
+  save(id, stepSize(current, dir, lim));
 }
 
 const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
@@ -47,7 +57,7 @@ const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
  * Grips at the open panel's side and bottom edges and bottom corners: dragging sets this tool's size (both sides
  * move, the panel stays centred), a double click goes back to the default. Held open while dragging.
  */
-export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: Size }) {
+export function ResizeHandles({ id, def: _def, size }: { id: string; def: Size; size: Size }) {
   // Ends a drag in progress; also on unmount (tab switch, panel closed), so the hold can't stick.
   const end = useRef<(() => void) | null>(null);
   useEffect(() => () => end.current?.(), []);
@@ -60,7 +70,7 @@ export function ResizeHandles({ id, def, size }: { id: string; def: Size; size: 
     const el = e.currentTarget, pointer = e.pointerId;
     el.setPointerCapture(pointer);
     holdOpen(true);
-    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits(def, monitorMetrics().height);
+    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits({ w: 640, h: 480 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
     let current = start;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;

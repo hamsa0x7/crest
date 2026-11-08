@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "检查运行环境、显示器、音频回环、GPU 和通知总线状态",
   "Warnungen gefunden": "发现警告",
   "Wird geprüft …": "正在检查 …",
-  "{passed} von {total} Prüfungen bestanden": "已通过 {passed} / {total} 项检查"
+  "{passed} von {total} Prüfungen bestanden": "已通过 {passed} / {total} 项检查",
+  "Panel-Breite": "面板宽度",
+  "Panel-Höhe": "面板高度",
+  "Feste Breite aller Werkzeugfenster": "所有工具面板的固定宽度",
+  "Feste Höhe aller Werkzeugfenster": "所有工具面板的固定高度"
 }

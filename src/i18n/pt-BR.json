@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Verifica ambiente de execução, monitores, loopback de áudio, GPU e barramento de notificações",
   "Warnungen gefunden": "Avisos encontrados",
   "Wird geprüft …": "Verificando …",
-  "{passed} von {total} Prüfungen bestanden": "{passed} de {total} verificações aprovadas"
+  "{passed} von {total} Prüfungen bestanden": "{passed} de {total} verificações aprovadas",
+  "Panel-Breite": "Largura do painel",
+  "Panel-Höhe": "Altura do painel",
+  "Feste Breite aller Werkzeugfenster": "Largura fixa em todos os painéis de ferramentas",
+  "Feste Höhe aller Werkzeugfenster": "Altura fixa em todos os painéis de ferramentas"
 }

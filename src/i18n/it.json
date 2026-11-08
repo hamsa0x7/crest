@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Controlla ambiente di runtime, schermi, loopback audio, GPU e bus di notifica",
   "Warnungen gefunden": "Avvisi rilevati",
   "Wird geprüft …": "Verifica in corso …",
-  "{passed} von {total} Prüfungen bestanden": "{passed} su {total} controlli superati"
+  "{passed} von {total} Prüfungen bestanden": "{passed} su {total} controlli superati",
+  "Panel-Breite": "Larghezza del pannello",
+  "Panel-Höhe": "Altezza del pannello",
+  "Feste Breite aller Werkzeugfenster": "Larghezza fissa per tutti i pannelli degli strumenti",
+  "Feste Höhe aller Werkzeugfenster": "Altezza fissa per tutti i pannelli degli strumenti"
 }

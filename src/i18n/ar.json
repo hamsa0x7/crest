@@ -1740,5 +1740,9 @@
   "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "فحص بيئة التشغيل والشاشات والتقاط الصوت وكرت الشاشة وناقل الإشعارات",
   "Warnungen gefunden": "تم العثور على تحذيرات",
   "Wird geprüft …": "جارٍ الفحص …",
-  "{passed} von {total} Prüfungen bestanden": "اجتاز {passed} من أصل {total} فحوصات"
+  "{passed} von {total} Prüfungen bestanden": "اجتاز {passed} من أصل {total} فحوصات",
+  "Panel-Breite": "عرض اللوحة",
+  "Panel-Höhe": "ارتفاع اللوحة",
+  "Feste Breite aller Werkzeugfenster": "عرض ثابت لجميع لوحات الأدوات",
+  "Feste Höhe aller Werkzeugfenster": "ارتفاع ثابت لجميع لوحات الأدوات"
 }
