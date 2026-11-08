@@ -26,7 +26,7 @@ export const springs = {
   /** Hover nudge: small and playful, says "I see you". */
   peek: spring(0.26, 0.32),
   /** Shape change while open (tab switch, live activity). */
-  morph: spring(0.36, 0.14),
+  morph: spring(0.18, 0),
   /** Small elements inside (tab pill, toggles). */
   snappy: spring(0.24, 0.12),
 } as const;

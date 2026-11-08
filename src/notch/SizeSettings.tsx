@@ -51,8 +51,8 @@ export function SizeSettings() {
       </Row>
       {style === "notch" && (
         <>
-          <SizeRow label={t("Breite")} value={c.notchWidth} min={LIMITS.notchWidth[0]} max={Math.min(LIMITS.notchWidth[1], wide)} onChange={(notchWidth) => set({ notchWidth })} />
-          <SizeRow label={t("Höhe")} value={c.notchHeight} min={LIMITS.notchHeight[0]} max={LIMITS.notchHeight[1]} onChange={(notchHeight) => set({ notchHeight })} />
+          <SizeRow label={t("Breite")} value={c.notchWidth} min={LIMITS.notchWidth[0]} max={Math.min(wide, Math.max(c.notchWidth, 520))} step={1} onChange={(notchWidth) => set({ notchWidth })} />
+          <SizeRow label={t("Höhe")} value={c.notchHeight} min={LIMITS.notchHeight[0]} max={LIMITS.notchHeight[1]} step={1} onChange={(notchHeight) => set({ notchHeight })} />
           <Row label={t("Geschwungene Ecken")} hint={t("Organische Rundungen, die nahtlos in den Bildschirmrand übergehen")}>
             <Switch label={t("Geschwungene Ecken")} checked={s.display.ears} onChange={(ears) => updateSettings((cur) => ({ display: { ...cur.display, ears } }))} />
           </Row>
@@ -71,8 +71,8 @@ export function SizeSettings() {
       )}
       {style === "capsule" && (
         <>
-          <SizeRow label={t("Breite")} value={c.capsuleWidth} min={LIMITS.capsuleWidth[0]} max={Math.min(LIMITS.capsuleWidth[1], wide)} onChange={(capsuleWidth) => set({ capsuleWidth })} />
-          <SizeRow label={t("Höhe")} value={c.capsuleHeight} min={LIMITS.capsuleHeight[0]} max={LIMITS.capsuleHeight[1]} onChange={(capsuleHeight) => set({ capsuleHeight })} />
+          <SizeRow label={t("Breite")} value={c.capsuleWidth} min={LIMITS.capsuleWidth[0]} max={Math.min(wide, Math.max(c.capsuleWidth, 520))} step={1} onChange={(capsuleWidth) => set({ capsuleWidth })} />
+          <SizeRow label={t("Höhe")} value={c.capsuleHeight} min={LIMITS.capsuleHeight[0]} max={LIMITS.capsuleHeight[1]} step={1} onChange={(capsuleHeight) => set({ capsuleHeight })} />
           <SizeRow
             label={t("Abstand zum Rand")}
             hint={t("Nah am Rand klappt sie wie die Notch vom Rand auf")}

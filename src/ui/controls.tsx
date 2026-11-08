@@ -333,39 +333,129 @@ export function Slider(props: {
   label: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
+  const dragInfo = useRef<{ startVal: number; startScreenX: number; trackWidth: number } | null>(null);
+  const rafId = useRef<number | null>(null);
+  const latestValRef = useRef<number>(props.value);
+  const [dragValue, setDragValue] = useState<number | null>(null);
   const step = props.step ?? 1;
-  const ratio = (props.value - props.min) / (props.max - props.min);
-  const set = (clientX: number) => {
-    const r = track.current!.getBoundingClientRect();
-    const raw =
-      props.min +
-      Math.min(1, Math.max(0, (clientX - r.left) / r.width)) *
-        (props.max - props.min);
-    props.onChange(Math.round(raw / step) * step);
+
+  const shownValue = dragValue ?? props.value;
+  const span = props.max - props.min;
+  const ratio = span > 0 ? Math.max(0, Math.min(1, (shownValue - props.min) / span)) : 0;
+
+  const decimals = (step.toString().split(".")[1] || "").length;
+
+  const clampAndStep = (raw: number) => {
+    const stepped = Math.round((raw - props.min) / step) * step + props.min;
+    return Math.max(props.min, Math.min(props.max, Number(stepped.toFixed(decimals))));
   };
+
+  const dispatchChange = (val: number, immediate = false) => {
+    latestValRef.current = val;
+    setDragValue(val);
+
+    if (immediate) {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+      props.onChange(val);
+    } else if (rafId.current === null) {
+      rafId.current = requestAnimationFrame(() => {
+        rafId.current = null;
+        props.onChange(latestValRef.current);
+      });
+    }
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !track.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const r = track.current.getBoundingClientRect();
+    const trackWidth = Math.max(1, r.width);
+    const clickRatio = Math.max(0, Math.min(1, (e.clientX - r.left) / trackWidth));
+    const initialVal = clampAndStep(props.min + clickRatio * span);
+
+    const screenX = typeof e.screenX === "number" && e.screenX !== 0 ? e.screenX : e.clientX;
+    dragInfo.current = {
+      startVal: initialVal,
+      startScreenX: screenX,
+      trackWidth,
+    };
+
+    dispatchChange(initialVal, true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId) || !dragInfo.current) return;
+
+    const { startVal, startScreenX, trackWidth } = dragInfo.current;
+    const currentScreenX = typeof e.screenX === "number" && e.screenX !== 0 ? e.screenX : e.clientX;
+    const dpr = window.devicePixelRatio || 1;
+    const deltaCssPx = (currentScreenX - startScreenX) / dpr;
+    const startRatio = span > 0 ? (startVal - props.min) / span : 0;
+    const deltaRatio = deltaCssPx / trackWidth;
+    const targetRatio = Math.max(0, Math.min(1, startRatio + deltaRatio));
+    const nextVal = clampAndStep(props.min + targetRatio * span);
+
+    dispatchChange(nextVal, false);
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      if (dragInfo.current) {
+        const { startVal, startScreenX, trackWidth } = dragInfo.current;
+        const currentScreenX = typeof e.screenX === "number" && e.screenX !== 0 ? e.screenX : e.clientX;
+        const dpr = window.devicePixelRatio || 1;
+        const deltaCssPx = (currentScreenX - startScreenX) / dpr;
+        const startRatio = span > 0 ? (startVal - props.min) / span : 0;
+        const deltaRatio = deltaCssPx / trackWidth;
+        const targetRatio = Math.max(0, Math.min(1, startRatio + deltaRatio));
+        const finalVal = clampAndStep(props.min + targetRatio * span);
+        dispatchChange(finalVal, true);
+      }
+      dragInfo.current = null;
+      setDragValue(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+      }
+    };
+  }, []);
+
   return (
     <div
       ref={track}
-      // Filled from the left in every language, like the music scrubber: the pointer math reads from the left too.
       dir="ltr"
       role="slider"
       tabIndex={0}
       aria-label={props.label}
-      aria-valuenow={props.value}
+      aria-valuenow={shownValue}
       aria-valuemin={props.min}
       aria-valuemax={props.max}
       className="relative flex h-5 w-full cursor-pointer touch-none items-center rounded-full outline-none focus-visible:ring-1 focus-visible:ring-label-3"
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        set(e.clientX);
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => {
+        dragInfo.current = null;
+        setDragValue(null);
       }}
-      onPointerMove={(e) =>
-        e.currentTarget.hasPointerCapture(e.pointerId) && set(e.clientX)
-      }
+      onLostPointerCapture={() => {
+        dragInfo.current = null;
+        setDragValue(null);
+      }}
       onKeyDown={(e) => {
         const to = sliderKey(e.key, props.value, step, props.min, props.max);
         if (to === undefined) return;
         e.preventDefault();
+        dragInfo.current = null;
+        setDragValue(null);
         props.onChange(to);
       }}
     >

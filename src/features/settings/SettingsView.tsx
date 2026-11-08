@@ -1006,29 +1006,29 @@ function Display() {
         </Row>
       )}
       <Row label={t("Minimale Breite des Panels")} hint={t("Mindestbreite des geöffneten Fensters")}>
-        <div className="flex w-44 items-center gap-2">
+        <div className="flex w-52 items-center gap-2">
           <Slider
             label={t("Minimale Breite des Panels")}
             value={d.panelMinWidth}
             min={520}
             max={880}
-            step={20}
+            step={1}
             onChange={(panelMinWidth) => updateSettings((cur) => ({ display: { ...cur.display, panelMinWidth } }))}
           />
-          <span className="w-10 text-right text-caption text-label-2 tabular-nums">{d.panelMinWidth}px</span>
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelMinWidth} px</span>
         </div>
       </Row>
       <Row label={t("Maximale Höhe des Panels")} hint={t("Höchstmaß des geöffneten Fensters")}>
-        <div className="flex w-44 items-center gap-2">
+        <div className="flex w-52 items-center gap-2">
           <Slider
             label={t("Maximale Höhe des Panels")}
             value={d.panelMaxHeight}
             min={400}
             max={800}
-            step={20}
+            step={1}
             onChange={(panelMaxHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelMaxHeight } }))}
           />
-          <span className="w-10 text-right text-caption text-label-2 tabular-nums">{d.panelMaxHeight}px</span>
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelMaxHeight} px</span>
         </div>
       </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>

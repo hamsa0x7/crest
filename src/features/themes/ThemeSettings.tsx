@@ -464,7 +464,7 @@ function RimSettings() {
               <Slider
                 min={0.5}
                 max={2.5}
-                step={0.1}
+                step={0.05}
                 value={d.rimThickness}
                 onChange={(rimThickness) => updateDisplay({ rimThickness })}
                 label={t("Rand-Dicke")}
@@ -479,7 +479,7 @@ function RimSettings() {
               <Slider
                 min={0}
                 max={100}
-                step={5}
+                step={1}
                 value={d.rimGlow}
                 onChange={(rimGlow) => updateDisplay({ rimGlow })}
                 label={t("Leucht-Intensität")}
@@ -537,7 +537,7 @@ function FrostedGlassSettings() {
               <Slider
                 min={20}
                 max={95}
-                step={5}
+                step={1}
                 value={d.glassOpacity}
                 onChange={(glassOpacity) => updateDisplay({ glassOpacity })}
                 label={t("Deckkraft")}

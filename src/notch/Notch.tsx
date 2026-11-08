@@ -390,28 +390,15 @@ export function Notch() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (focus || editing || isLocked) return;
-    if (status === "closed" && displaySettings.pressToPin) {
-      window.clearTimeout(pressHoldTimer.current);
-      pressHoldTimer.current = window.setTimeout(() => {
-        if (!drag.moved()) {
-          pinned.set(true);
-          open();
-          pulseLockFeedback("unlocked");
-        }
-      }, 500);
-    }
     drag.onPointerDown(e);
   };
 
   const onPointerUp = () => {
-    window.clearTimeout(pressHoldTimer.current);
-    pressHoldTimer.current = undefined;
+    // Pointer released
   };
 
   /** Opens on `tab` (null = as usual). */
   const openOn = (tab: string | null) => {
-    window.clearTimeout(pressHoldTimer.current);
-    pressHoldTimer.current = undefined;
     // Only remember it while opening, otherwise it would stick for the next open.
     trayTab.current = status === "open" ? null : tab;
     if (tab) navigate(tab);
@@ -429,7 +416,7 @@ export function Notch() {
   const onWheel = (e: React.WheelEvent) => {
     if (status === "open") {
       const target = e.target as HTMLElement | null;
-      if (!target?.closest?.("[data-dock], header, [data-header]")) return;
+      if (!target?.closest?.("[data-dock]")) return;
       if (!behavior.wheelTools || pageTabs.includes(tab)) return;
       if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
       const now = performance.now(), quiet = now - wheelAt.current > 350;
@@ -643,7 +630,7 @@ export function Notch() {
                 data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
                 className={`absolute isolate flex ${side ? (edge === "left" ? "flex-row" : "flex-row-reverse") : "flex-col"} ${PANEL_ANCHOR[edge]}`}
-                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }), ...(backdrop && darkInk()) }}
+                style={{ width: size.w, height: size.h, ...(side ? { marginTop: -size.h / 2 } : { marginLeft: -size.w / 2 }), ...(backdrop && darkInk()), transition: "width 0.16s cubic-bezier(0.2, 0, 0, 1), height 0.16s cubic-bezier(0.2, 0, 0, 1), margin 0.16s cubic-bezier(0.2, 0, 0, 1)" }}
                 // No scale here: scaling re-rasterizes the small dock icons at shifting subpixels every frame, which reads as jitter (issue #3).
                 // No blur either: blurring the whole panel cost a 50-70 ms frame on every open in WebView2 at 200 %.
                 initial={{ opacity: 0, transform: SLIDE_IN[edge] }}
