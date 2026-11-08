@@ -1,9 +1,11 @@
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { springs } from "../../design/motion";
 import { t } from "../../i18n";
 import { settings } from "../../settings/store";
 import { discordState } from "../discord/store";
 import { privacy } from "./store";
+import { PrivacyPopover } from "./PrivacyPopover";
 
 /** Dot size and the space between two dots. */
 const DOT = 6, DOT_GAP = 5;
@@ -18,28 +20,54 @@ export function usePrivacyDots(): ("red" | "green")[] {
   return enabled ? [p.screen && ("red" as const), talk && ("green" as const)].filter((d): d is "red" | "green" => !!d) : [];
 }
 
-/** Dots like on iPhone, in a row. While you talk in a Discord call, the green dot glows. */
+/** Dots like on iPhone, in a row. While you talk in a Discord call, the green dot glows. Clicking opens the active process popover. */
 export function Dots({ dots }: { dots: ("red" | "green")[] }) {
   const call = discordState.use().call;
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (triggerRef.current) {
+      setTriggerRect(triggerRef.current.getBoundingClientRect());
+    }
+    setPopoverOpen((v) => !v);
+  };
+
   return (
-    <div className="pointer-events-none flex items-center" style={{ gap: DOT_GAP }}>
-      <AnimatePresence>
-        {dots.map((color) => (
-          <motion.span
-            key={color}
-            className="privacy-dot shrink-0 rounded-full"
-            role="status"
-            aria-label={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
-            data-pulse={color === "green" && call?.speaking ? true : undefined}
-            style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
-            initial={{ opacity: 0, transform: "scale(0.9)" }}
-            animate={{ opacity: 1, transform: "scale(1)" }}
-            exit={{ opacity: 0, transform: "scale(0.9)" }}
-            transition={springs.snappy}
-          />
-        ))}
-      </AnimatePresence>
-    </div>
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-label={t("Sensor-Aktivität anzeigen")}
+        className="pointer-events-auto flex items-center p-1 -m-1 rounded-full cursor-pointer hover:opacity-80 active:scale-95 transition-transform focus:outline-none"
+        style={{ gap: DOT_GAP }}
+      >
+        <AnimatePresence>
+          {dots.map((color) => (
+            <motion.span
+              key={color}
+              className="privacy-dot shrink-0 rounded-full"
+              role="status"
+              aria-label={color === "red" ? t("Bildschirm wird aufgenommen") : t("Mikrofon oder Kamera aktiv")}
+              data-pulse={color === "green" && call?.speaking ? true : undefined}
+              style={{ width: DOT, height: DOT, backgroundColor: `var(--color-${color})`, ["--dot" as string]: `var(--color-${color})` }}
+              initial={{ opacity: 0, transform: "scale(0.9)" }}
+              animate={{ opacity: 1, transform: "scale(1)" }}
+              exit={{ opacity: 0, transform: "scale(0.9)" }}
+              transition={springs.snappy}
+            />
+          ))}
+        </AnimatePresence>
+      </button>
+      <PrivacyPopover
+        open={popoverOpen}
+        onClose={() => setPopoverOpen(false)}
+        triggerRect={triggerRect}
+      />
+    </>
   );
 }
 
@@ -48,9 +76,10 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
  *  `beside`: their centre, in px right of the shape's middle, where a notice card covers the row's own dots. */
 export function PrivacyDots({ centered = false, beside }: { centered?: boolean; beside?: number }) {
   const dots = usePrivacyDots();
+  if (!dots.length) return null;
   return (
     <div
-      className={`pointer-events-none absolute flex items-center ${centered ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : beside !== undefined ? "top-0 left-1/2 h-[30px] -translate-x-1/2" : "top-0 left-1/2 ml-[24px] h-[30px]"}`}
+      className={`pointer-events-auto absolute flex items-center ${centered ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : beside !== undefined ? "top-0 left-1/2 h-[30px] -translate-x-1/2" : "top-0 left-1/2 ml-[24px] h-[30px]"}`}
       style={beside !== undefined && !centered ? { marginLeft: beside } : undefined}
     >
       <Dots dots={dots} />

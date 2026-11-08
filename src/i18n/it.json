@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Larghezza del pannello",
   "Panel-Höhe": "Altezza del pannello",
   "Feste Breite aller Werkzeugfenster": "Larghezza fissa per tutti i pannelli degli strumenti",
-  "Feste Höhe aller Werkzeugfenster": "Altezza fissa per tutti i pannelli degli strumenti"
+  "Feste Höhe aller Werkzeugfenster": "Altezza fissa per tutti i pannelli degli strumenti",
+  "Aktive Anwendung": "Applicazione attiva",
+  "Beenden": "Termina",
+  "Bildschirm": "Schermo",
+  "Keine Sensoren aktiv": "Nessun sensore attivo",
+  "Sensor-Aktivität": "Attività sensori",
+  "Sensor-Aktivität anzeigen": "Mostra attività sensori",
+  "Stoppen": "Interrompi",
+  "Stumm aus": "Riattiva audio"
 }

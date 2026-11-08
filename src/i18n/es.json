@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Anchura del panel",
   "Panel-Höhe": "Altura del panel",
   "Feste Breite aller Werkzeugfenster": "Anchura fija en todos los paneles de herramientas",
-  "Feste Höhe aller Werkzeugfenster": "Altura fija en todos los paneles de herramientas"
+  "Feste Höhe aller Werkzeugfenster": "Altura fija en todos los paneles de herramientas",
+  "Aktive Anwendung": "Aplicación activa",
+  "Beenden": "Finalizar",
+  "Bildschirm": "Pantalla",
+  "Keine Sensoren aktiv": "No hay sensores activos",
+  "Sensor-Aktivität": "Actividad de sensores",
+  "Sensor-Aktivität anzeigen": "Mostrar actividad de sensores",
+  "Stoppen": "Detener",
+  "Stumm aus": "Reactivar"
 }

@@ -1744,5 +1744,13 @@
   "Panel-Breite": "パネルの幅",
   "Panel-Höhe": "パネルの高さ",
   "Feste Breite aller Werkzeugfenster": "すべてのツールパネルで固定幅",
-  "Feste Höhe aller Werkzeugfenster": "すべてのツールパネルで固定高さ"
+  "Feste Höhe aller Werkzeugfenster": "すべてのツールパネルで固定高さ",
+  "Aktive Anwendung": "アクティブなアプリ",
+  "Beenden": "終了",
+  "Bildschirm": "画面",
+  "Keine Sensoren aktiv": "アクティブなセンサーはありません",
+  "Sensor-Aktivität": "センサーのアクティビティ",
+  "Sensor-Aktivität anzeigen": "センサーのアクティビティを表示",
+  "Stoppen": "停止",
+  "Stumm aus": "ミュート解除"
 }

@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Ширина панели",
   "Panel-Höhe": "Высота панели",
   "Feste Breite aller Werkzeugfenster": "Фиксированная ширина всех панелей инструментов",
-  "Feste Höhe aller Werkzeugfenster": "Фиксированная высота всех панелей инструментов"
+  "Feste Höhe aller Werkzeugfenster": "Фиксированная высота всех панелей инструментов",
+  "Aktive Anwendung": "Активное приложение",
+  "Beenden": "Завершить",
+  "Bildschirm": "Экран",
+  "Keine Sensoren aktiv": "Нет активных датчиков",
+  "Sensor-Aktivität": "Активность датчиков",
+  "Sensor-Aktivität anzeigen": "Показать активность датчиков",
+  "Stoppen": "Остановить",
+  "Stumm aus": "Включить микрофон"
 }

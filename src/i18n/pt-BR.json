@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Largura do painel",
   "Panel-Höhe": "Altura do painel",
   "Feste Breite aller Werkzeugfenster": "Largura fixa em todos os painéis de ferramentas",
-  "Feste Höhe aller Werkzeugfenster": "Altura fixa em todos os painéis de ferramentas"
+  "Feste Höhe aller Werkzeugfenster": "Altura fixa em todos os painéis de ferramentas",
+  "Aktive Anwendung": "Aplicativo ativo",
+  "Beenden": "Finalizar",
+  "Bildschirm": "Tela",
+  "Keine Sensoren aktiv": "Nenhum sensor ativo",
+  "Sensor-Aktivität": "Atividade dos sensores",
+  "Sensor-Aktivität anzeigen": "Mostrar atividade dos sensores",
+  "Stoppen": "Parar",
+  "Stumm aus": "Ativar microfone"
 }

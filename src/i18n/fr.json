@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Largeur du panneau",
   "Panel-Höhe": "Hauteur du panneau",
   "Feste Breite aller Werkzeugfenster": "Largeur fixe pour tous les panneaux d'outils",
-  "Feste Höhe aller Werkzeugfenster": "Hauteur fixe pour tous les panneaux d'outils"
+  "Feste Höhe aller Werkzeugfenster": "Hauteur fixe pour tous les panneaux d'outils",
+  "Aktive Anwendung": "Application active",
+  "Beenden": "Terminer",
+  "Bildschirm": "Écran",
+  "Keine Sensoren aktiv": "Aucun capteur actif",
+  "Sensor-Aktivität": "Activité des capteurs",
+  "Sensor-Aktivität anzeigen": "Afficher l'activité des capteurs",
+  "Stoppen": "Arrêter",
+  "Stumm aus": "Réactiver"
 }

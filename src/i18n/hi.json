@@ -1744,5 +1744,13 @@
   "Panel-Breite": "पैनल की चौड़ाई",
   "Panel-Höhe": "पैनल की ऊंचाई",
   "Feste Breite aller Werkzeugfenster": "सभी टूल पैनल में निश्चित चौड़ाई",
-  "Feste Höhe aller Werkzeugfenster": "सभी टूल पैनल में निश्चित ऊंचाई"
+  "Feste Höhe aller Werkzeugfenster": "सभी टूल पैनल में निश्चित ऊंचाई",
+  "Aktive Anwendung": "सक्रिय एप्लिकेशन",
+  "Beenden": "समाप्त करें",
+  "Bildschirm": "स्क्रीन",
+  "Keine Sensoren aktiv": "कोई सेंसर सक्रिय नहीं है",
+  "Sensor-Aktivität": "सेंसर गतिविधि",
+  "Sensor-Aktivität anzeigen": "सेंसर गतिविधि दिखाएं",
+  "Stoppen": "रोकें",
+  "Stumm aus": "अनम्यूट करें"
 }

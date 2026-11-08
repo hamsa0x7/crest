@@ -1744,5 +1744,13 @@
   "Panel-Breite": "面板宽度",
   "Panel-Höhe": "面板高度",
   "Feste Breite aller Werkzeugfenster": "所有工具面板的固定宽度",
-  "Feste Höhe aller Werkzeugfenster": "所有工具面板的固定高度"
+  "Feste Höhe aller Werkzeugfenster": "所有工具面板的固定高度",
+  "Aktive Anwendung": "活跃应用",
+  "Beenden": "结束",
+  "Bildschirm": "屏幕",
+  "Keine Sensoren aktiv": "无活跃传感器",
+  "Sensor-Aktivität": "传感器活动",
+  "Sensor-Aktivität anzeigen": "显示传感器活动",
+  "Stoppen": "停止",
+  "Stumm aus": "取消静音"
 }

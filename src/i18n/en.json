@@ -1744,5 +1744,13 @@
   "Panel-Breite": "Panel width",
   "Panel-Höhe": "Panel height",
   "Feste Breite aller Werkzeugfenster": "Fixed width across all tool panels",
-  "Feste Höhe aller Werkzeugfenster": "Fixed height across all tool panels"
+  "Feste Höhe aller Werkzeugfenster": "Fixed height across all tool panels",
+  "Aktive Anwendung": "Active application",
+  "Beenden": "Stop",
+  "Bildschirm": "Screen",
+  "Keine Sensoren aktiv": "No active sensors",
+  "Sensor-Aktivität": "Sensor activity",
+  "Sensor-Aktivität anzeigen": "Show sensor activity",
+  "Stoppen": "Stop",
+  "Stumm aus": "Unmute"
 }

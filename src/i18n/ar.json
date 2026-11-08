@@ -1744,5 +1744,13 @@
   "Panel-Breite": "عرض اللوحة",
   "Panel-Höhe": "ارتفاع اللوحة",
   "Feste Breite aller Werkzeugfenster": "عرض ثابت لجميع لوحات الأدوات",
-  "Feste Höhe aller Werkzeugfenster": "ارتفاع ثابت لجميع لوحات الأدوات"
+  "Feste Höhe aller Werkzeugfenster": "ارتفاع ثابت لجميع لوحات الأدوات",
+  "Aktive Anwendung": "تطبيق نشط",
+  "Beenden": "إنهاء",
+  "Bildschirm": "الشاشة",
+  "Keine Sensoren aktiv": "لا توجد مستشعرات نشطة",
+  "Sensor-Aktivität": "نشاط المستشعرات",
+  "Sensor-Aktivität anzeigen": "عرض نشاط المستشعرات",
+  "Stoppen": "إيقاف",
+  "Stumm aus": "إلغاء الكتم"
 }

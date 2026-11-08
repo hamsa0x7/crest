@@ -697,10 +697,20 @@ export interface PrivacyState {
   mic: boolean;
   camera: boolean;
   screen: boolean;
+  mic_apps?: string[];
+  camera_apps?: string[];
+  screen_apps?: string[];
 }
 
 /** Toggled from the dev panel in the browser. */
-export const mockPrivacy: PrivacyState = { mic: false, camera: false, screen: false };
+export const mockPrivacy: PrivacyState = {
+  mic: false,
+  camera: false,
+  screen: false,
+  mic_apps: [],
+  camera_apps: [],
+  screen_apps: [],
+};
 
 export function fetchPrivacy(): Promise<PrivacyState> {
   return isNative ? invoke<PrivacyState>("privacy_state") : Promise.resolve({ ...mockPrivacy });

@@ -16,11 +16,14 @@ use windows::Win32::System::Registry::{RegCloseKey, RegEnumKeyExW, RegOpenKeyExW
 
 const BASE: &str = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Privacy {
-    mic: bool,
-    camera: bool,
-    screen: bool,
+    pub mic: bool,
+    pub camera: bool,
+    pub screen: bool,
+    pub mic_apps: Vec<String>,
+    pub camera_apps: Vec<String>,
+    pub screen_apps: Vec<String>,
 }
 
 /// Crest's own entries: its exe path as the consent store spells it (`\` as `#`) and, in the Store build, its
@@ -50,28 +53,90 @@ impl Own {
 // async: the registry walk runs off the main thread, which animates the notch.
 #[tauri::command(async)]
 pub fn privacy_state() -> Privacy {
-    let busy = |cap: &str| in_use(&format!(r"{BASE}\{cap}"), Own::get());
-    Privacy { mic: busy("microphone"), camera: busy("webcam"), screen: busy("graphicsCaptureProgrammatic") }
+    let own = Own::get();
+    let mic_apps = active_apps("microphone", own);
+    let camera_apps = active_apps("webcam", own);
+    let screen_apps = active_apps("graphicsCaptureProgrammatic", own);
+    Privacy {
+        mic: !mic_apps.is_empty(),
+        camera: !camera_apps.is_empty(),
+        screen: !screen_apps.is_empty(),
+        mic_apps,
+        camera_apps,
+        screen_apps,
+    }
 }
 
-/// Is any app under `path` (or `path\NonPackaged`) active right now?
-fn in_use(path: &str, own: &Own) -> bool {
-    let Some(key) = open(HKEY_CURRENT_USER, path) else { return false };
-    let mut active = false;
+/// Discovers active applications querying sensor/screen access under ConsentStore
+fn active_apps(capability: &str, own: &Own) -> Vec<String> {
+    let path = format!(r"{BASE}\\{capability}");
+    let mut apps = Vec::new();
+    let Some(key) = open(HKEY_CURRENT_USER, &path) else { return apps };
     for name in subkeys(key) {
         let Some(sub) = open(key, &name) else { continue };
         if name == "NonPackaged" {
-            active |= subkeys(sub).iter().filter(|n| !own.is(n, true)).any(|n| open(sub, n).is_some_and(|k| running_close(k)));
+            for n in subkeys(sub) {
+                if !own.is(&n, true) {
+                    if let Some(k) = open(sub, &n) {
+                        if running_close(k) {
+                            apps.push(friendly_app_name(&n));
+                        }
+                    }
+                }
+            }
         } else if !own.is(&name, false) {
-            active |= running(sub);
+            if running(sub) {
+                apps.push(friendly_package_name(&name));
+            }
         }
         close(sub);
-        if active {
-            break;
-        }
     }
     close(key);
-    active
+    apps.sort();
+    apps.dedup();
+    apps
+}
+
+pub fn friendly_app_name(raw: &str) -> String {
+    let clean = raw.replace('\\', "#").replace('/', "#");
+    let file = clean.rsplit('#').next().unwrap_or(raw);
+    let stem = file.strip_suffix(".exe").or_else(|| file.strip_suffix(".EXE")).unwrap_or(file);
+    match stem.to_lowercase().as_str() {
+        "obs64" | "obs32" | "obs" => "OBS Studio".to_string(),
+        "discord" => "Discord".to_string(),
+        "teams" | "ms-teams" => "Microsoft Teams".to_string(),
+        "chrome" => "Google Chrome".to_string(),
+        "firefox" => "Mozilla Firefox".to_string(),
+        "msedge" => "Microsoft Edge".to_string(),
+        "slack" => "Slack".to_string(),
+        "zoom" => "Zoom".to_string(),
+        "code" => "Visual Studio Code".to_string(),
+        "spotify" => "Spotify".to_string(),
+        other => {
+            let mut chars = other.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        }
+    }
+}
+
+pub fn friendly_package_name(raw: &str) -> String {
+    let pkg = raw.split('_').next().unwrap_or(raw);
+    let name = pkg.split('.').last().unwrap_or(pkg);
+    let mut out = String::new();
+    for (i, ch) in name.chars().enumerate() {
+        if i > 0 && ch.is_uppercase() {
+            out.push(' ');
+        }
+        out.push(ch);
+    }
+    if out.is_empty() {
+        raw.to_string()
+    } else {
+        out
+    }
 }
 
 /// Start set and Stop = 0 → in use.
@@ -123,6 +188,15 @@ fn qword(key: HKEY, name: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn parses_friendly_names() {
+        assert_eq!(super::friendly_app_name(r"C:#Program Files#Discord#app-1.0#discord.exe"), "Discord");
+        assert_eq!(super::friendly_app_name(r"C:\Users\User\bin\obs64.exe"), "OBS Studio");
+        assert_eq!(super::friendly_app_name("zoom.exe"), "Zoom");
+        assert_eq!(super::friendly_package_name("Microsoft.WindowsCamera_8wekyb3d8bbwe"), "Windows Camera");
+    }
+
     use super::Own;
 
     #[test]

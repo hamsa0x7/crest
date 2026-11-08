@@ -9,7 +9,14 @@ import { settings, updateSettings } from "../../settings/store";
  */
 const POLL_MS = 1500;
 
-export const privacy = createStore<PrivacyState>({ mic: false, camera: false, screen: false });
+export const privacy = createStore<PrivacyState>({
+  mic: false,
+  camera: false,
+  screen: false,
+  mic_apps: [],
+  camera_apps: [],
+  screen_apps: [],
+});
 
 /** "Off for now" during an auto-detected recording; resets when the recording ends. */
 const snoozed = createStore(false);
@@ -23,7 +30,17 @@ function syncPolling() {
     const load = () =>
       void fetchPrivacy().then((next) => {
         const prev = privacy.get();
-        if (prev.mic === next.mic && prev.camera === next.camera && prev.screen === next.screen) return;
+        const arraysEqual = (a?: string[], b?: string[]) =>
+          (!a && !b) || (!!a && !!b && a.length === b.length && a.every((v, i) => v === b[i]));
+        if (
+          prev.mic === next.mic &&
+          prev.camera === next.camera &&
+          prev.screen === next.screen &&
+          arraysEqual(prev.mic_apps, next.mic_apps) &&
+          arraysEqual(prev.camera_apps, next.camera_apps) &&
+          arraysEqual(prev.screen_apps, next.screen_apps)
+        )
+          return;
         if (!next.screen) snoozed.set(false);
         privacy.set(next);
       });
@@ -33,7 +50,7 @@ function syncPolling() {
     window.clearInterval(poll);
     poll = undefined;
     snoozed.set(false);
-    privacy.set({ mic: false, camera: false, screen: false });
+    privacy.set({ mic: false, camera: false, screen: false, mic_apps: [], camera_apps: [], screen_apps: [] });
   }
 }
 settings.subscribe(syncPolling);
