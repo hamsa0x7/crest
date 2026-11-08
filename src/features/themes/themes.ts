@@ -40,6 +40,7 @@ export interface ThemeSettings {
   font: FontId;
   /** Material You dynamic color palette extracted from desktop wallpaper. */
   materialYou?: boolean;
+  materialYouAccent?: string;
 }
 
 /** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width

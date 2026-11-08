@@ -3,7 +3,7 @@ import { animate, motion, useMotionValue, useTransform, type Transition } from "
 import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
 
-import { getRimGlowShadow, getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset } from "./rim";
+import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset } from "./rim";
 
 interface Props {
   geometry: NotchGeometry;
@@ -71,8 +71,7 @@ export function NotchShape({
   }
 
   const rimStops = getRimStops(rimPreset, rimCustomStart, rimCustomEnd);
-  const rimGlowShadow = getRimGlowShadow(rimPreset, rimGlow, rimCustomStart);
-
+  
   const baseShape = elevated ? "var(--color-notch)" : "var(--notch-closed)";
   const shapeColor = getFrostedShapeColor(baseShape, frostedGlass, glassOpacity);
 
@@ -215,19 +214,7 @@ export function NotchShape({
           style={{ fill: "var(--accent)" }}
         />
       </motion.svg>
-      {rimGlowShadow && (
-        <motion.div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            borderTopLeftRadius: rt,
-            borderTopRightRadius: rt,
-            borderBottomLeftRadius: r,
-            borderBottomRightRadius: r,
-            boxShadow: rimGlowShadow,
-          }}
-        />
-      )}
+
       <motion.div
         aria-hidden
         className="absolute inset-0 pointer-events-none"

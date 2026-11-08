@@ -47,10 +47,29 @@ function apply() {
   if (key === lastKey) return;
   lastKey = key;
   const resolved = resolveTheme(file);
+  const st = settings.get();
+  if (st.themes?.materialYou && st.themes?.materialYouAccent) {
+    resolved.vars["--theme-accent"] = st.themes.materialYouAccent;
+    resolved.vars["--theme-accent-bright"] = st.themes.materialYouAccent;
+  }
   const root = document.documentElement.style;
   for (const [name, value] of Object.entries(resolved.vars)) root.setProperty(name, value);
   document.documentElement.dataset.theme = resolved.dark ? "dark" : "light";
   activeTheme.set(resolved);
+}
+
+export async function syncWallpaperAccent() {
+  try {
+    const src = await themeFiles.wallpaper();
+    if (!src) return;
+    const { accentFrom } = await import("../../lib/accent");
+    const accent = src.startsWith("#") ? src : await accentFrom(src);
+    updateSettings((cur) => ({
+      themes: { ...cur.themes, materialYouAccent: accent },
+    }));
+    document.documentElement.style.setProperty("--theme-accent", accent);
+    document.documentElement.style.setProperty("--theme-accent-bright", accent);
+  } catch {}
 }
 
 let timer = 0;
@@ -90,6 +109,9 @@ export function startThemes() {
   apply();
   applyFont();
   scheduleNext();
+  if (settings.get().themes?.materialYou) {
+    void syncWallpaperAccent();
+  }
   settings.subscribe(() => {
     apply();
     applyFont();

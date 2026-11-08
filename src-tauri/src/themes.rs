@@ -83,12 +83,44 @@ pub async fn themes_write(app: AppHandle, id: String, text: String) -> Result<St
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// Queries the active Windows desktop wallpaper file path for dynamic accent palette generation.
+#[cfg(windows)]
+fn get_windows_accent_color() -> Option<String> {
+    use windows::core::w;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+
+    let mut val: u32 = 0;
+    let mut size: u32 = 4;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\DWM"),
+            w!("AccentColor"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut val as *mut _ as *mut _),
+            Some(&mut size),
+        )
+    };
+    if status == ERROR_SUCCESS {
+        // AccentColor is 0xAABBGGRR
+        let r = val & 0xFF;
+        let g = (val >> 8) & 0xFF;
+        let b = (val >> 16) & 0xFF;
+        return Some(format!("#{:02x}{:02x}{:02x}", r, g, b));
+    }
+    None
+}
+
+/// Queries the active Windows desktop wallpaper file or accent color for dynamic palette generation.
 #[tauri::command]
 pub async fn get_desktop_wallpaper() -> Result<Option<String>, String> {
     #[cfg(windows)]
     {
+        use base64::prelude::*;
         use windows::Win32::UI::WindowsAndMessaging::{SystemParametersInfoW, SPI_GETDESKWALLPAPER, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS};
+
+        // 1. Try SPI_GETDESKWALLPAPER
         let mut buffer = [0u16; 512];
         let ok = unsafe {
             SystemParametersInfoW(
@@ -98,23 +130,49 @@ pub async fn get_desktop_wallpaper() -> Result<Option<String>, String> {
                 SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
             )
         };
+        let mut wallpaper_path: Option<PathBuf> = None;
         if ok.is_ok() {
             let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
             let path_str = String::from_utf16_lossy(&buffer[..len]);
-            if !path_str.trim().is_empty() && std::path::Path::new(&path_str).exists() {
-                return Ok(Some(path_str));
+            let path = PathBuf::from(path_str.trim());
+            if path.exists() && path.is_file() {
+                wallpaper_path = Some(path);
             }
         }
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            let transcoded = std::path::Path::new(&appdata)
-                .join("Microsoft")
-                .join("Windows")
-                .join("Themes")
-                .join("TranscodedWallpaper");
-            if transcoded.exists() {
-                return Ok(Some(transcoded.to_string_lossy().into_owned()));
+
+        // 2. Fallback to TranscodedWallpaper in APPDATA
+        if wallpaper_path.is_none() {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let transcoded = PathBuf::from(appdata)
+                    .join("Microsoft")
+                    .join("Windows")
+                    .join("Themes")
+                    .join("TranscodedWallpaper");
+                if transcoded.exists() && transcoded.is_file() {
+                    wallpaper_path = Some(transcoded);
+                }
             }
         }
+
+        // 3. If a wallpaper file is found, decode and resize to 32x32 thumbnail JPEG data URL
+        if let Some(path) = wallpaper_path {
+            if let Ok(bytes) = fs::read(&path) {
+                if let Ok(img) = image::load_from_memory(&bytes) {
+                    let thumb = img.thumbnail(32, 32);
+                    let mut buf = std::io::Cursor::new(Vec::new());
+                    if thumb.write_to(&mut buf, image::ImageFormat::Jpeg).is_ok() {
+                        let b64 = BASE64_STANDARD.encode(buf.into_inner());
+                        return Ok(Some(format!("data:image/jpeg;base64,{b64}")));
+                    }
+                }
+            }
+        }
+
+        // 4. Fallback: DWM AccentColor from Windows Registry
+        if let Some(accent) = get_windows_accent_color() {
+            return Ok(Some(accent));
+        }
+
         Ok(None)
     }
     #[cfg(not(windows))]

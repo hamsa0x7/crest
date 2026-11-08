@@ -460,7 +460,7 @@ function RimSettings() {
       {d.rimPreset !== "none" && (
         <>
           <Row label={t("Rand-Dicke")}>
-            <div className="flex w-48 items-center gap-2">
+            <div className="flex w-52 items-center gap-2">
               <Slider
                 min={0.5}
                 max={2.5}
@@ -475,7 +475,7 @@ function RimSettings() {
             </div>
           </Row>
           <Row label={t("Leucht-Intensität")}>
-            <div className="flex w-48 items-center gap-2">
+            <div className="flex w-52 items-center gap-2">
               <Slider
                 min={0}
                 max={100}
@@ -533,7 +533,7 @@ function FrostedGlassSettings() {
       {d.frostedGlass && (
         <>
           <Row label={t("Deckkraft")}>
-            <div className="flex w-48 items-center gap-2">
+            <div className="flex w-52 items-center gap-2">
               <Slider
                 min={20}
                 max={95}
