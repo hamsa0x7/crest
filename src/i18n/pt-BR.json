@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "Bloquear Notch (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "Altura da zona de exclusão",
   "Tab-Einklappen": "Recolhimento sob abas",
-  "Tab-Leisten-Schutz": "Imunidade da barra de abas"
+  "Tab-Leisten-Schutz": "Imunidade da barra de abas",
+  "Alle Subsysteme betriebsbereit": "Todos os subsistemas operacionais",
+  "Bericht kopieren": "Copiar relatório",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "Mostrar detalhes",
+  "Details ausblenden": "Ocultar detalhes",
+  "Prüfen": "Verificar",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Verifica ambiente de execução, monitores, loopback de áudio, GPU e barramento de notificações",
+  "Warnungen gefunden": "Avisos encontrados",
+  "Wird geprüft …": "Verificando …",
+  "{passed} von {total} Prüfungen bestanden": "{passed} de {total} verificações aprovadas"
 }

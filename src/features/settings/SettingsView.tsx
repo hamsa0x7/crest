@@ -8,6 +8,7 @@ import {
   ChartDonut,
   CloudSun,
   CheckCircle,
+  WarningCircle,
   Clock,
   Cpu,
   DownloadSimple,
@@ -49,6 +50,8 @@ import {
   portable,
   secrets,
   systemDiagnostics,
+  runDoctor,
+  type DoctorReport,
   unlockFps,
   type MonitorInfo,
   type SecretName,
@@ -458,6 +461,7 @@ function Updates() {
       </Row>
       {u.store && <Row label={t("Updates kommen über den Microsoft Store")} />}
       <DiagnosticsRow />
+      <DoctorRow />
       <PortableNote />
       <AnimatePresence initial={false}>
         {(u.phase === "available" || u.phase === "downloading") && u.version && (
@@ -512,6 +516,112 @@ function Updates() {
 }
 
 /** Copies a plain-text block for bug reports (diagnostics.ts): versions, Windows, monitors, settings and error codes only. */
+
+function DoctorRow() {
+  const [report, setReport] = useState<DoctorReport | null>(null);
+  const [running, setRunning] = useState(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const executeDoctor = async () => {
+    setRunning(true);
+    try {
+      const rep = await runDoctor();
+      setReport(rep);
+      setExpanded(true);
+    } catch {
+      // ignore
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const copyReport = async () => {
+    if (!report) return;
+    const lines = [
+      `Crest Doctor Report (${report.timestamp})`,
+      `Status: ${report.passed}/${report.total} Checks Passed`,
+      "----------------------------------------",
+      ...report.checks.map(
+        (c) =>
+          `[${c.status.toUpperCase()}] ${c.name}\n  Summary: ${c.summary}\n  Details: ${c.details.join(", ")}`
+      ),
+    ].join("\n");
+    await navigator.clipboard.writeText(lines);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const hint = report
+    ? t("{passed} von {total} Prüfungen bestanden", { passed: report.passed, total: report.total })
+    : t("Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus");
+
+  return (
+    <>
+      <Row label={t("Crest Doctor")} hint={hint}>
+        <div className="flex items-center gap-2">
+          {report && (
+            <Button onClick={() => setExpanded((v) => !v)}>
+              {expanded ? t("Details ausblenden") : t("Details anzeigen")}
+            </Button>
+          )}
+          <Button disabled={running} onClick={() => void executeDoctor()}>
+            {running ? t("Wird geprüft …") : t("Prüfen")}
+          </Button>
+        </div>
+      </Row>
+      <AnimatePresence initial={false}>
+        {expanded && report && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={fade}
+            className="overflow-hidden"
+          >
+            <div className="mx-3 my-2 space-y-1.5 rounded-[12px] bg-fill-2 p-3 text-footnote">
+              <div className="flex items-center justify-between pb-1 border-b border-separator">
+                <span className="font-medium text-label">
+                  {report.passed === report.total ? (
+                    <span className="text-green flex items-center gap-1.5">
+                      <CheckCircle size={14} weight="bold" /> {t("Alle Subsysteme betriebsbereit")}
+                    </span>
+                  ) : (
+                    <span className="text-orange flex items-center gap-1.5">
+                      <WarningCircle size={14} weight="bold" /> {t("Warnungen gefunden")}
+                    </span>
+                  )}
+                </span>
+                <Button onClick={() => void copyReport()}>
+                  {copied ? t("Kopiert") : t("Bericht kopieren")}
+                </Button>
+              </div>
+              <div className="space-y-2 pt-1">
+                {report.checks.map((chk, idx) => (
+                  <div key={idx} className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-label flex items-center gap-1.5">
+                        {chk.status === "pass" ? (
+                          <CheckCircle size={12} weight="bold" className="text-green" />
+                        ) : (
+                          <WarningCircle size={12} weight="bold" className="text-orange" />
+                        )}
+                        {chk.name}
+                      </span>
+                      <span className="text-caption text-label-3 uppercase">{chk.status}</span>
+                    </div>
+                    <p className="text-caption text-label-2 pl-4">{chk.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 function DiagnosticsRow() {
   const [copied, setCopied] = useState<"ok" | "failed" | null>(null);
   const copy = async () => {

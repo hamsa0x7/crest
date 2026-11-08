@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "Blocca Notch (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "Altezza della zona di esclusione",
   "Tab-Einklappen": "Ripiegamento schede",
-  "Tab-Leisten-Schutz": "Immunità barra schede"
+  "Tab-Leisten-Schutz": "Immunità barra schede",
+  "Alle Subsysteme betriebsbereit": "Tutti i sottosistemi operativi",
+  "Bericht kopieren": "Copia rapporto",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "Mostra dettagli",
+  "Details ausblenden": "Nascondi dettagli",
+  "Prüfen": "Verifica",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Controlla ambiente di runtime, schermi, loopback audio, GPU e bus di notifica",
+  "Warnungen gefunden": "Avvisi rilevati",
+  "Wird geprüft …": "Verifica in corso …",
+  "{passed} von {total} Prüfungen bestanden": "{passed} su {total} controlli superati"
 }

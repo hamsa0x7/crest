@@ -357,6 +357,38 @@ export const systemDiagnostics = (): Promise<SystemDiagnostics> =>
     ? invoke<SystemDiagnostics>("diagnostics_info")
     : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1] });
 
+export interface DoctorCheck {
+  name: string;
+  status: "pass" | "warn" | "fail";
+  summary: string;
+  details: string[];
+}
+
+export interface DoctorReport {
+  passed: number;
+  total: number;
+  checks: DoctorCheck[];
+  timestamp: string;
+}
+
+/** Diagnostic health check engine verifying environment, displays, audio loopback, GPU and notification bus. */
+export const runDoctor = (): Promise<DoctorReport> =>
+  isNative
+    ? invoke<DoctorReport>("doctor_run")
+    : Promise.resolve({
+        passed: 5,
+        total: 5,
+        timestamp: new Date().toISOString(),
+        checks: [
+          { name: "Runtime Environment", status: "pass", summary: "OS: Windows 11 (build 26100), Arch: x86_64", details: ["Standard user mode", "WebView2 runtime ready"] },
+          { name: "Display Handles", status: "pass", summary: "Monitors: 1, Primary: 2560x1440 (1.25x)", details: ["Virtual desktop: 2560x1440", "Window handle valid"] },
+          { name: "Audio Loopback Capture", status: "pass", summary: "WASAPI Loopback: Speakers (High Definition Audio)", details: ["48000 Hz, 2 ch, 32 bit", "Loopback client initialized"] },
+          { name: "GPU Acceleration", status: "pass", summary: "NVIDIA GeForce RTX 4070 (12288 MB)", details: ["Hardware Direct3D 11 device ready", "DWM composition enabled"] },
+          { name: "Notification Bus Health", status: "pass", summary: "Windows Notification Registry Access ready", details: ["ETW Trace ready", "Push dispatcher active"] },
+        ],
+      });
+
+
 /** A found update: version + install (downloads, installs, restarts). */
 export interface UpdateHandle {
   version: string;

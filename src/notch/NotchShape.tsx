@@ -3,7 +3,7 @@ import { animate, motion, useMotionValue, useTransform, type Transition } from "
 import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
 
-import { getRimGradient, getRimGlowShadow, getFrostedShapeColor, type RimPreset } from "./rim";
+import { getRimGlowShadow, getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset } from "./rim";
 
 interface Props {
   geometry: NotchGeometry;
@@ -70,7 +70,7 @@ export function NotchShape({
     hasBirthedSession = true;
   }
 
-  const rimGradient = getRimGradient(rimPreset, rimCustomStart, rimCustomEnd);
+  const rimStops = getRimStops(rimPreset, rimCustomStart, rimCustomEnd);
   const rimGlowShadow = getRimGlowShadow(rimPreset, rimGlow, rimCustomStart);
 
   const baseShape = elevated ? "var(--color-notch)" : "var(--notch-closed)";
@@ -90,6 +90,9 @@ export function NotchShape({
   const wPx = useTransform(w, snap);
   const hPx = useTransform(h, thin ? whole : snap);
   const earDisplay = useTransform(ear, (v) => (v > 0.5 ? "block" : "none"));
+  const rimPathD = useTransform([w, h, r, ear, rt], ([wVal, hVal, rVal, earVal, rtVal]) =>
+    computeNotchPerimeterPath(Number(wVal), Number(hVal), Number(rVal), Number(earVal), Number(rtVal))
+  );
 
   const first = useRef(true);
   useEffect(() => {
@@ -138,6 +141,40 @@ export function NotchShape({
         ["--shape" as string]: shapeColor,
       }}
     >
+      <motion.span
+        aria-hidden
+        className="absolute top-0 pointer-events-none"
+        style={{
+          left: earOffset,
+          width: ear,
+          height: ear,
+          display: earDisplay,
+          backdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          WebkitBackdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          WebkitMask:
+            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), #000 100%)",
+          mask:
+            "radial-gradient(circle farthest-side at 0% 100%, transparent calc(100% - 0.75px), #000 100%)",
+          background: "var(--shape)",
+        }}
+      />
+      <motion.span
+        aria-hidden
+        className="absolute top-0 pointer-events-none"
+        style={{
+          right: earOffset,
+          width: ear,
+          height: ear,
+          display: earDisplay,
+          backdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          WebkitBackdropFilter: frostedGlass ? "blur(24px) saturate(180%)" : undefined,
+          WebkitMask:
+            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), #000 100%)",
+          mask:
+            "radial-gradient(circle farthest-side at 100% 100%, transparent calc(100% - 0.75px), #000 100%)",
+          background: "var(--shape)",
+        }}
+      />
       <motion.svg
         aria-hidden
         viewBox="0 0 100 100"
@@ -205,24 +242,36 @@ export function NotchShape({
           boxShadow: "0 10px 20px -10px rgb(0 0 0 / 0.7), 0 3px 8px rgb(0 0 0 / 0.35)",
         }}
       />
-      {rimGradient && (
-        <motion.div
+      {rimStops && (
+        <svg
           aria-hidden
-          className="absolute inset-0 pointer-events-none z-10"
-          style={
-            {
-              borderTopLeftRadius: rt,
-              borderTopRightRadius: rt,
-              borderBottomLeftRadius: r,
-              borderBottomRightRadius: r,
-              padding: `${rimThickness}px`,
-              background: rimGradient,
-              WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-              WebkitMaskComposite: "xor",
-              maskComposite: "exclude",
-            } as any
-          }
-        />
+          className="absolute inset-0 pointer-events-none z-20 overflow-visible"
+        >
+          <defs>
+            <linearGradient id="notch-rim-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              {rimStops.map((s: { offset: string; color: string }, idx: number) => (
+                <stop key={idx} offset={s.offset} stopColor={s.color} />
+              ))}
+            </linearGradient>
+            {rimGlow > 0 && (
+              <filter id="notch-rim-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation={Math.round(4 * (rimGlow / 100) + 2)} result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            )}
+          </defs>
+          <motion.path
+            d={rimPathD}
+            fill="none"
+            stroke="url(#notch-rim-grad)"
+            strokeWidth={rimThickness}
+            strokeLinecap="round"
+            filter={rimGlow > 0 ? "url(#notch-rim-glow)" : undefined}
+          />
+        </svg>
       )}
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.

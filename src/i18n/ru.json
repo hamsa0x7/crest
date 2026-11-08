@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "Заблокировать вырез (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "Высота зоны исключения",
   "Tab-Einklappen": "Сворачивание у вкладок",
-  "Tab-Leisten-Schutz": "Защита панели вкладок"
+  "Tab-Leisten-Schutz": "Защита панели вкладок",
+  "Alle Subsysteme betriebsbereit": "Все подсистемы работают нормально",
+  "Bericht kopieren": "Копировать отчет",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "Показать подробности",
+  "Details ausblenden": "Скрыть подробности",
+  "Prüfen": "Проверить",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Проверяет среду выполнения, мониторы, захват звука, GPU и шину уведомлений",
+  "Warnungen gefunden": "Обнаружены предупреждения",
+  "Wird geprüft …": "Проверка …",
+  "{passed} von {total} Prüfungen bestanden": "Пройдено проверок: {passed} из {total}"
 }

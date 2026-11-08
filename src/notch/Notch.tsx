@@ -364,6 +364,7 @@ export function Notch() {
 
   // Three quick clicks toggle focus mode (in the browser also off; natively Rust counts).
   const onClick = (e: React.MouseEvent) => {
+    window.clearTimeout(pressHoldTimer.current);
     if (drag.moved() || editing) return;
     if (isLocked) {
       if (displaySettings.lockClickThrough) return;
@@ -373,7 +374,14 @@ export function Notch() {
       return;
     }
     if (e.detail >= FOCUS_CLICKS && !isInteractive(e.target)) return setFocusMode(!focus);
-    if (focus || status === "open") return;
+    if (focus) return;
+    if (status === "open") {
+      const s = settings.get();
+      if (s.openMode === "click" && !isInteractive(e.target)) {
+        close();
+      }
+      return;
+    }
     // A click on a part of the closed row opens its tool (a click elsewhere, as usual).
     const part = partTarget(e);
     if (part) openOn(part);
@@ -382,7 +390,7 @@ export function Notch() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (focus || editing || isLocked) return;
-    if (status !== "open" && displaySettings.pressToPin) {
+    if (status === "closed" && displaySettings.pressToPin) {
       window.clearTimeout(pressHoldTimer.current);
       pressHoldTimer.current = window.setTimeout(() => {
         if (!drag.moved()) {
@@ -395,8 +403,15 @@ export function Notch() {
     drag.onPointerDown(e);
   };
 
+  const onPointerUp = () => {
+    window.clearTimeout(pressHoldTimer.current);
+    pressHoldTimer.current = undefined;
+  };
+
   /** Opens on `tab` (null = as usual). */
   const openOn = (tab: string | null) => {
+    window.clearTimeout(pressHoldTimer.current);
+    pressHoldTimer.current = undefined;
     // Only remember it while opening, otherwise it would stick for the next open.
     trayTab.current = status === "open" ? null : tab;
     if (tab) navigate(tab);
@@ -413,6 +428,8 @@ export function Notch() {
   const wheelAt = useRef(0);
   const onWheel = (e: React.WheelEvent) => {
     if (status === "open") {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest?.("[data-dock], header, [data-header]")) return;
       if (!behavior.wheelTools || pageTabs.includes(tab)) return;
       if (e.nativeEvent.defaultPrevented || wheelTaken(e.target, e.currentTarget, e.deltaX, e.deltaY)) return;
       const now = performance.now(), quiet = now - wheelAt.current > 350;
@@ -547,6 +564,8 @@ export function Notch() {
           }
         }}
         onPointerDown={focus || editing ? undefined : onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
         onPointerEnter={isNative || hoverOff ? undefined : safeOnPointerEnter}
         onPointerLeave={safeOnPointerLeave}
@@ -767,7 +786,7 @@ function Dock({ tabs, activeId }: { tabs: NotchTab[]; activeId: string }) {
   useStripScroll(strip, "x", pillRef);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   return (
-    <div className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
+    <div data-dock className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
       <div ref={pillRef} className="flex h-10 max-w-full items-center rounded-[14px] bg-fill-2 p-0.5">
         <div
           ref={strip}
@@ -836,7 +855,7 @@ function SideDock({ tabs, activeId, edge }: { tabs: NotchTab[]; activeId: string
   const fade = more.start || more.end ? `linear-gradient(180deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
 
   return (
-    <div className={`flex shrink-0 flex-col items-center py-3 ${edge === "left" ? "ps-2 pe-1" : "pe-2 ps-1"}`}>
+    <div data-dock className={`flex shrink-0 flex-col items-center py-3 ${edge === "left" ? "ps-2 pe-1" : "pe-2 ps-1"}`}>
       <div ref={pillRef} className="flex w-12 flex-1 min-h-0 flex-col items-center rounded-[16px] bg-fill-2 p-1">
         <div
           ref={strip}

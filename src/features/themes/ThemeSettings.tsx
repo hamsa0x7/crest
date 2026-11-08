@@ -459,25 +459,35 @@ function RimSettings() {
       </Row>
       {d.rimPreset !== "none" && (
         <>
-          <Row label={t("Rand-Dicke")} hint={`${d.rimThickness.toFixed(1)} px`}>
-            <Slider
-              min={0.5}
-              max={2.5}
-              step={0.1}
-              value={d.rimThickness}
-              onChange={(rimThickness) => updateDisplay({ rimThickness })}
-              label={t("Rand-Dicke")}
-            />
+          <Row label={t("Rand-Dicke")}>
+            <div className="flex w-48 items-center gap-2">
+              <Slider
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                value={d.rimThickness}
+                onChange={(rimThickness) => updateDisplay({ rimThickness })}
+                label={t("Rand-Dicke")}
+              />
+              <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">
+                {d.rimThickness.toFixed(1)} px
+              </span>
+            </div>
           </Row>
-          <Row label={t("Leucht-Intensität")} hint={`${d.rimGlow} %`}>
-            <Slider
-              min={0}
-              max={100}
-              step={5}
-              value={d.rimGlow}
-              onChange={(rimGlow) => updateDisplay({ rimGlow })}
-              label={t("Leucht-Intensität")}
-            />
+          <Row label={t("Leucht-Intensität")}>
+            <div className="flex w-48 items-center gap-2">
+              <Slider
+                min={0}
+                max={100}
+                step={5}
+                value={d.rimGlow}
+                onChange={(rimGlow) => updateDisplay({ rimGlow })}
+                label={t("Leucht-Intensität")}
+              />
+              <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">
+                {d.rimGlow} %
+              </span>
+            </div>
           </Row>
           {d.rimPreset === "custom" && (
             <>
@@ -522,15 +532,20 @@ function FrostedGlassSettings() {
       </Row>
       {d.frostedGlass && (
         <>
-          <Row label={t("Deckkraft")} hint={`${d.glassOpacity} %`}>
-            <Slider
-              min={20}
-              max={95}
-              step={5}
-              value={d.glassOpacity}
-              onChange={(glassOpacity) => updateDisplay({ glassOpacity })}
-              label={t("Deckkraft")}
-            />
+          <Row label={t("Deckkraft")}>
+            <div className="flex w-48 items-center gap-2">
+              <Slider
+                min={20}
+                max={95}
+                step={5}
+                value={d.glassOpacity}
+                onChange={(glassOpacity) => updateDisplay({ glassOpacity })}
+                label={t("Deckkraft")}
+              />
+              <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">
+                {d.glassOpacity} %
+              </span>
+            </div>
           </Row>
           <Row label={t("Oberflächen-Glanz")} hint={t("Subtiler Glanzreflex auf der Glasoberfläche")}>
             <Switch

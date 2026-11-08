@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "ノッチをロック (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "除外ゾーンの高さ",
   "Tab-Einklappen": "ブラウザタブ収納",
-  "Tab-Leisten-Schutz": "タブバー誤作動防止"
+  "Tab-Leisten-Schutz": "タブバー誤作動防止",
+  "Alle Subsysteme betriebsbereit": "すべてのサブシステムが正常に稼働中",
+  "Bericht kopieren": "レポートをコピー",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "詳細を表示",
+  "Details ausblenden": "詳細を非表示",
+  "Prüfen": "診断を実行",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "実行環境、ディスプレイ、オーディオループバック、GPU、通知バスを検証します",
+  "Warnungen gefunden": "警告が検出されました",
+  "Wird geprüft …": "診断中 …",
+  "{passed} von {total} Prüfungen bestanden": "{total} 件中 {passed} 件のテストに合格"
 }

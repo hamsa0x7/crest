@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "Verrouiller l'encoche (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "Hauteur de la zone d'exclusion",
   "Tab-Einklappen": "Repli des onglets",
-  "Tab-Leisten-Schutz": "Immunité de la barre d'onglets"
+  "Tab-Leisten-Schutz": "Immunité de la barre d'onglets",
+  "Alle Subsysteme betriebsbereit": "Tous les sous-systèmes sont opérationnels",
+  "Bericht kopieren": "Copier le rapport",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "Afficher les détails",
+  "Details ausblenden": "Masquer les détails",
+  "Prüfen": "Analyser",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Vérifie l'environnement d'exécution, les écrans, le bouclage audio, le GPU et le bus de notification",
+  "Warnungen gefunden": "Avertissements trouvés",
+  "Wird geprüft …": "Vérification en cours …",
+  "{passed} von {total} Prüfungen bestanden": "{passed} sur {total} tests réussis"
 }

@@ -27,3 +27,5 @@ dist-site
 
 # Design skill working files, kept local
 .taste-skill/
+
+graphify-out/

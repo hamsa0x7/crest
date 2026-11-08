@@ -213,7 +213,7 @@ const defaults: Settings = {
     panelMinWidth: 520, panelMaxHeight: 540,
     tabTuck: false, tuckStyle: "eyes",
     tabStripImmunity: true, immunityHeight: 40,
-    wheelActivityCycling: true, pressToPin: true,
+    wheelActivityCycling: true, pressToPin: false,
     notchLocked: false, lockClickThrough: false },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,

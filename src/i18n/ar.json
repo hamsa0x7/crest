@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "قفل النوتش (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "ارتفاع منطقة الاستبعاد",
   "Tab-Einklappen": "طي النوتش عند الألسنة",
-  "Tab-Leisten-Schutz": "حماية شريط الألسنة"
+  "Tab-Leisten-Schutz": "حماية شريط الألسنة",
+  "Alle Subsysteme betriebsbereit": "جميع الأنظمة الفرعية تعمل بكفاءة",
+  "Bericht kopieren": "نسخ التقرير",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "عرض التفاصيل",
+  "Details ausblenden": "إخفاء التفاصيل",
+  "Prüfen": "فحص الآن",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "فحص بيئة التشغيل والشاشات والتقاط الصوت وكرت الشاشة وناقل الإشعارات",
+  "Warnungen gefunden": "تم العثور على تحذيرات",
+  "Wird geprüft …": "جارٍ الفحص …",
+  "{passed} von {total} Prüfungen bestanden": "اجتاز {passed} من أصل {total} فحوصات"
 }

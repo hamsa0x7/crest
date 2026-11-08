@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "锁定灵动岛 (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "防误触区域高度",
   "Tab-Einklappen": "靠近标签页自动避让",
-  "Tab-Leisten-Schutz": "顶部标签栏防误触"
+  "Tab-Leisten-Schutz": "顶部标签栏防误触",
+  "Alle Subsysteme betriebsbereit": "所有子系统运转正常",
+  "Bericht kopieren": "复制报告",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "显示详情",
+  "Details ausblenden": "隐藏详情",
+  "Prüfen": "运行诊断",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "检查运行环境、显示器、音频回环、GPU 和通知总线状态",
+  "Warnungen gefunden": "发现警告",
+  "Wird geprüft …": "正在检查 …",
+  "{passed} von {total} Prüfungen bestanden": "已通过 {passed} / {total} 项检查"
 }

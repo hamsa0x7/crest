@@ -72,3 +72,85 @@ export function getFrostedShapeColor(baseShape: string, frostedGlass: boolean, g
   const clamped = Math.max(10, Math.min(100, Math.round(glassOpacity)));
   return `color-mix(in srgb, ${baseShape} ${clamped}%, transparent)`;
 }
+
+/** Resolves the single-color stroke fallback for SVG ear curves and fine accents. */
+export function getRimStrokeColor(preset: RimPreset, customStart = "#60a5fa"): string | null {
+  switch (preset) {
+    case "silver":
+      return "rgba(203, 213, 225, 0.55)";
+    case "frosted":
+      return "rgba(255, 255, 255, 0.65)";
+    case "aurora":
+      return "#38bdf8";
+    case "cyberpunk":
+      return "#00f5ff";
+    case "gold":
+      return "#f59e0b";
+    case "custom":
+      return customStart;
+    default:
+      return null;
+  }
+}
+
+export interface RimColorStop {
+  offset: string;
+  color: string;
+}
+
+export function getRimStops(preset: RimPreset, customStart = "#60a5fa", customEnd = "#c084fc"): RimColorStop[] | null {
+  switch (preset) {
+    case "silver":
+      return [
+        { offset: "0%", color: "#e2e8f0" },
+        { offset: "50%", color: "#94a3b8" },
+        { offset: "100%", color: "#cbd5e1" },
+      ];
+    case "frosted":
+      return [
+        { offset: "0%", color: "rgba(255, 255, 255, 0.75)" },
+        { offset: "50%", color: "rgba(255, 255, 255, 0.25)" },
+        { offset: "100%", color: "rgba(255, 255, 255, 0.6)" },
+      ];
+    case "aurora":
+      return [
+        { offset: "0%", color: "#38bdf8" },
+        { offset: "40%", color: "#818cf8" },
+        { offset: "70%", color: "#c084fc" },
+        { offset: "100%", color: "#34d399" },
+      ];
+    case "cyberpunk":
+      return [
+        { offset: "0%", color: "#00f5ff" },
+        { offset: "50%", color: "#7928ca" },
+        { offset: "100%", color: "#ff007a" },
+      ];
+    case "gold":
+      return [
+        { offset: "0%", color: "#fef08a" },
+        { offset: "50%", color: "#f59e0b" },
+        { offset: "100%", color: "#b45309" },
+      ];
+    case "custom":
+      return [
+        { offset: "0%", color: customStart },
+        { offset: "100%", color: customEnd },
+      ];
+    default:
+      return null;
+  }
+}
+
+/** Computes the continuous SVG perimeter path encompassing ears and the body. */
+export function computeNotchPerimeterPath(w: number, h: number, r: number, ear: number, rt: number): string {
+  if (ear > 0.5) {
+    const cp1x = Number((-ear * 0.45).toFixed(2));
+    const cp2y = Number((ear * 0.45).toFixed(2));
+    const rcp1y = Number((ear * 0.45).toFixed(2));
+    const rcp2x = Number((w + ear * 0.45).toFixed(2));
+
+    return `M ${-ear} 0 C ${cp1x} 0, 0 ${cp2y}, 0 ${ear} L 0 ${h - r} A ${r} ${r} 0 0 0 ${r} ${h} L ${w - r} ${h} A ${r} ${r} 0 0 0 ${w} ${h - r} L ${w} ${ear} C ${w} ${rcp1y}, ${rcp2x} 0, ${w + ear} 0`;
+  }
+
+  return `M ${rt} 0 L ${w - rt} 0 A ${rt} ${rt} 0 0 1 ${w} ${rt} L ${w} ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} L ${r} ${h} A ${r} ${r} 0 0 1 0 ${h - r} L 0 ${rt} A ${rt} ${rt} 0 0 1 ${rt} 0 Z`;
+}

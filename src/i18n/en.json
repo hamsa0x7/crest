@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "Lock Notch (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "Exclusion zone height",
   "Tab-Einklappen": "Browser tab tuck",
-  "Tab-Leisten-Schutz": "Tab strip trigger immunity"
+  "Tab-Leisten-Schutz": "Tab strip trigger immunity",
+  "Alle Subsysteme betriebsbereit": "All subsystems operational",
+  "Bericht kopieren": "Copy report",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "Show details",
+  "Details ausblenden": "Hide details",
+  "Prüfen": "Run check",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "Checks runtime environment, displays, audio loopback, GPU and notification bus",
+  "Warnungen gefunden": "Warnings found",
+  "Wird geprüft …": "Checking …",
+  "{passed} von {total} Prüfungen bestanden": "{passed} of {total} checks passed"
 }

@@ -150,7 +150,11 @@ export function useNotchState() {
     noticeHover.set(false);
     window.clearTimeout(timer.current);
     if (statusRef.current === "peek") setStatus("closed");
-    else if (statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
+    else if (statusRef.current === "open" && mayAutoClose()) {
+      const s = settings.get();
+      if (s.openMode === "click") return;
+      later(closeDelay(), "closed");
+    }
   }, [setStatus, later]);
 
   // Hold ended and the cursor is outside → handle the missed leave now.
@@ -158,6 +162,8 @@ export function useNotchState() {
     () =>
       holds.subscribe(() => {
         if (!hovering.current && statusRef.current === "open" && mayAutoClose()) {
+          const s = settings.get();
+          if (s.openMode === "click") return;
           later(closeDelay(), "closed");
         }
       }),
@@ -178,7 +184,11 @@ export function useNotchState() {
   useEffect(
     () =>
       pinned.subscribe(() => {
-        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) later(closeDelay(), "closed");
+        if (!pinned.get() && !hovering.current && statusRef.current === "open" && mayAutoClose()) {
+          const s = settings.get();
+          if (s.openMode === "click") return;
+          later(closeDelay(), "closed");
+        }
       }),
     [later],
   );

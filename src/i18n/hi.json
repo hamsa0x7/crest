@@ -1730,5 +1730,15 @@
   "Notch sperren (Strg + Alt + L)": "नॉच लॉक करें (Ctrl + Alt + L)",
   "Schutzzonen-Höhe": "बहिष्करण क्षेत्र की ऊँचाई",
   "Tab-Einklappen": "टैब टक",
-  "Tab-Leisten-Schutz": "टैब स्ट्रिप सुरक्षा"
+  "Tab-Leisten-Schutz": "टैब स्ट्रिप सुरक्षा",
+  "Alle Subsysteme betriebsbereit": "सभी उपप्रणालियाँ चालू हैं",
+  "Bericht kopieren": "रिपोर्ट कॉपी करें",
+  "Crest Doctor": "Crest Doctor",
+  "Details anzeigen": "विवरण दिखाएं",
+  "Details ausblenden": "विवरण छिपाएं",
+  "Prüfen": "जांचें",
+  "Prüft Laufzeitumgebung, Bildschirme, Audio-Loopback, GPU und Benachrichtigungsbus": "रनटाइम परिवेश, डिस्प्ले, ऑडियो लूपबैक, जीपीयू और सूचना बस की जांच करता है",
+  "Warnungen gefunden": "चेतावनियां मिलीं",
+  "Wird geprüft …": "जांच जारी है …",
+  "{passed} von {total} Prüfungen bestanden": "{total} में से {passed} जांचें सफल रहीं"
 }
