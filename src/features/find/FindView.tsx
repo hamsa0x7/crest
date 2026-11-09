@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Crosshair, MagnifyingGlass } from "@phosphor-icons/react";
+import { Crosshair, DownloadSimple, MagnifyingGlass } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../shelf/ShelfView";
 import { capture } from "../../platform/services";
 import { Button, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
@@ -78,7 +78,7 @@ export function FindView() {
           {t("Erneut lesen")}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">{looksLikeVideoUrl(query) && (<div className="m-2 rounded-[12px] bg-fill-2 p-2.5 flex flex-col gap-2 border border-separator"><div className="flex items-center gap-2"><DownloadSimple size={16} weight="bold" className="text-accent shrink-0" /><span className="truncate text-caption font-medium text-label flex-1">{query}</span></div><div className="flex items-center gap-2"><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: false }); setQuery(""); }}>{t("Video herunterladen")}</Button><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: true }); setQuery(""); }}>{t("Audio (MP3) herunterladen")}</Button></div></div>)}
         {f.phase === "reading" ? (
           <div className="flex flex-col gap-2 p-3" aria-label={t("Lese die Bildschirme …")}>
             <Skeleton className="h-4 w-2/3" />

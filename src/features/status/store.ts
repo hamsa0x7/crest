@@ -1,5 +1,5 @@
 import { createStore } from "../../lib/store";
-import { status, type StatusSeed } from "../../platform/services";
+import { status, systemControls, type QuickState, type StatusSeed } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { focusMode } from "../../notch/focus";
 import { fullscreen } from "../system/gaming";
@@ -9,6 +9,7 @@ import { STATUS, btAlert, levelAlert, lockAlert, micAlert, netAlert, osdArmed, o
 
 /** The status alert on screen, for STATUS.showMs; a new one replaces it. */
 export const statusAlert = createStore<StatusAlert | null>(null);
+export const micMuted = createStore<boolean>(false);
 
 /** Event emitted when power charger connects or disconnects (triggers Black Hole animation). */
 export const chargerEvent = createStore<{ active: boolean; charging: boolean; percent: number | null }>({
@@ -68,9 +69,13 @@ export function startStatusWatch() {
     },
     level: (e) => show(levelAlert(e, t), settings.get().closed.statusAlerts[e.kind]),
     lock: (e) => show(lockAlert(e, t), settings.get().closed.statusAlerts.lock),
-    mic: (e) => show(micAlert(e, t), settings.get().closed.statusAlerts.mic),
+    mic: (e) => {
+      micMuted.set(e.muted);
+      show(micAlert(e, t), settings.get().closed.statusAlerts.mic);
+    },
   });
   void status.seed().then(seed, () => {});
+  void systemControls.quick().then((q: QuickState | null) => { if (q && q.micMuted !== null && q.micMuted !== undefined) micMuted.set(q.micMuted); }, () => {});
   // Tells Rust what to read and whether to hide the Windows indicator; sent again only when that changes.
   let sent = "";
   const configure = () => {

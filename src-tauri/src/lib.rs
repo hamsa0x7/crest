@@ -85,6 +85,10 @@ pub mod usage;
 mod vault;
 mod mic;
 mod sharing;
+mod youtube;
+mod pip;
+mod lyrics_window;
+mod ytdlp;
 
 // The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
 // counterpart yet and their tools are hidden there.
@@ -141,6 +145,8 @@ fn command_allowed(window: &str, command: &str) -> bool {
     match window {
         "notch" => true,
         "timer" => command == "timer_window_close",
+        "pip" => matches!(command, "close_pip" | "pip_snap" | "pip_resize" | "media_control" | "media_get"),
+        "lyrics" => matches!(command, "lyrics_window_close" | "media_control" | "media_get"),
         w if w.starts_with("mirror-") => command == "mirror_picture",
         _ => false,
     }
@@ -518,6 +524,17 @@ pub fn run() {
             agents::agents_list,
             mic::mic_mute,
             sharing::sharing_hide,
+            #[cfg(windows)]
+            media::media_spotify_like,
+            pip::open_pip,
+            pip::close_pip,
+            pip::is_pip_open,
+            pip::pip_snap,
+            pip::pip_resize,
+            lyrics_window::lyrics_window_open,
+            lyrics_window::lyrics_window_close,
+            lyrics_window::is_lyrics_window_open,
+            ytdlp::ytdlp_download,
             ];
             move |invoke| {
                 if !command_allowed(invoke.message.webview_ref().label(), invoke.message.command()) {
@@ -886,6 +903,7 @@ mod tests {
         assert!(ok("notch", "vault_reveal") && ok("notch", "terminal_write"));
         assert!(ok("timer", "timer_window_close") && !ok("timer", "terminal_write") && !ok("timer", "open_path"));
         assert!(ok("mirror-1", "mirror_picture") && !ok("mirror-1", "vault_reveal"));
+        assert!(ok("pip", "close_pip") && ok("lyrics", "lyrics_window_close") && !ok("pip", "vault_reveal"));
         assert!(!ok("plugin", "secret_set") && !ok("", "mirror_picture"));
     }
 

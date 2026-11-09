@@ -91,6 +91,8 @@ export function createMockMedia(): MediaSource {
     cycleRepeat: () => set({ repeat: state.repeat === "none" ? "list" : state.repeat === "list" ? "track" : "none" }),
     pin: (appId) => console.info("[media] pinned", appId),
     lyricsShown: () => {},
+    setPlaybackRate: (rate) => set({ playbackRate: rate }),
+    spotifyLike: () => Promise.resolve(true),
     sources: () =>
       Promise.resolve([{ appId: "Spotify.exe", title: state.title, artist: state.artist, isPlaying: state.isPlaying }, extra]),
   };

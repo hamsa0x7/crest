@@ -75,10 +75,52 @@
         "focus": false,
         "dragDropEnabled": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,msEdgeTranslate,SpareRendererForSitePerProcess,OptimizationHints,MediaRouter,AutofillServerCommunication --disable-background-networking --disable-component-update --disable-sync --no-pings --renderer-process-limit=1"
+      },
+      {
+        "label": "pip",
+        "create": false,
+        "url": "pip.html",
+        "title": "Crest Video",
+        "focusable": true,
+        "width": 400,
+        "height": 225,
+        "transparent": true,
+        "decorations": false,
+        "shadow": true,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "dragDropEnabled": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,msEdgeTranslate,SpareRendererForSitePerProcess,OptimizationHints,MediaRouter,AutofillServerCommunication --disable-background-networking --disable-component-update --disable-sync --no-pings --renderer-process-limit=1"
+      },
+      {
+        "label": "lyrics",
+        "create": false,
+        "url": "lyrics.html",
+        "title": "Crest Lyrics",
+        "focusable": true,
+        "width": 380,
+        "height": 520,
+        "transparent": true,
+        "decorations": false,
+        "shadow": true,
+        "resizable": true,
+        "maximizable": false,
+        "minimizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "dragDropEnabled": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,msEdgeTranslate,SpareRendererForSitePerProcess,OptimizationHints,MediaRouter,AutofillServerCommunication --disable-background-networking --disable-component-update --disable-sync --no-pings --renderer-process-limit=1"
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net https://api.open-meteo.com https://geocoding-api.open-meteo.com https://get.geojs.io https://ipwho.is https://raw.githubusercontent.com; img-src 'self' data: https://cdn.discordapp.com https://github.com https://avatars.githubusercontent.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'; frame-src http://crestplugin.localhost; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net https://api.open-meteo.com https://geocoding-api.open-meteo.com https://get.geojs.io https://ipwho.is https://raw.githubusercontent.com; img-src 'self' data: https://cdn.discordapp.com https://github.com https://avatars.githubusercontent.com https://i.ytimg.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'; frame-src http://crestplugin.localhost https://www.youtube-nocookie.com https://www.youtube.com; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

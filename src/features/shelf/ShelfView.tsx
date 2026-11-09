@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react"; import { invoke } from "@tauri-apps/api/core"; import { listen } from "@tauri-apps/api/event";
 import {
   ArrowSquareOut,
   Check,
   CheckSquare,
   ClipboardText,
   Copy,
-  DeviceMobile,
+  DeviceMobile, DownloadSimple,
   File,
   FileAudio,
   FileText,
@@ -94,7 +94,7 @@ const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio,
 
 const newTextId = () => `text-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-function keepText(text: string) {
+export function looksLikeVideoUrl(text: string): boolean { const l = text.trim().toLowerCase(); return ["youtube.com", "youtu.be", "vimeo.com", "x.com", "twitter.com", "instagram.com", "tiktok.com", "reddit.com", "twitch.tv", "dailymotion.com"].some((d) => l.includes(d)); } function keepText(text: string) {
   shelf.set((list) => addText(list, text, Date.now(), newTextId()));
 }
 
@@ -137,7 +137,7 @@ export function ShelfView() {
     const paths = takeDropped();
     // A file dragged out and dropped back on the notch is already here and keeps its place.
     if (paths?.length) addToShelf(paths);
-  }, [dropped]);
+  }, [dropped]); useEffect(() => { let unlisten: (() => void) | undefined; void listen<{ id: string; url: string; progress: number; status: string; path?: string }>("downloads://ytdlp", (event) => { if (event.payload.status === "done" && event.payload.path) addToShelf([event.payload.path]); }).then((fn) => { unlisten = fn; }); return () => { unlisten?.(); }; }, []);
 
   const fail = (e: unknown, label?: string) => {
     const reason = tBackend(String(e));
@@ -508,14 +508,14 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
 }
 
 /** A kept snippet: click copies it, dragging it out gives the text. */
-function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: boolean; copied: boolean; onCopy: () => void }) {
+function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: boolean; copied: boolean; onCopy: () => void }) { const [dl, setDl] = useState<string | null>(null); const isVid = looksLikeVideoUrl(item.text); const startDl = (audioOnly: boolean) => { setDl(audioOnly ? "audio" : "video"); void invoke("ytdlp_download", { url: item.text.trim(), audioOnly }).catch(() => setDl(null)); }; useEffect(() => { if (!dl) return; let un: (() => void) | undefined; void listen<{ url: string; status: string }>("downloads://ytdlp", (e) => { if (e.payload.url === item.text.trim() && (e.payload.status === "done" || e.payload.status === "error")) setDl(null); }).then((fn) => { un = fn; }); return () => { un?.(); }; }, [dl, item.text]);
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-start">
         {hidden ? <Redacted lines={4} /> : <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>}
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-        <span className="tabular min-w-0 truncate text-caption text-label-3">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
+        <span className="tabular min-w-0 truncate text-caption text-label-3">{dl ? (dl === "video" ? t("Lade Video …") : t("Lade Audio …")) : item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span> {isVid && !dl && (<span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100"><IconBtn label={t("Video herunterladen")} icon={DownloadSimple} onClick={() => startDl(false)} /><IconBtn label={t("Audio (MP3) herunterladen")} icon={FileAudio} onClick={() => startDl(true)} /></span>)}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={copied ? "done" : "copy"}

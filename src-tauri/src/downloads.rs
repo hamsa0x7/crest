@@ -218,7 +218,7 @@ mod watch {
     }
 
     /// The Downloads folder, wherever the user moved it.
-    fn downloads_dir() -> Option<PathBuf> {
+    pub fn downloads_dir() -> Option<PathBuf> {
         unsafe {
             let p = SHGetKnownFolderPath(&FOLDERID_Downloads, KF_FLAG_DEFAULT, None).ok()?;
             let dir = p.to_string().ok().map(PathBuf::from);

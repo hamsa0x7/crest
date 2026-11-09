@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { ArrowUpRight, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward } from "@phosphor-icons/react";
+import { ArrowSquareOut, ArrowUpRight, Heart, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, PictureInPicture, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward, Television } from "@phosphor-icons/react";
+import { invoke } from "@tauri-apps/api/core";
+import { YouTubeMirror, useMirrorVideo } from "./YouTubeMirror";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork, useTinyArtwork } from "./artwork";
 import { coverBackdrop } from "./CoverBackdrop";
@@ -33,6 +35,22 @@ type Panel = "mixer" | "sources" | "lyrics" | null;
  * The player menu only shows with two or more players, shuffle and repeat only where the app offers them.
  */
 export function NowPlayingView() {
+  const video = useMirrorVideo(useNowPlaying()?.videoId);
+  const [showVideo, setShowVideo] = useState(true);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && e.code === "KeyL") {
+        e.preventDefault();
+        void invoke("lyrics_window_open", {});
+      } else if (e.altKey && e.shiftKey && e.code === "KeyB") {
+        e.preventDefault();
+        void media.spotifyLike();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const np = useNowPlaying();
   const music = settings.use().music;
   // The lyrics stay open from one visit to the next; the other panels close with the notch.
@@ -61,11 +79,12 @@ export function NowPlayingView() {
 
   // A panel grows the notch by its rows (at most MIXER_MAX_ROWS, then it scrolls).
   const mixerRows = Math.min(MIXER_MAX_ROWS, (mix.system ? 1 : 0) + Math.max(1, mix.apps.length));
-  const extra = !np ? 0
+  const videoExtra = (video && showVideo ? 236 : 0) + (video ? 30 : 0);
+  const extra = (!np ? 0
     : shown === "mixer" ? mixerRows * MIXER_ROW + 14
     : shown === "sources" ? sourcePanelRows(np, music.pinned) * MIXER_ROW + 14
     : shown === "lyrics" ? lyricsPanel(music.lyricRoman || music.lyricTranslation)
-    : 0;
+    : 0) + videoExtra;
   // On top of the size the user gave the tool, so the grips keep working while a panel is open.
   useEffect(() => requestExtra("media", extra), [extra]);
   useEffect(() => () => requestExtra("media", 0), []);
@@ -79,6 +98,24 @@ export function NowPlayingView() {
           <ImageSquare size={14} weight="bold" />
         </HeaderButton>
       </HeaderActions>
+      {video && showVideo && (
+        <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-[14px] bg-black border border-separator shadow-lg shrink-0">
+          <YouTubeMirror
+            videoId={video}
+            positionMs={(np.position ?? 0) * 1000}
+            playing={!!np.isPlaying}
+            live={!np.duration}
+            className="size-full"
+          />
+          <button
+            onClick={() => void invoke("open_pip", {})}
+            title={t("Bild-in-Bild (PiP)")}
+            className="pressable absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-full bg-black/60 text-white/90 hover:bg-black/80 hover:text-white"
+          >
+            <PictureInPicture size={14} weight="bold" />
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <button
           onClick={() => void media.openSource()}
@@ -111,6 +148,37 @@ export function NowPlayingView() {
         </div>
         <Controls np={np} />
         <div className="flex min-w-0 items-center justify-end gap-1">
+          {video && (
+            <button
+              onClick={() => setShowVideo((v) => !v)}
+              aria-pressed={showVideo}
+              aria-label={t("Video im Notch")}
+              title={t("Video im Notch")}
+              className={`pressable pressable-fill flex size-7 items-center justify-center rounded-full transition-colors duration-150 ${
+                showVideo ? "bg-accent text-white" : "text-label-3 hover:text-label-2"
+              }`}
+            >
+              <Television size={14} weight="bold" />
+            </button>
+          )}
+          {video && (
+            <button
+              onClick={() => void invoke("open_pip", {})}
+              aria-label={t("Bild-in-Bild (PiP)")}
+              title={t("Bild-in-Bild (PiP)")}
+              className="pressable pressable-fill flex size-7 items-center justify-center rounded-full text-label-3 hover:text-label-2 transition-colors duration-150"
+            >
+              <PictureInPicture size={14} weight="bold" />
+            </button>
+          )}
+          <button
+            onClick={() => void invoke("lyrics_window_open", {})}
+            aria-label={t("Schwebender Songtext (Ctrl+Alt+L)")}
+            title={t("Schwebender Songtext (Ctrl+Alt+L)")}
+            className="pressable pressable-fill flex size-7 items-center justify-center rounded-full text-label-3 hover:text-label-2 transition-colors duration-150"
+          >
+            <ArrowSquareOut size={14} weight="bold" />
+          </button>
           <button
             onClick={() => toggle("lyrics")}
             aria-pressed={shown === "lyrics"}
@@ -125,6 +193,26 @@ export function NowPlayingView() {
           {!isMac && <MixerToggle open={shown === "mixer"} onToggle={() => toggle("mixer")} />}
         </div>
       </div>
+      {video && (
+        <div className="mt-2.5 flex items-center justify-center gap-1.5">
+          <span className="text-caption font-medium text-label-3">{t("Geschwindigkeit")}:</span>
+          {[0.5, 1.0, 1.25, 1.5, 2.0].map((rate) => {
+            const active = (np.playbackRate ?? 1.0) === rate;
+            return (
+              <button
+                key={rate}
+                onClick={() => media.setPlaybackRate(rate)}
+                aria-pressed={active}
+                className={`pressable pressable-fill px-2 py-0.5 rounded-full text-caption transition-colors duration-150 ${
+                  active ? "bg-fill-2 text-label font-semibold" : "text-label-3 hover:text-label-2"
+                }`}
+              >
+                {rate}×
+              </button>
+            );
+          })}
+        </div>
+      )}
       <AnimatePresence mode="popLayout">
         {shown === "mixer" && <MixerList key="mixer" data={mix} />}
         {shown === "sources" && <SourcePanel key="sources" np={np} />}
@@ -366,12 +454,29 @@ function Progress({ np, wavy }: { np: NowPlaying; wavy: boolean }) {
 }
 
 function Controls({ np }: { np: NowPlaying }) {
+  const [liked, setLiked] = useState(false);
   const playing = np.isPlaying;
+  const isSpotify = np.appId?.toLowerCase().includes("spotify");
   // Either one offered: both slots stay, so play/pause keeps the centre.
   const modes = np.shuffle !== null || np.repeat !== null;
   return (
     // Transport keys keep their order in any language, like the time bar above.
     <div dir="ltr" className={`flex items-center justify-center ${modes ? "gap-4" : "gap-6"}`}>
+      {isSpotify && (
+        <button
+          aria-label={t("Titel zu Favoriten hinzufügen (Alt+Shift+B)")}
+          title={t("Titel zu Favoriten hinzufügen (Alt+Shift+B)")}
+          onClick={() => {
+            void media.spotifyLike();
+            setLiked((prev) => !prev);
+          }}
+          className={`pressable pressable-fill relative flex size-8 items-center justify-center rounded-full transition-colors duration-150 ${
+            liked ? "text-accent" : "text-label-3 hover:text-label-2"
+          }`}
+        >
+          <Heart size={16} weight={liked ? "fill" : "bold"} />
+        </button>
+      )}
       {modes && (
         <ModeButton label={t("Zufallswiedergabe")} active={!!np.shuffle} offered={np.shuffle !== null} onClick={media.toggleShuffle}>
           <Shuffle size={16} weight="bold" />

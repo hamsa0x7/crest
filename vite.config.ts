@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => ({
   // More pages: the detached timer window and the copies of the closed notch on other monitors (the demo has neither).
   build: {
     chunkSizeWarningLimit: 1500,
-    rollupOptions: { input: { main: "index.html", ...(mode === "demo" ? {} : { timer: "timer.html", mirror: "mirror.html" }) } as Record<string, string> },
+    rollupOptions: { input: { main: "index.html", ...(mode === "demo" ? {} : { timer: "timer.html", mirror: "mirror.html", pip: "pip.html", lyrics: "lyrics.html" }) } as Record<string, string> },
   },
   server: {
     port: 1420,

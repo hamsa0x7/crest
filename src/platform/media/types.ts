@@ -20,6 +20,8 @@ export interface NowPlaying {
   repeat: RepeatMode | null;
   /** Every media session, one per app. */
   sources: { appId: string; isPlaying: boolean }[];
+  videoId?: string | null;
+  playbackRate?: number | null;
 }
 
 export type RepeatMode = "none" | "list" | "track";
@@ -55,6 +57,8 @@ export interface MediaSource {
   lyricsShown(on: boolean): void;
   /** Every session with its track (asked when the player menu opens). */
   sources(): Promise<SourceInfo[]>;
+  setPlaybackRate(rate: number): void;
+  spotifyLike(): Promise<boolean>;
 }
 
 /** Current playback position, extrapolated from the last state. */

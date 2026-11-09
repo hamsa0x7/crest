@@ -28,7 +28,8 @@ import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
-import { Coffee } from "@phosphor-icons/react";
+import { Coffee, MicrophoneSlash } from "@phosphor-icons/react";
+import { micMuted } from "../../features/status/store";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
@@ -144,6 +145,8 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
   }
   if (awakeOn) fixed("awake", 13, () => <Coffee size={13} weight="fill" className="text-label-2" aria-label={t("PC bleibt wach")} />);
   if (dots.length) fixed("privacy", dotsWidth(dots.length), () => <Dots dots={dots} />);
+  const isMicMuted = micMuted.use();
+  if (isMicMuted) fixed("mic-muted", 14, () => <MicrophoneSlash size={14} weight="regular" className="text-red shrink-0" aria-label={t("Mikrofon stummgeschaltet")} />);
 
   const pills = pluginPills.use();
   for (const [id, pill] of Object.entries(pills)) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react";
+import { Check, DownloadSimple, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../shelf/ShelfView";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
@@ -192,7 +192,7 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
           {t("Neu einlesen")}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">{looksLikeVideoUrl(query) && (<div className="m-2 rounded-[12px] bg-fill-2 p-2.5 flex flex-col gap-2 border border-separator"><div className="flex items-center gap-2"><DownloadSimple size={16} weight="bold" className="text-accent shrink-0" /><span className="truncate text-caption font-medium text-label flex-1">{query}</span></div><div className="flex items-center gap-2"><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: false }); setQuery(""); }}>{t("Video herunterladen")}</Button><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: true }); setQuery(""); }}>{t("Audio (MP3) herunterladen")}</Button></div></div>)}
         {!apps && failed ? (
           <div className="p-3 text-caption text-label-3">{t("App-Liste nicht lesbar, Neu einlesen versuchen")}</div>
         ) : !apps ? (

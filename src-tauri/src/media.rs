@@ -60,11 +60,13 @@ pub struct NowPlaying {
     sources: Vec<Source>,
     /// Only in the event: the cover is the one of the previous event, so it is left out (see `lean`).
     artwork_same: bool,
+    pub video_id: Option<String>,
+    pub playback_rate: Option<f64>,
 }
 
 /// Last emitted state and when it was emitted; the pinned app ID; lyrics on screen (see `media_lyrics`).
 #[derive(Default)]
-pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool);
+pub struct MediaState(Mutex<Option<(NowPlaying, SystemTime)>>, Mutex<Option<String>>, AtomicBool, pub crate::youtube::YoutubeResolver);
 
 impl MediaState {
     fn pinned(&self) -> Option<String> {
@@ -92,7 +94,7 @@ pub fn media_get(state: State<'_, MediaState>) -> Option<NowPlaying> {
 
 // Async so the blocking `join()` doesn't stall the main thread.
 #[tauri::command]
-pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>, on: Option<bool>) -> Result<(), String> {
+pub async fn media_control(state: State<'_, MediaState>, action: String, position: Option<f64>, on: Option<bool>, rate: Option<f64>) -> Result<(), String> {
     let (shown_app, shown_title) = state.shown().unwrap_or_default();
     let run = || -> windows::core::Result<()> {
         let manager = SessionManager::RequestAsync()?.join()?;
@@ -125,11 +127,60 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
                 };
                 session.TryChangeAutoRepeatModeAsync(next)?.join()?
             }
+            "rate" => {
+                if let Some(r) = rate {
+                    session.TryChangePlaybackRateAsync(r)?.join()?;
+                }
+                true
+            }
             _ => false,
         };
         Ok(())
     };
     run().map_err(|e| e.message())
+}
+
+#[tauri::command]
+pub async fn media_spotify_like() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        spotify_send_like()
+    }).await.map_err(|e| e.to_string())
+}
+
+#[cfg(windows)]
+fn spotify_send_like() -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_MENU, VK_SHIFT, VIRTUAL_KEY};
+
+    let vk_b = VIRTUAL_KEY(0x42);
+    let key = |vk, flags| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: vk,
+                wScan: 0,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
+
+    unsafe {
+        let inputs = [
+            key(VK_MENU, Default::default()),
+            key(VK_SHIFT, Default::default()),
+            key(vk_b, Default::default()),
+            key(vk_b, KEYEVENTF_KEYUP),
+            key(VK_SHIFT, KEYEVENTF_KEYUP),
+            key(VK_MENU, KEYEVENTF_KEYUP),
+        ];
+        SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) > 0
+    }
+}
+
+#[cfg(not(windows))]
+fn spotify_send_like() -> bool {
+    false
 }
 
 /// Lyrics are on screen: send the position every few seconds while playing (only then).
@@ -207,7 +258,7 @@ pub fn spawn(app: AppHandle) {
             let shown = last.as_ref().map(|np| (np.app_id.as_str(), np.title.as_str())).unwrap_or_default();
             let pinned = app.state::<MediaState>().pinned();
             let (session, sources) = pick(manager_ref, shown, pinned.as_deref());
-            let current = session.and_then(|session| read(&session, &mut artwork).ok()).map(|np| NowPlaying { sources, ..np });
+            let current = session.and_then(|session| read(&session, &mut artwork, &app.state::<MediaState>().3).ok()).map(|np| NowPlaying { sources, ..np });
             // Nothing found: is the manager still alive (e.g. after an Explorer restart)?
             if current.is_none() && manager_ref.GetSessions().is_err() {
                 manager = None;
@@ -295,7 +346,7 @@ fn lean(last: &Option<NowPlaying>, current: &Option<NowPlaying>) -> Option<NowPl
     })
 }
 
-fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPlaying> {
+fn read(session: &Session, artwork: &mut Artwork, youtube: &crate::youtube::YoutubeResolver) -> windows::core::Result<NowPlaying> {
     let props = session.TryGetMediaPropertiesAsync()?.join()?;
     let title = props.Title()?.to_string();
     let artist = props.Artist()?.to_string();
@@ -344,7 +395,15 @@ fn read(session: &Session, artwork: &mut Artwork) -> windows::core::Result<NowPl
         position = position.clamp(0.0, duration);
     }
 
-    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id, shuffle, repeat, sources: Vec::new(), artwork_same: false })
+    let playback_info = session.GetPlaybackInfo().ok();
+    let playback_rate = playback_info.as_ref().and_then(|info| info.PlaybackRate().ok()).and_then(|r| r.Value().ok());
+    let video_id = if crate::youtube::is_browser(&app_id) {
+        youtube.video_id(&app_id, &title, &artist, duration)
+    } else {
+        None
+    };
+
+    Ok(NowPlaying { title, artist, artwork: artwork.data.clone(), is_playing, position, duration, can_seek, app_id, shuffle, repeat, sources: Vec::new(), artwork_same: false, video_id, playback_rate })
 }
 
 fn load_thumbnail(reference: &windows::Storage::Streams::IRandomAccessStreamReference) -> windows::core::Result<String> {
@@ -381,6 +440,7 @@ fn changed(last: &Option<NowPlaying>, current: &Option<NowPlaying>, last_sent_at
             if a.title != b.title || a.artist != b.artist || a.is_playing != b.is_playing
                 || a.artwork != b.artwork || a.duration != b.duration || a.app_id != b.app_id
                 || a.can_seek != b.can_seek || a.shuffle != b.shuffle || a.repeat != b.repeat || a.sources != b.sources
+                || a.video_id != b.video_id || a.playback_rate != b.playback_rate
             {
                 return true;
             }
@@ -422,6 +482,8 @@ mod tests {
             repeat: None,
             sources: Vec::new(),
             artwork_same: false,
+            video_id: None,
+            playback_rate: Some(1.0),
         })
     }
 

@@ -19,6 +19,8 @@ interface NativeNowPlaying {
   sources: { appId: string; isPlaying: boolean }[];
   /** The cover is left out because it is the one of the previous event. */
   artworkSame?: boolean;
+  videoId?: string | null;
+  playbackRate?: number | null;
 }
 
 function livePositionOf(np: NowPlaying): number {
@@ -93,8 +95,8 @@ export function createNativeMedia(): MediaSource {
     window.clearTimeout(resyncTimer);
     resyncTimer = window.setTimeout(() => void invoke<NativeNowPlaying | null>("media_get").then(apply), 1500);
   };
-  const control = (action: string, position?: number, on?: boolean) => {
-    void invoke("media_control", { action, position, on }).finally(resync);
+  const control = (action: string, position?: number, on?: boolean, rate?: number) => {
+    void invoke("media_control", { action, position, on, rate }).finally(resync);
   };
 
   return {
@@ -133,5 +135,7 @@ export function createNativeMedia(): MediaSource {
     pin: (appId) => void invoke("media_pin", { appId }),
     lyricsShown: (on) => void invoke("media_lyrics", { on }),
     sources: () => invoke<SourceInfo[]>("media_sources").catch(() => []),
+    setPlaybackRate: (rate) => control("rate", undefined, undefined, rate),
+    spotifyLike: () => invoke<boolean>("media_spotify_like").catch(() => false),
   };
 }
