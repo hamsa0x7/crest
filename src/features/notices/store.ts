@@ -9,6 +9,7 @@ import { addNotice, removeApp, removeNotice, type Notice } from "./history";
 import { rememberApp, route, ruleFor, setRule, type NoticeRule } from "./rules";
 import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
 import { addAsk, removeAsk, type Ask } from "./asks";
+import { isStaleNotice } from "./stale";
 
 /*
  * Live notices: every notice from Rust (`notices://in`) goes through the app's rule, quiet hours and presentation
@@ -97,7 +98,8 @@ function ingest(input: IncomingNotice, focus: boolean) {
   const n: Notice = { ...input, id: `${Date.now()}-${nextId++}` };
   history.set((list) => addNotice(list, n, Date.now()));
   // The newest notice takes the closed notch; an update with the same replace key refreshes it there.
-  if (where === "pop") pop(n);
+  // Stale notices (e.g. past meeting reminders or delayed notices after PC sleep) stay in history silently and are suppressed from popping.
+  if (where === "pop" && !isStaleNotice(input, Date.now())) pop(n);
 }
 
 /*
@@ -135,6 +137,14 @@ function pop(n: Notice) {
   popping.set(n);
   window.clearTimeout(popTimer);
   popTimer = window.setTimeout(() => popping.set(null), POP_MS);
+}
+
+/** Pauses the auto-dismiss timer while user interacts with the pop (e.g. typing an inline reply). */
+export function holdPop(held: boolean) {
+  window.clearTimeout(popTimer);
+  if (!held && popping.get()) {
+    popTimer = window.setTimeout(() => popping.set(null), POP_MS);
+  }
 }
 
 export function dismissPop() {

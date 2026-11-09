@@ -42,7 +42,8 @@ use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_F
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
     GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
-    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    FindWindowW, ShowWindow,
 };
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
@@ -327,6 +328,38 @@ pub async fn display_apps() -> Vec<RunningApp> {
 }
 
 /// Hide hotkey: hides Crest, or shows it again.
+/// Explicitly hide or show the notch (e.g. Snooze).
+#[tauri::command]
+pub fn display_set_hidden(hidden: bool, app: AppHandle) {
+    let state = app.state::<DisplayState>();
+    state.user_hidden.store(hidden, Ordering::Relaxed);
+    sync(&app);
+}
+
+/// Emergency taskbar and tray restoration: force-shows Shell_TrayWnd and Shell_SecondaryTrayWnd.
+#[tauri::command]
+pub fn taskbar_restore() -> bool {
+    #[cfg(windows)]
+    unsafe {
+        let mut restored = false;
+        if let Ok(tray) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) {
+            let _ = ShowWindow(tray, SW_SHOW);
+            restored = true;
+        }
+        let mut after = None;
+        while let Ok(hwnd) = FindWindowExW(None, after, w!("Shell_SecondaryTrayWnd"), PCWSTR::null()) {
+            after = Some(hwnd);
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            restored = true;
+        }
+        restored
+    }
+    #[cfg(not(windows))]
+    {
+        true
+    }
+}
+
 pub fn toggle_user_hidden(app: &AppHandle) {
     let state = app.state::<DisplayState>();
     let now = !state.user_hidden.load(Ordering::Relaxed);

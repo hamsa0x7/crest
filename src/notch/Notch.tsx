@@ -54,6 +54,7 @@ import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewZoom } from "./viewZoom";
 import { CoverBackdrop, coverBackdrop } from "../features/now-playing/CoverBackdrop";
+import { NotchContextMenu } from "./NotchContextMenu";
 import { darkInk } from "../features/themes/store";
 
 /** If the notch was closed at most this long, it reopens on the last used tool. */
@@ -73,7 +74,12 @@ export function Notch() {
   const [shaking, setShaking] = useState(false);
   const lockFeedbackVal = lockFeedback.use();
   const isLocked = notchLocked.use() || displaySettings.notchLocked;
+  const charger = chargerEvent.use();
+  const dismissCharger = useCallback(() => {
+    chargerEvent.set({ active: false, charging: false, percent: null });
+  }, []);
   const [isTucked, setIsTucked] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const tuckDwellRef = useRef<number | undefined>(undefined);
   const pressHoldTimer = useRef<number | undefined>(undefined);
   const enterImmunityTimer = useRef<number | undefined>(undefined);
@@ -181,6 +187,9 @@ export function Notch() {
       if (target) navigate(target);
       // A fresh install opens on the setup until it is finished or skipped.
       else if (!settings.get().setup.done) navigate(setupTab.id);
+      else if (settings.get().display.defaultTab && visible.some((t) => t.id === settings.get().display.defaultTab)) {
+        navigate(settings.get().display.defaultTab);
+      }
       else if (!resumed && live.id && visible.some((t) => t.id === live.id)) navigate(live.id);
       trayTab.current = null;
     }
@@ -232,7 +241,8 @@ export function Notch() {
   const sidePanelW = overridden ? Math.min(500, Math.max(380, override.w)) : 440;
   const size = side ? { w: sidePanelW, h: sidePanelH } : rawSize;
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
-  const closedW = surfaceWidth(surface, notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
+  const isChargerActive = charger.active && displaySettings.chargerAnimation !== "off";
+  const closedW = surfaceWidth(surface, isChargerActive ? Math.max(180, rowWidth) : notice?.width ?? (showRow || status === "open" ? rowWidth : 0), surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
   const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
   const [column, setColumn] = useState({ length: 0, width: 0, notice: false });
@@ -401,10 +411,12 @@ export function Notch() {
     open();
   };
 
-  // Right click on the notch opens the settings; text fields keep their menu.
+  // Right click on the notch opens the rich context menu; text fields keep their menu.
   const onContextMenu = (e: React.MouseEvent) => {
     if (!behavior.rightClickSettings || focus || editing || isTextField(e.target) || drag.moved()) return;
-    openOn(settingsTab.id);
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
   // The wheel over the open panel switches tools, one step per gesture, unless something under the pointer scrolls or took it.
@@ -583,14 +595,14 @@ export function Notch() {
             </div>
           ) : (
             <>
-              {chargerEvent.use().active && displaySettings.chargerAnimation !== "off" && (
-            <BlackHoleCharger
-              style={displaySettings.chargerAnimation}
-              percent={chargerEvent.use().percent}
-              charging={chargerEvent.use().charging}
-              onDismiss={() => chargerEvent.set({ active: false, charging: false, percent: null })}
-            />
-          )}
+              {charger.active && displaySettings.chargerAnimation !== "off" && (
+                <BlackHoleCharger
+                  style={displaySettings.chargerAnimation}
+                  percent={charger.percent}
+                  charging={charger.charging}
+                  onDismiss={dismissCharger}
+                />
+              )}
           {/* The closed parts keep the dark tokens on the black notch whatever the theme (src/features/themes), and their order on screen in any language. */}
           <div data-theme-ink dir="ltr" className="contents" style={closedInk}>
             {/* Laid out at their designed size and drawn at the content scale, from the edge (the column from its centre). */}
@@ -689,6 +701,15 @@ export function Notch() {
       <AnimatePresence>
         {nestShown && pet.id && <Nest key="nest" pet={{ ...pet, id: pet.id }} edge={edge} top={nestTop} shapeWidth={shape.w} shapeTransition={transition} notice={notice !== null || (showColumn && column.notice)} hovered={status === "peek"} satelliteOffset={splitActive} />}
       </AnimatePresence>
+      {contextMenu && (
+        <NotchContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          currentTabId={tab.id}
+          onClose={() => setContextMenu(null)}
+          onOpenSettings={() => openOn(settingsTab.id)}
+        />
+      )}
     </div>
   );
 }

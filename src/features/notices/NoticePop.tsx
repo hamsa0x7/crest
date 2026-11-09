@@ -8,6 +8,8 @@ import { CopyCodeButton, copyCodeWidth } from "./CopyCode";
 import { noticeText } from "./format";
 import type { Notice } from "./history";
 import { noticeCode } from "./otp";
+import { InlineReplyButton, REPLY_COLLAPSED_WIDTH } from "./InlineReply";
+import { isMessagingApp } from "./chat";
 
 const LOGO = 32, RING = 18;
 
@@ -50,6 +52,16 @@ export function noticePop(n: Notice, max: number) {
   const ring = n.progress !== null && n.progress !== undefined;
   // The pop is dismissed when presentation mode starts, so the code is never offered while the text is hidden.
   const code = !ring && !isMac && settings.get().notices.copyCodes ? noticeCode(n) : null;
+  const isChat = !ring && !code && isMessagingApp(n.appName, n.appId);
+  const actions = ring ? (
+    <ProgressRing value={n.progress ?? 0} size={RING} />
+  ) : code ? (
+    <CopyCodeButton code={code} />
+  ) : isChat ? (
+    <InlineReplyButton n={n} />
+  ) : undefined;
+  const actionsWidth = code ? copyCodeWidth() : isChat ? REPLY_COLLAPSED_WIDTH : RING;
+
   return noticeCard(
     {
       // A progress update keeps the key, so it changes in place instead of fading out and in.
@@ -61,8 +73,8 @@ export function noticePop(n: Notice, max: number) {
       // The Notices page is a Windows tool; a plugin's notice on a Mac has none to open.
       onOpen: isMac ? undefined : () => openOn("notices"),
       text: n.title ? first || n.appName : first,
-      actions: ring ? <ProgressRing value={n.progress ?? 0} size={RING} /> : code ? <CopyCodeButton code={code} /> : undefined,
-      actionsWidth: code ? copyCodeWidth() : RING,
+      actions,
+      actionsWidth,
     },
     max,
   );

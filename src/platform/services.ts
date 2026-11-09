@@ -546,6 +546,8 @@ export const display = {
   mirror: (picture: MirrorPicture, rect: { x: number; y: number; w: number; h: number }) => {
     if (isNative) void invoke("mirror_picture_set", { picture, rect });
   },
+  setHidden: (hidden: boolean): Promise<void> => (isNative ? invoke("display_set_hidden", { hidden }) : Promise.resolve()),
+  taskbarRestore: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_restore") : Promise.resolve(true)),
   fullscreen: (): Promise<boolean> => (isNative ? invoke<boolean>("display_fullscreen") : Promise.resolve(false)),
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {

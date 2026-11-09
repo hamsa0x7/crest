@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { Component, type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import "./styles/global.css";
@@ -121,15 +121,47 @@ if (isNative) {
   });
 }
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: unknown) {
+    console.error("Crest ErrorBoundary caught unexpected error:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-10 items-center justify-center gap-2 rounded-full border border-red-500/40 bg-elevated/95 px-4 shadow-lg backdrop-blur-md">
+          <span className="text-caption text-red">{t("Fehler")}</span>
+          <button
+            type="button"
+            className="rounded bg-fill-2 px-2 py-0.5 text-caption text-label hover:bg-fill-3 active:scale-95"
+            onClick={() => this.setState({ error: null })}
+          >
+            {t("Erneut versuchen")}
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /** Re-renders everything when the language changes, so every t() runs again (no remount: open tools keep their state). */
 function App() {
   language.use();
   return (
     // reducedMotion="user": Motion respects the Windows "Animation effects" setting.
-    <MotionConfig reducedMotion="user">
-      {!isNative && <DesktopMock />}
-      <Notch />
-    </MotionConfig>
+    <ErrorBoundary>
+      <MotionConfig reducedMotion="user">
+        {!isNative && <DesktopMock />}
+        <Notch />
+      </MotionConfig>
+    </ErrorBoundary>
   );
 }
 

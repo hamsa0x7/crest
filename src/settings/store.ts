@@ -97,6 +97,7 @@ export interface Settings {
     pressToPin: boolean;
     notchLocked: boolean;
     lockClickThrough: boolean;
+    defaultTab: string;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -216,7 +217,7 @@ const defaults: Settings = {
     tabTuck: false, tuckStyle: "eyes",
     tabStripImmunity: true, immunityHeight: 40,
     wheelActivityCycling: true, pressToPin: false,
-    notchLocked: false, lockClickThrough: false },
+    notchLocked: false, lockClickThrough: false, defaultTab: "" },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -396,6 +397,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       pressToPin: typeof s.display?.pressToPin === "boolean" ? s.display.pressToPin : defaults.display.pressToPin,
       notchLocked: typeof s.display?.notchLocked === "boolean" ? s.display.notchLocked : defaults.display.notchLocked,
       lockClickThrough: typeof s.display?.lockClickThrough === "boolean" ? s.display.lockClickThrough : defaults.display.lockClickThrough,
+      defaultTab: typeof s.display?.defaultTab === "string" ? s.display.defaultTab : defaults.display.defaultTab,
     },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },

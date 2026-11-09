@@ -296,6 +296,8 @@ pub fn run() {
             display::display_fullscreen,
             display::display_raise,
             display::display_apps,
+            display::display_set_hidden,
+            display::taskbar_restore,
             #[cfg(windows)]
             mirror::display_cursor_monitor,
             #[cfg(windows)]
