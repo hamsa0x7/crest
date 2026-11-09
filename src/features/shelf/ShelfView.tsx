@@ -130,6 +130,25 @@ export function ShelfView() {
   const sel = prune(rawSel, order);
   const press = useRef<{ x: number; y: number; key: string } | null>(null);
   const swallowClick = useRef(false);
+  const [dlOpen, setDlOpen] = useState(false);
+  const [dlUrl, setDlUrl] = useState("");
+  const [dlBusy, setDlBusy] = useState(false);
+  const [dlError, setDlError] = useState<string | null>(null);
+
+  const startYtdlp = async (audioOnly: boolean) => {
+    if (!dlUrl.trim() || dlBusy) return;
+    setDlBusy(true);
+    setDlError(null);
+    try {
+      await invoke("ytdlp_download", { url: dlUrl.trim(), audioOnly });
+      setDlUrl("");
+      setDlOpen(false);
+    } catch (e) {
+      setDlError(String(e));
+    } finally {
+      setDlBusy(false);
+    }
+  };
 
   usePasteFiles(() => void pasteTextFallback().then((ok) => !ok && flash(setNothing)));
 
@@ -293,7 +312,14 @@ export function ShelfView() {
         >
           <Tray size={22} weight="bold" className={over ? "text-label" : "text-label-3"} />
           <span className="text-body text-label-2">{over ? t("Loslassen zum Ablegen") : t("Dateien oder Text hierher ziehen")}</span>
-          <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
+          <div className="flex items-center gap-2">
+            <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
+            <span className="text-caption text-label-4">•</span>
+            <button onClick={() => setDlOpen(true)} className="pressable flex items-center gap-1 text-caption text-link hover:underline">
+              <DownloadSimple size={12} weight="bold" />
+              {t("Video mit yt-dlp laden")}
+            </button>
+          </div>
         </motion.div>
       </div>
     );
@@ -342,10 +368,52 @@ export function ShelfView() {
             <HeaderButton label={t("Ablage leeren")} onClick={() => shelf.set([])}>
               <Trash size={14} weight="bold" />
             </HeaderButton>
+            <HeaderButton label={t("Video mit yt-dlp laden")} active={dlOpen} onClick={() => setDlOpen((v) => !v)}>
+              <DownloadSimple size={14} weight="bold" />
+            </HeaderButton>
           </>
         )}
       </HeaderActions>
-      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 @[440px]:flex-nowrap flex-wrap content-start gap-2 overflow-auto [scrollbar-width:none]">
+      {dlOpen && (
+        <div className="mb-2 flex items-center gap-1.5 rounded-[12px] bg-fill-2 p-1.5 shrink-0">
+          <input
+            type="text"
+            autoFocus
+            placeholder={t("Video-URL einfügen (YouTube, X, Instagram …)")}
+            value={dlUrl}
+            onChange={(e) => setDlUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void startYtdlp(false);
+              if (e.key === "Escape") setDlOpen(false);
+            }}
+            className="h-7 min-w-0 flex-1 rounded-[8px] bg-fill-1 px-2 text-caption text-label outline-none focus:ring-1 focus:ring-label-3"
+          />
+          <button
+            onClick={() => void startYtdlp(false)}
+            disabled={!dlUrl.trim() || dlBusy}
+            className="pressable flex h-7 items-center gap-1 rounded-[8px] bg-accent px-2 text-caption font-medium text-white disabled:opacity-40"
+          >
+            <DownloadSimple size={12} weight="bold" />
+            {dlBusy ? t("Lädt …") : t("Video")}
+          </button>
+          <button
+            onClick={() => void startYtdlp(true)}
+            disabled={!dlUrl.trim() || dlBusy}
+            className="pressable flex h-7 items-center gap-1 rounded-[8px] bg-fill-1 px-2 text-caption font-medium text-label hover:bg-fill-3 disabled:opacity-40"
+          >
+            <FileAudio size={12} weight="bold" />
+            {t("MP3")}
+          </button>
+          <button
+            onClick={() => setDlOpen(false)}
+            className="pressable flex size-7 items-center justify-center rounded-[8px] text-label-3 hover:text-label-2"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        </div>
+      )}
+      {dlError && <div className="mb-1 text-caption text-red shrink-0">{dlError}</div>}
+      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);
@@ -358,7 +426,7 @@ export function ShelfView() {
                 initial={{ opacity: 0, transform: "scale(0.94)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
                 exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
-                className="group relative h-[180px] @[440px]:h-full @[440px]:max-h-[220px] w-[104px] @[440px]:w-[112px] shrink-0"
+                className="group relative h-[132px] w-[124px] shrink-0"
                 onPointerDown={(e) => onPointerDown(e, key)}
                 onPointerMove={onPointerMove}
                 onPointerUp={() => (press.current = null)}

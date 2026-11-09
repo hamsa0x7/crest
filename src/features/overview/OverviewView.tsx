@@ -99,9 +99,9 @@ export function OverviewView() {
   const rows = listOpen ? Math.max(1, Math.min(MIXER_MAX_ROWS, outputs.length, Math.floor((MAX_SIZE.h - findTab("overview")!.size.h - others - 14) / MIXER_ROW))) : 0;
   const extra = (rows ? rows * MIXER_ROW + 14 : 0) + others;
   useEffect(() => {
-    if (!extra) return requestSize("overview", null);
-    const base = findTab("overview")!.size;
-    requestSize("overview", { w: base.w, h: base.h + extra });
+    // Fixed panel bounds take precedence
+
+
   }, [extra, quotes]);
   useEffect(() => () => requestSize("overview", null), []);
 

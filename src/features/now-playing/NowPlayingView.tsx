@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { ArrowSquareOut, ArrowUpRight, Heart, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, PictureInPicture, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward, Television } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
-import { YouTubeMirror, useMirrorVideo } from "./YouTubeMirror";
+import { YouTubeMirror, useMirrorVideo, customVideo, extractYouTubeId } from "./YouTubeMirror";
+import { Button } from "../../ui/controls";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
 import { useSmoothArtwork, useTinyArtwork } from "./artwork";
 import { coverBackdrop } from "./CoverBackdrop";
@@ -161,16 +162,14 @@ export function NowPlayingView() {
               <Television size={14} weight="bold" />
             </button>
           )}
-          {video && (
-            <button
-              onClick={() => void invoke("open_pip", {})}
-              aria-label={t("Bild-in-Bild (PiP)")}
-              title={t("Bild-in-Bild (PiP)")}
-              className="pressable pressable-fill flex size-7 items-center justify-center rounded-full text-label-3 hover:text-label-2 transition-colors duration-150"
-            >
-              <PictureInPicture size={14} weight="bold" />
-            </button>
-          )}
+          <button
+            onClick={() => void invoke("open_pip", {})}
+            aria-label={t("Bild-in-Bild (PiP)")}
+            title={t("Bild-in-Bild (PiP)")}
+            className="pressable pressable-fill flex size-7 items-center justify-center rounded-full text-label-3 hover:text-label-2 transition-colors duration-150"
+          >
+            <PictureInPicture size={14} weight="bold" />
+          </button>
           <button
             onClick={() => void invoke("lyrics_window_open", {})}
             aria-label={t("Schwebender Songtext (Ctrl+Alt+L)")}
@@ -548,8 +547,59 @@ function IconButton(props: { label: string; onClick: () => void; children: React
 }
 
 function Empty() {
+  const [url, setUrl] = useState("");
+  const handleOpen = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = extractYouTubeId(url);
+    if (id) {
+      customVideo.set(id);
+      void invoke("open_pip", {});
+      setUrl("");
+    }
+  };
+
   return (
-    <div className="flex h-full items-center justify-center text-body text-label-3">{t("Gerade läuft nichts")}</div>
+    <div className="flex h-full flex-col px-5 pt-1 pb-2">
+      <HeaderActions>
+        <HeaderButton label={t("Bild-in-Bild (PiP)")} onClick={() => void invoke("open_pip", {})}>
+          <PictureInPicture size={14} weight="bold" />
+        </HeaderButton>
+        <HeaderButton label={t("Schwebender Songtext (Ctrl+Alt+L)")} onClick={() => void invoke("lyrics_window_open", {})}>
+          <MicrophoneStage size={14} weight="bold" />
+        </HeaderButton>
+      </HeaderActions>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+        <div className="flex size-10 items-center justify-center rounded-full bg-fill-2 text-label-2">
+          <MusicNoteSimple size={20} weight="bold" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="text-body font-semibold text-label">{t("Gerade läuft nichts")}</div>
+          <div className="max-w-[320px] text-caption text-label-3">
+            {t("Musik in Spotify oder einem Browser abspielen, oder ein YouTube-Video im Bild-in-Bild Modus öffnen.")}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <Button icon={PictureInPicture} onClick={() => void invoke("open_pip", {})}>
+            {t("Bild-in-Bild (PiP)")}
+          </Button>
+          <Button icon={MicrophoneStage} onClick={() => void invoke("lyrics_window_open", {})}>
+            {t("Songtexte")}
+          </Button>
+        </div>
+        <form onSubmit={handleOpen} className="mt-2 flex w-full max-w-[340px] items-center gap-1.5 rounded-[12px] bg-fill-2 px-2.5 py-1 border border-separator">
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={t("YouTube URL einfügen …")}
+            className="min-w-0 flex-1 bg-transparent text-caption text-label placeholder:text-label-4 focus:outline-none"
+          />
+          <Button disabled={!url.trim()} primary>
+            {t("Öffnen")}
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }
 

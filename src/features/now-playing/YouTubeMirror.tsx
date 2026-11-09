@@ -2,7 +2,18 @@ import { useEffect, useMemo, useRef } from "react";
 import { createStore } from "../../lib/store";
 
 /** Videos whose owner disabled embedding (or that failed): back to the artwork. */
+/** Videos whose owner disabled embedding (or that failed): back to the artwork. */
 export const unembeddable = createStore<string[]>([]);
+
+/** A manually chosen or pasted video ID to play in Notch or PiP. */
+export const customVideo = createStore<string | null>(null);
+
+export function extractYouTubeId(text: string): string | null {
+  const trimmed = text.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 
 /** More drift than this (s) from the browser's position triggers a seek. */
 const MAX_DRIFT = 1.5;
@@ -112,8 +123,10 @@ export function YouTubeMirror({
   );
 }
 
-/** The browser's YouTube video, unless it can't be embedded. */
+/** The browser's YouTube video or manually selected video, unless it can't be embedded. */
 export function useMirrorVideo(youtubeId: string | null | undefined) {
+  const manual = customVideo.use();
+  const id = youtubeId || manual;
   const blocked = unembeddable.use();
-  return youtubeId && !blocked.includes(youtubeId) ? youtubeId : null;
+  return id && !blocked.includes(id) ? id : null;
 }

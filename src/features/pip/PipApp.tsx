@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type WheelEvent } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDownLeft, FastForward, Pause, Play, Rewind, X } from "@phosphor-icons/react";
+import { ArrowDownLeft, FastForward, Pause, Play, PictureInPicture, Rewind, X } from "@phosphor-icons/react";
 import { media, useNowPlaying } from "../../platform/media";
-import { YouTubeMirror, useMirrorVideo } from "../now-playing/YouTubeMirror";
+import { YouTubeMirror, useMirrorVideo, customVideo, extractYouTubeId } from "../now-playing/YouTubeMirror";
 import { Marquee } from "../../notch/row/Marquee";
 import { t } from "../../i18n";
 
@@ -16,6 +16,7 @@ export function PipApp() {
   const positionMs = (np?.position ?? 0) * 1000;
   const durationMs = (np?.duration ?? 0) * 1000;
   const [hovered, setHovered] = useState(false);
+  const [manualUrl, setManualUrl] = useState("");
 
   // Snap to edges on drag end
   const snapTimer = useRef<number | undefined>(undefined);
@@ -63,8 +64,35 @@ export function PipApp() {
       ) : np?.artwork ? (
         <img src={np.artwork} alt="" className="size-full object-cover opacity-60" />
       ) : (
-        <div className="flex size-full items-center justify-center bg-fill-1 text-label-3">
-          <span className="text-caption">{t("Kein Video aktiv")}</span>
+        <div className="flex size-full flex-col items-center justify-center gap-2 bg-fill-1 p-3 text-label-3">
+          <PictureInPicture size={22} weight="bold" className="text-label-3" />
+          <span className="text-caption font-medium">{t("Kein Video aktiv")}</span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const id = extractYouTubeId(manualUrl);
+              if (id) {
+                customVideo.set(id);
+                setManualUrl("");
+              }
+            }}
+            className="flex w-full max-w-[280px] items-center gap-1.5 rounded-[10px] bg-fill-2 px-2 py-1 border border-separator pointer-events-auto"
+          >
+            <input
+              type="text"
+              value={manualUrl}
+              onChange={(e) => setManualUrl(e.target.value)}
+              placeholder={t("YouTube URL einfügen …")}
+              className="min-w-0 flex-1 bg-transparent text-caption text-label placeholder:text-label-4 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!manualUrl.trim()}
+              className="pressable rounded-[6px] bg-accent px-2 py-0.5 text-caption font-medium text-white disabled:opacity-40"
+            >
+              {t("Laden")}
+            </button>
+          </form>
         </div>
       )}
 

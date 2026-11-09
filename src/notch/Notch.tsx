@@ -206,9 +206,10 @@ export function Notch() {
   const fixedH = Math.max(350, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 350);
   const monH = monitorMetrics().height;
   const clampedH = Math.min(fixedH, Math.max(300, monH - 24));
-  const rawSize = overridden
-    ? { w: Math.max(fixedW, override.w), h: Math.min(Math.max(fixedH, override.h), monH - 24) }
-    : { w: fixedW, h: clampedH };
+  const rawSize = { w: fixedW, h: clampedH };
+  // const rawSizeOverridden = overridden
+
+
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;

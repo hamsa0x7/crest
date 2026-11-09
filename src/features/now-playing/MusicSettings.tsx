@@ -6,6 +6,7 @@ import { isMac, isNative } from "../../platform/native";
 import { Button, Group, Row, Segmented, Select, Switch } from "../../ui/controls";
 import { sourceName } from "./sources";
 import { LYRIC_SOURCES } from "./lyricSources";
+import { navigate } from "../../notch/nav";
 import { setMusic } from "./music";
 import { OFFLINE_SOURCES, OFFLINE_TARGETS, pairsFor, targetOf } from "./offline";
 import { downloadPairs, hasPair, offlineStatus, removePair } from "./offlineEngine";
@@ -111,6 +112,17 @@ export function MusicSettings() {
           <Switch label={t("Lautschrift")} checked={music.lyricRoman} onChange={(lyricRoman) => setMusic({ lyricRoman })} />
         </Row>
         {music.lyricRoman && <KanjiDictionary />}
+      </Group>
+      <Group title={t("Video & Bild-in-Bild (PiP)")} id="settings-video-pip">
+        <Row label={t("Bild-in-Bild (PiP) Fenster")} hint={t("Schwebendes Always-On-Top Fenster für Videos und Mediensteuerung")}>
+          <Button onClick={() => void invoke("open_pip", {})}>{t("PiP öffnen")}</Button>
+        </Row>
+        <Row label={t("Schwebende Songtexte")} hint={t("Frei bewegliches transparentes Desktop-Fenster (Tastenkürzel: Strg + Alt + L)")}>
+          <Button onClick={() => void invoke("lyrics_window_open", {})}>{t("Fenster öffnen")}</Button>
+        </Row>
+        <Row label={t("yt-dlp Video & Audio Downloader")} hint={t("Video-Links aus YouTube, X oder Instagram in der Shelf als MP4 oder MP3 herunterladen")}>
+          <Button onClick={() => navigate("shelf")}>{t("In Shelf öffnen")}</Button>
+        </Row>
       </Group>
     </>
   );
