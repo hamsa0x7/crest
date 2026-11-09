@@ -526,6 +526,7 @@ export const display = {
     edge?: string;
     line?: number;
     along?: number;
+    depth?: number;
   }) => {
     if (isNative) void invoke("display_apply", { config });
   },

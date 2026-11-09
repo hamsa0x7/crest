@@ -76,7 +76,7 @@ function FinishedView() {
   const tint = modeTint(s.mode, color);
   return (
     <motion.div
-      className="flex h-full flex-col justify-between px-5 pt-1 pb-2"
+      className="flex h-full flex-col justify-center gap-6 px-5 pt-1 pb-2"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: content.enter }}
     >
@@ -151,7 +151,7 @@ function SetupView() {
   const chips = custom && !presets[s.mode].includes(custom) ? [...presets[s.mode], custom] : presets[s.mode];
 
   return (
-    <div className="flex h-full flex-col justify-between px-5 pt-1 pb-2">
+    <div className="flex h-full flex-col justify-center gap-6 px-5 pt-1 pb-2">
       <div className="flex h-7 items-center justify-between">
         <Segmented
           disabled={running}

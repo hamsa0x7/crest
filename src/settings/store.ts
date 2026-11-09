@@ -213,7 +213,7 @@ const defaults: Settings = {
     rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
     frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
     chargerAnimation: "cinematic", dockMagnifyDots: true,
-    panelWidth: 640, panelHeight: 480, panelMinWidth: 640, panelMaxHeight: 480,
+    panelWidth: 640, panelHeight: 350, panelMinWidth: 640, panelMaxHeight: 350,
     tabTuck: false, tuckStyle: "eyes",
     tabStripImmunity: true, immunityHeight: 40,
     wheelActivityCycling: true, pressToPin: false,
@@ -368,9 +368,9 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
           : defaults.display.panelWidth,
       panelHeight:
         typeof s.display?.panelHeight === "number" && Number.isFinite(s.display.panelHeight)
-          ? Math.max(480, Math.min(800, Math.round(s.display.panelHeight)))
+          ? Math.max(350, Math.min(800, Math.round(s.display.panelHeight)))
           : typeof s.display?.panelMaxHeight === "number" && Number.isFinite(s.display.panelMaxHeight)
-          ? Math.max(480, Math.min(800, Math.round(s.display.panelMaxHeight)))
+          ? Math.max(350, Math.min(800, Math.round(s.display.panelMaxHeight)))
           : defaults.display.panelHeight,
       panelMinWidth:
         typeof s.display?.panelWidth === "number" && Number.isFinite(s.display.panelWidth)
@@ -380,9 +380,9 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
           : defaults.display.panelMinWidth,
       panelMaxHeight:
         typeof s.display?.panelHeight === "number" && Number.isFinite(s.display.panelHeight)
-          ? Math.max(480, Math.min(800, Math.round(s.display.panelHeight)))
+          ? Math.max(350, Math.min(800, Math.round(s.display.panelHeight)))
           : typeof s.display?.panelMaxHeight === "number" && Number.isFinite(s.display.panelMaxHeight)
-          ? Math.max(480, Math.min(800, Math.round(s.display.panelMaxHeight)))
+          ? Math.max(350, Math.min(800, Math.round(s.display.panelMaxHeight)))
           : defaults.display.panelMaxHeight,
       tabTuck: typeof s.display?.tabTuck === "boolean" ? s.display.tabTuck : defaults.display.tabTuck,
       tuckStyle: ["line", "eyes"].includes(s.display?.tuckStyle as string)

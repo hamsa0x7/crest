@@ -28,19 +28,19 @@ function save(_id: string, size: Size | null) {
     display: {
       ...cur.display,
       panelWidth: size ? Math.max(640, size.w) : 640,
-      panelHeight: size ? Math.max(480, size.h) : 480,
+      panelHeight: size ? Math.max(350, size.h) : 350,
       panelMinWidth: size ? Math.max(640, size.w) : 640,
-      panelMaxHeight: size ? Math.max(480, size.h) : 480,
+      panelMaxHeight: size ? Math.max(350, size.h) : 350,
     },
   }));
 }
 
 /** One press of the resize shortcut on the open tool. */
 export function stepToolSize(id: string, _def: Size, dir: Direction) {
-  const lim = limits({ w: 640, h: 480 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
+  const lim = limits({ w: 640, h: 350 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
   const current = {
     w: settings.get().display.panelWidth ?? 640,
-    h: settings.get().display.panelHeight ?? 480,
+    h: settings.get().display.panelHeight ?? 350,
   };
   save(id, stepSize(current, dir, lim));
 }
@@ -70,7 +70,7 @@ export function ResizeHandles({ id, def: _def, size }: { id: string; def: Size; 
     const el = e.currentTarget, pointer = e.pointerId;
     el.setPointerCapture(pointer);
     holdOpen(true);
-    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits({ w: 640, h: 480 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
+    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits({ w: 640, h: 350 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
     let current = start;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;

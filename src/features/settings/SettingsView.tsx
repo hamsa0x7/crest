@@ -1022,13 +1022,13 @@ function Display() {
         <div className="flex w-52 items-center gap-2">
           <Slider
             label={t("Panel-Höhe")}
-            value={d.panelHeight ?? 480}
-            min={480}
+            value={d.panelHeight ?? 350}
+            min={350}
             max={800}
             step={1}
             onChange={(panelHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelHeight, panelMaxHeight: panelHeight } }))}
           />
-          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelHeight ?? 480} px</span>
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelHeight ?? 350} px</span>
         </div>
       </Row>
       <Row label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>

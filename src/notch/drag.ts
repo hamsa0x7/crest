@@ -4,7 +4,7 @@ import { settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
 import { toPageCss, toSaved } from "../features/window/panelSize";
 import { capsuleY, snapCapsule, windowYFor } from "./capsule";
-import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, type Dock, type Edge, type Work } from "./edge";
+import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, WINDOW, type Dock, type Edge, type Work } from "./edge";
 import { windowAlong } from "./collapsed";
 import { closedLive } from "./ClosedResize";
 import { focusMode } from "./focus";
@@ -50,13 +50,22 @@ export function windowY(y = pageCss(settings.get().display.y)): number {
 export function windowLength(dock = settings.get().dock, stale = 1): number {
   const s = settings.get(), m = monitorMetrics(), style = shownStyle(s), side = across(edgeOf(style, dock));
   const pet = s.closed.pet;
-  return windowAlong({ ...s.closedSize, ...closedLive.get() }, style, side, sharedSpan(side ? m.height : m.width, side) / stale, pet.id ? pet.size : 0);
+  const closedLen = windowAlong({ ...s.closedSize, ...closedLive.get() }, style, side, sharedSpan(side ? m.height : m.width, side) / stale, pet.id ? pet.size : 0);
+  const panelW = s.display?.panelWidth ?? 640;
+  return Math.max(WINDOW.along, closedLen, panelW + 40);
+}
+
+/** The window's depth perpendicular to its edge: at least 560, or deeper if open panel requires it. */
+export function windowDepth(): number {
+  const s = settings.get();
+  const panelH = s.display?.panelHeight ?? 350;
+  return Math.max(WINDOW.depth, panelH + 60);
 }
 
 /** What Rust places the window by, beyond the saved display settings; for noticing changes. With "all" every monitor counts. */
 export const placementKey = () => {
   const all = settings.get().display.monitorMode === "all" ? JSON.stringify(monitors.get()) : "";
-  return `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}|${windowLength()}|${placedMonitor()}|${all}`;
+  return `${windowY()}|${edgeOf(shownStyle(), settings.get().dock)}|${dockLine()}|${windowLength()}|${windowDepth()}|${placedMonitor()}|${all}`;
 };
 
 /**
@@ -82,6 +91,7 @@ export function applyDisplay(offset = pageCss(settings.get().display.offset), y?
     edge,
     line: here.line,
     along: windowLength(dock, stale),
+    depth: windowDepth(),
   });
 }
 

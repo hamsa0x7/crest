@@ -203,9 +203,9 @@ export function Notch() {
   const overridden = override?.tabId === tab.id;
   const dragging = useLiveSize();
   const fixedW = Math.max(640, dragging?.w ?? displaySettings.panelWidth ?? displaySettings.panelMinWidth ?? 640);
-  const fixedH = Math.max(480, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 480);
+  const fixedH = Math.max(350, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 350);
   const monH = monitorMetrics().height;
-  const clampedH = Math.min(fixedH, Math.max(400, monH - 24));
+  const clampedH = Math.min(fixedH, Math.max(300, monH - 24));
   const rawSize = overridden
     ? { w: Math.max(fixedW, override.w), h: Math.min(Math.max(fixedH, override.h), monH - 24) }
     : { w: fixedW, h: clampedH };

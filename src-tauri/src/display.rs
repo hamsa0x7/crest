@@ -112,6 +112,9 @@ pub struct Config {
     /// The window's length along that edge in CSS px, longer than `ALONG` for a wide closed notch (src/notch/collapsed.ts windowAlong); see `fit_along`.
     #[serde(default)]
     along: f64,
+    /// The window's depth (perpendicular to its edge) in CSS px; see `fit_depth`.
+    #[serde(default)]
+    depth: f64,
 }
 
 /// `line` and `y` of Config for one monitor.
@@ -140,6 +143,7 @@ impl Default for Config {
             edge: String::new(),
             line: 0.0,
             along: 0.0,
+            depth: 0.0,
         }
     }
 }
@@ -162,6 +166,17 @@ fn fit_along(along: f64) -> f64 {
         along.clamp(ALONG, MAX_ALONG)
     } else {
         ALONG
+    }
+}
+
+const MIN_DEPTH: f64 = 560.0;
+const MAX_DEPTH_PX: f64 = 2000.0;
+
+fn fit_depth(depth: f64) -> f64 {
+    if depth.is_finite() && depth > 0.0 {
+        depth.clamp(MIN_DEPTH, MAX_DEPTH_PX)
+    } else {
+        DEPTH
     }
 }
 
@@ -451,7 +466,9 @@ pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line
     for _ in 0..2 {
         let mut size = window.outer_size()?;
         // Only resized when the orientation, the zoom or the closed notch's length changes, so the top edge at 100 % keeps its window as it was.
-        let (lw, lh) = (if side { SIDE_DEPTH } else { along } * zoom, if side { along } else { DEPTH } * zoom);
+        let win_along = fit_along(along);
+        let win_depth = fit_depth(c.depth);
+        let (lw, lh) = (if side { SIDE_DEPTH } else { win_along } * zoom, if side { win_along } else { win_depth } * zoom);
         let dpi = window.scale_factor()?;
         if (size.width as f64 - lw * dpi).abs() > 2.0 || (size.height as f64 - lh * dpi).abs() > 2.0 {
             window.set_size(LogicalSize::new(lw, lh))?;

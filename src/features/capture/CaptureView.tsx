@@ -248,11 +248,11 @@ function Library() {
         />
       </div>
       {shown.length === 0 ? (
-        <div className="min-h-0 flex-1 rounded-[14px] bg-fill-1">
+        <div className="h-[175px] shrink-0 rounded-[14px] bg-fill-1">
           <Empty icon={filter === "video" ? FilmStrip : ImageSquare} title={t("Noch nichts aufgenommen")} text={t("Bildschirmfotos und Videos erscheinen hier")} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+        <div className="flex h-[175px] shrink-0 gap-2 overflow-x-auto [scrollbar-width:none]">
           <AnimatePresence initial={false} mode="popLayout">
             {shown.map((f) => (
               <motion.div
