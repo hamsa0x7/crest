@@ -32,6 +32,11 @@ export interface DownloadItem {
 
 export const downloadHistory = createStore<DownloadItem[]>([], { persist: "downloader_history" });
 
+export function looksLikeVideoUrl(text: string): boolean {
+  const l = text.trim().toLowerCase();
+  return ["youtube.com", "youtu.be", "vimeo.com", "x.com", "twitter.com", "instagram.com", "tiktok.com", "reddit.com", "twitch.tv", "dailymotion.com"].some((d) => l.includes(d));
+}
+
 const PLATFORMS = [
   "YouTube",
   "X (Twitter)",

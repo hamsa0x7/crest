@@ -3,7 +3,7 @@ import { isMac } from "../platform/native";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
-import type { RimPreset } from "../notch/rim";
+import type { RimPreset, RimEffect } from "../notch/rim";
 import { normalizeClockLook, normalizeLook, normalizeLookColor, type ClockLook, type LookColor, type TimerLook } from "../features/timer/looks";
 import { normalizeFocusSound, type FocusSound } from "../features/timer/focusSound";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
@@ -76,6 +76,8 @@ export interface Settings {
     rimPreset: RimPreset;
     rimThickness: number;
     rimGlow: number;
+    rimEffect: RimEffect;
+    rimSpeed: number;
     rimCustomStart: string;
     rimCustomEnd: string;
     frostedGlass: boolean;
@@ -212,7 +214,7 @@ const defaults: Settings = {
   },
   weather: null,
   display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
-    rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
+    rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimEffect: "none", rimSpeed: 1.0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
     frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
     chargerAnimation: "cinematic", dockMagnifyDots: true,
     panelWidth: 640, panelHeight: 350, panelMinWidth: 640, panelMaxHeight: 350,
@@ -338,9 +340,9 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       birthAnimation: typeof s.display?.birthAnimation === "boolean" ? s.display.birthAnimation : defaults.display.birthAnimation,
       hoverPeek: typeof s.display?.hoverPeek === "boolean" ? s.display.hoverPeek : defaults.display.hoverPeek,
       satelliteBubble: typeof s.display?.satelliteBubble === "boolean" ? s.display.satelliteBubble : defaults.display.satelliteBubble,
-      rimPreset: ["none", "silver", "frosted", "aurora", "cyberpunk", "gold", "custom"].includes(s.display?.rimPreset as string)
+      rimPreset: ["none", "silver", "aurora", "cyberpunk", "gold", "crimson", "emerald", "violet", "sunset", "ice", "rgb", "custom"].includes(s.display?.rimPreset as string)
         ? (s.display!.rimPreset as RimPreset)
-        : defaults.display.rimPreset,
+        : ((s.display?.rimPreset as unknown as string) === "frosted" ? "silver" : defaults.display.rimPreset),
       rimThickness:
         typeof s.display?.rimThickness === "number" && Number.isFinite(s.display.rimThickness)
           ? Math.max(0.5, Math.min(2.5, s.display.rimThickness))
@@ -349,6 +351,13 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
         typeof s.display?.rimGlow === "number" && Number.isFinite(s.display.rimGlow)
           ? Math.max(0, Math.min(100, Math.round(s.display.rimGlow)))
           : defaults.display.rimGlow,
+      rimEffect: ["none", "breathing", "wave", "zoom", "shifting", "neon"].includes(s.display?.rimEffect as string)
+        ? (s.display!.rimEffect as RimEffect)
+        : defaults.display.rimEffect,
+      rimSpeed:
+        typeof s.display?.rimSpeed === "number" && Number.isFinite(s.display.rimSpeed)
+          ? Math.max(0.5, Math.min(3.0, s.display.rimSpeed))
+          : defaults.display.rimSpeed,
       rimCustomStart: typeof s.display?.rimCustomStart === "string" ? s.display.rimCustomStart : defaults.display.rimCustomStart,
       rimCustomEnd: typeof s.display?.rimCustomEnd === "string" ? s.display.rimCustomEnd : defaults.display.rimCustomEnd,
       frostedGlass: typeof s.display?.frostedGlass === "boolean" ? s.display.frostedGlass : defaults.display.frostedGlass,

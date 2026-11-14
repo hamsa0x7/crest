@@ -87,7 +87,7 @@
         "transparent": true,
         "decorations": false,
         "shadow": true,
-        "resizable": false,
+        "resizable": true,
         "maximizable": false,
         "minimizable": false,
         "alwaysOnTop": true,

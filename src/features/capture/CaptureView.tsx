@@ -248,21 +248,21 @@ function Library() {
         />
       </div>
       {shown.length === 0 ? (
-        <div className="h-[175px] shrink-0 rounded-[14px] bg-fill-1">
+        <div className="flex-1 min-h-[140px] rounded-[14px] bg-fill-1 flex items-center justify-center">
           <Empty icon={filter === "video" ? FilmStrip : ImageSquare} title={t("Noch nichts aufgenommen")} text={t("Bildschirmfotos und Videos erscheinen hier")} />
         </div>
       ) : (
-        <div className="flex h-[175px] shrink-0 gap-2 overflow-x-auto [scrollbar-width:none]">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
           <AnimatePresence initial={false} mode="popLayout">
             {shown.map((f) => (
               <motion.div
                 key={f.path}
                 layout
                 transition={springs.snappy}
-                initial={{ opacity: 0, transform: "scale(0.94)" }}
+                initial={{ opacity: 0, transform: "scale(0.96)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
-                exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
-                className="group relative h-full w-[132px] shrink-0"
+                exit={{ opacity: 0, transform: "scale(0.96)", transition: fade }}
+                className="group relative w-full shrink-0"
               >
                 <Card file={f} details={detailCache.get(cacheKey(f))} onDeleted={() => libraryEpoch.set((n) => n + 1)} />
               </motion.div>
@@ -289,29 +289,44 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
   const [armed, onDelete, deleteError] = useDelete(file.path, onDeleted);
 
   return (
-    <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
-      <button onClick={() => void openFile(file.path)} title={t("{name} öffnen", { name: file.name })} className="pressable relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-        {thumb ? <img src={thumb} alt="" draggable={false} className="absolute inset-0 size-full object-cover" /> : <I size={28} weight="duotone" className="text-label-2" />}
+    <div className="relative flex h-[72px] w-full items-center gap-3 overflow-hidden rounded-[12px] bg-fill-1 p-2 border border-separator/50 hover:bg-fill-2 transition-colors">
+      <button
+        onClick={() => void openFile(file.path)}
+        title={t("{name} öffnen", { name: file.name })}
+        className="pressable relative h-full aspect-video shrink-0 overflow-hidden rounded-[8px] bg-black/40 flex items-center justify-center"
+      >
+        {thumb ? (
+          <img src={thumb} alt="" draggable={false} className="size-full object-cover" />
+        ) : (
+          <I size={22} weight="duotone" className="text-label-2" />
+        )}
         {video && (
-          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <span className="flex size-8 items-center justify-center rounded-full bg-black/55 text-label backdrop-blur-md">
-              <Play size={14} weight="fill" />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+            <span className="flex size-5 items-center justify-center rounded-full bg-black/60 text-label backdrop-blur-md">
+              <Play size={10} weight="fill" />
             </span>
           </span>
         )}
         {video && details?.durationMs != null && (
-          <span className="tabular absolute end-1.5 bottom-1.5 rounded-[6px] bg-black/60 px-1.5 text-caption text-label">{formatElapsed(details.durationMs)}</span>
+          <span className="tabular absolute end-1 bottom-1 rounded-[4px] bg-black/70 px-1 text-[10px] text-label">
+            {formatElapsed(details.durationMs)}
+          </span>
         )}
       </button>
-      <div className="px-2 pt-1.5 pb-1">
-        <p className="truncate text-caption font-medium text-label" title={file.name}>{when(file.modified)}</p>
-        <div className="flex items-center justify-between">
-          {deleteError ? <span className="min-w-0 truncate text-caption text-red" title={deleteError}>{deleteError}</span> : <span className="tabular text-caption text-label-3">{formatBytes(file.size, 0)}</span>}
-          <span className={`flex transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 ${armed ? "opacity-100" : "opacity-0"}`}>
-            <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
-            <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
-          </span>
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <p className="truncate text-footnote font-medium text-label" title={file.name}>
+          {file.name}
+        </p>
+        <div className="flex items-center gap-2 text-caption text-label-3">
+          <span>{when(file.modified)}</span>
+          <span>•</span>
+          <span>{formatBytes(file.size, 0)}</span>
+          {deleteError && <span className="text-red truncate">{deleteError}</span>}
         </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
+        <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
       </div>
     </div>
   );

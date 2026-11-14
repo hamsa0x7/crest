@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
-import { ArrowSquareOut, ArrowUpRight, Heart, ImageSquare, MicrophoneStage, MusicNoteSimple, Pause, PictureInPicture, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward, Television } from "@phosphor-icons/react";
+import { ArrowSquareOut, ArrowUpRight, Heart, ImageSquare, MagnifyingGlass, MicrophoneStage, MusicNoteSimple, Pause, PictureInPicture, Play, Repeat, RepeatOnce, Shuffle, SkipBack, SkipForward, SpotifyLogo, Television, YoutubeLogo } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
+import { openFile } from "../../platform/services";
 import { YouTubeMirror, useMirrorVideo, customVideo, extractYouTubeId } from "./YouTubeMirror";
 import { Button } from "../../ui/controls";
 import { artwork as artworkSwap, content, springs } from "../../design/motion";
@@ -554,15 +555,45 @@ function IconButton(props: { label: string; onClick: () => void; children: React
 }
 
 function Empty() {
-  const [url, setUrl] = useState("");
-  const handleOpen = (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = extractYouTubeId(url);
-    if (id) {
-      customVideo.set(id);
-      void invoke("open_pip", {});
-      setUrl("");
+  const [source, setSource] = useState<"youtube" | "spotify">("youtube");
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q || q.length < 2) {
+      setSuggestions([]);
+      return;
     }
+    const timer = setTimeout(() => {
+      fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data: [string, string[]]) => {
+          if (Array.isArray(data) && Array.isArray(data[1])) {
+            setSuggestions(data[1].slice(0, 5));
+          }
+        })
+        .catch(() => {});
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const handleLaunch = (val = query) => {
+    const target = val.trim();
+    if (!target) return;
+    if (source === "youtube") {
+      const id = extractYouTubeId(target);
+      if (id) {
+        customVideo.set(id);
+      } else {
+        void openFile(`https://www.youtube.com/results?search_query=${encodeURIComponent(target)}`);
+      }
+    } else {
+      void openFile(`spotify:search:${encodeURIComponent(target)}`);
+    }
+    setQuery("");
+    setShowSuggest(false);
   };
 
   return (
@@ -575,16 +606,88 @@ function Empty() {
           <MicrophoneStage size={14} weight="bold" />
         </HeaderButton>
       </HeaderActions>
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-center">
         <div className="flex size-10 items-center justify-center rounded-full bg-fill-2 text-label-2">
           <MusicNoteSimple size={20} weight="bold" />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           <div className="text-body font-semibold text-label">{t("Gerade läuft nichts")}</div>
-          <div className="max-w-[320px] text-caption text-label-3">
-            {t("Musik in Spotify oder einem Browser abspielen, oder ein YouTube-Video im Bild-in-Bild Modus öffnen.")}
+          <div className="max-w-[340px] text-caption text-label-3">
+            {t("Wähle einen Dienst, tippe einen Titel oder füge einen Link ein.")}
           </div>
         </div>
+
+        {/* Source Selector: YouTube or Spotify */}
+        <div className="flex items-center gap-1 rounded-[10px] bg-fill-2 p-1 border border-separator/60">
+          <button
+            type="button"
+            onClick={() => setSource("youtube")}
+            className={`pressable flex items-center gap-1.5 rounded-[8px] px-3 py-1 text-caption font-medium transition-colors ${
+              source === "youtube" ? "bg-accent text-white shadow-sm" : "text-label-2 hover:text-label"
+            }`}
+          >
+            <YoutubeLogo size={14} weight={source === "youtube" ? "fill" : "bold"} />
+            <span>YouTube</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSource("spotify")}
+            className={`pressable flex items-center gap-1.5 rounded-[8px] px-3 py-1 text-caption font-medium transition-colors ${
+              source === "spotify" ? "bg-accent text-white shadow-sm" : "text-label-2 hover:text-label"
+            }`}
+          >
+            <SpotifyLogo size={14} weight={source === "spotify" ? "fill" : "bold"} />
+            <span>Spotify</span>
+          </button>
+        </div>
+
+        {/* Search / URL Entry with Autocomplete */}
+        <div className="relative w-full max-w-[380px]">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLaunch();
+            }}
+            className="flex w-full items-center gap-2 rounded-[12px] bg-fill-2 px-3 py-1.5 border border-separator shadow-sm focus-within:border-accent"
+          >
+            <MagnifyingGlass size={15} weight="bold" className="text-label-3 shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowSuggest(true);
+              }}
+              onFocus={() => setShowSuggest(true)}
+              placeholder={
+                source === "youtube"
+                  ? t("YouTube durchsuchen oder Video-URL …")
+                  : t("Song, Künstler oder Playlist in Spotify …")
+              }
+              className="min-w-0 flex-1 bg-transparent text-caption text-label placeholder:text-label-4 focus:outline-none"
+            />
+            <Button disabled={!query.trim()} primary>
+              {source === "youtube" ? t("Abspielen") : t("In Spotify")}
+            </Button>
+          </form>
+
+          {showSuggest && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-30 mt-1 flex flex-col overflow-hidden rounded-[12px] bg-elevated/95 backdrop-blur-xl border border-separator shadow-2xl p-1 text-start">
+              {suggestions.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleLaunch(item)}
+                  className="pressable flex w-full items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-caption text-label hover:bg-fill-2 text-start truncate"
+                >
+                  <MagnifyingGlass size={12} weight="bold" className="text-label-3 shrink-0" />
+                  <span className="truncate">{item}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-2 mt-1">
           <Button icon={PictureInPicture} onClick={() => void invoke("open_pip", {})}>
             {t("Bild-in-Bild (PiP)")}
@@ -593,18 +696,6 @@ function Empty() {
             {t("Songtexte")}
           </Button>
         </div>
-        <form onSubmit={handleOpen} className="mt-2 flex w-full max-w-[340px] items-center gap-1.5 rounded-[12px] bg-fill-2 px-2.5 py-1 border border-separator">
-          <input
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={t("YouTube URL einfügen …")}
-            className="min-w-0 flex-1 bg-transparent text-caption text-label placeholder:text-label-4 focus:outline-none"
-          />
-          <Button disabled={!url.trim()} primary>
-            {t("Öffnen")}
-          </Button>
-        </form>
       </div>
     </div>
   );

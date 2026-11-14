@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLineUp, Plus, X } from "@phosphor-icons/react";
+import { ArrowLineUp, FolderOpen, Plus, X } from "@phosphor-icons/react";
 import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
@@ -79,6 +79,7 @@ function AppRules() {
   const [running, setRunning] = useState<RunningApp[]>([]);
   const [pick, setPick] = useState("");
   const [typed, setTyped] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     void windowShell.apps().then(setRunning);
   }, []);
@@ -143,6 +144,20 @@ function AppRules() {
       </Row>
       <Row label={t("Nach Name")} hint={t("Für Apps, die gerade nicht laufen")}>
         <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".exe"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file || full) return;
+              const path = (file as unknown as { path?: string }).path || "";
+              const name = file.name.replace(/\.exe$/i, "");
+              add(newRule(name, path));
+              e.target.value = "";
+            }}
+          />
           <TextField
             value={typed}
             onChange={setTyped}
@@ -162,6 +177,13 @@ function AppRules() {
             }}
           >
             {t("Hinzufügen")}
+          </Button>
+          <Button
+            icon={FolderOpen}
+            disabled={full}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {t("Durchsuchen …")}
           </Button>
         </div>
       </Row>

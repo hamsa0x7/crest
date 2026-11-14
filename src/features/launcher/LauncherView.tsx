@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, DownloadSimple, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../shelf/ShelfView";
+import { Check, DownloadSimple, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../downloader/DownloaderView";
 import { content } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";

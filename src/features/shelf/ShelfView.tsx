@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from "react";
-import { AnimatePresence, motion } from "motion/react"; import { invoke } from "@tauri-apps/api/core"; import { listen } from "@tauri-apps/api/event";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowSquareOut,
   Check,
   CheckSquare,
   ClipboardText,
   Copy,
-  DeviceMobile, DownloadSimple,
+  DeviceMobile,
   File,
   FileAudio,
   FileText,
@@ -94,7 +94,7 @@ const kindIcon: Record<FileKind, Icon> = { image: ImageSquare, audio: FileAudio,
 
 const newTextId = () => `text-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-export function looksLikeVideoUrl(text: string): boolean { const l = text.trim().toLowerCase(); return ["youtube.com", "youtu.be", "vimeo.com", "x.com", "twitter.com", "instagram.com", "tiktok.com", "reddit.com", "twitch.tv", "dailymotion.com"].some((d) => l.includes(d)); } function keepText(text: string) {
+function keepText(text: string) {
   shelf.set((list) => addText(list, text, Date.now(), newTextId()));
 }
 
@@ -130,25 +130,6 @@ export function ShelfView() {
   const sel = prune(rawSel, order);
   const press = useRef<{ x: number; y: number; key: string } | null>(null);
   const swallowClick = useRef(false);
-  const [dlOpen, setDlOpen] = useState(false);
-  const [dlUrl, setDlUrl] = useState("");
-  const [dlBusy, setDlBusy] = useState(false);
-  const [dlError, setDlError] = useState<string | null>(null);
-
-  const startYtdlp = async (audioOnly: boolean) => {
-    if (!dlUrl.trim() || dlBusy) return;
-    setDlBusy(true);
-    setDlError(null);
-    try {
-      await invoke("ytdlp_download", { url: dlUrl.trim(), audioOnly });
-      setDlUrl("");
-      setDlOpen(false);
-    } catch (e) {
-      setDlError(String(e));
-    } finally {
-      setDlBusy(false);
-    }
-  };
 
   usePasteFiles(() => void pasteTextFallback().then((ok) => !ok && flash(setNothing)));
 
@@ -156,7 +137,7 @@ export function ShelfView() {
     const paths = takeDropped();
     // A file dragged out and dropped back on the notch is already here and keeps its place.
     if (paths?.length) addToShelf(paths);
-  }, [dropped]); useEffect(() => { let unlisten: (() => void) | undefined; void listen<{ id: string; url: string; progress: number; status: string; path?: string }>("downloads://ytdlp", (event) => { if (event.payload.status === "done" && event.payload.path) addToShelf([event.payload.path]); }).then((fn) => { unlisten = fn; }); return () => { unlisten?.(); }; }, []);
+  }, [dropped]);
 
   const fail = (e: unknown, label?: string) => {
     const reason = tBackend(String(e));
@@ -314,11 +295,6 @@ export function ShelfView() {
           <span className="text-body text-label-2">{over ? t("Loslassen zum Ablegen") : t("Dateien oder Text hierher ziehen")}</span>
           <div className="flex items-center gap-2">
             <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
-            <span className="text-caption text-label-4">•</span>
-            <button onClick={() => setDlOpen(true)} className="pressable flex items-center gap-1 text-caption text-link hover:underline">
-              <DownloadSimple size={12} weight="bold" />
-              {t("Video mit yt-dlp laden")}
-            </button>
           </div>
         </motion.div>
       </div>
@@ -368,51 +344,9 @@ export function ShelfView() {
             <HeaderButton label={t("Ablage leeren")} onClick={() => shelf.set([])}>
               <Trash size={14} weight="bold" />
             </HeaderButton>
-            <HeaderButton label={t("Video mit yt-dlp laden")} active={dlOpen} onClick={() => setDlOpen((v) => !v)}>
-              <DownloadSimple size={14} weight="bold" />
-            </HeaderButton>
           </>
         )}
       </HeaderActions>
-      {dlOpen && (
-        <div className="mb-2 flex items-center gap-1.5 rounded-[12px] bg-fill-2 p-1.5 shrink-0">
-          <input
-            type="text"
-            autoFocus
-            placeholder={t("Video-URL einfügen (YouTube, X, Instagram …)")}
-            value={dlUrl}
-            onChange={(e) => setDlUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void startYtdlp(false);
-              if (e.key === "Escape") setDlOpen(false);
-            }}
-            className="h-7 min-w-0 flex-1 rounded-[8px] bg-fill-1 px-2 text-caption text-label outline-none focus:ring-1 focus:ring-label-3"
-          />
-          <button
-            onClick={() => void startYtdlp(false)}
-            disabled={!dlUrl.trim() || dlBusy}
-            className="pressable flex h-7 items-center gap-1 rounded-[8px] bg-accent px-2 text-caption font-medium text-white disabled:opacity-40"
-          >
-            <DownloadSimple size={12} weight="bold" />
-            {dlBusy ? t("Lädt …") : t("Video")}
-          </button>
-          <button
-            onClick={() => void startYtdlp(true)}
-            disabled={!dlUrl.trim() || dlBusy}
-            className="pressable flex h-7 items-center gap-1 rounded-[8px] bg-fill-1 px-2 text-caption font-medium text-label hover:bg-fill-3 disabled:opacity-40"
-          >
-            <FileAudio size={12} weight="bold" />
-            {t("MP3")}
-          </button>
-          <button
-            onClick={() => setDlOpen(false)}
-            className="pressable flex size-7 items-center justify-center rounded-[8px] text-label-3 hover:text-label-2"
-          >
-            <X size={12} weight="bold" />
-          </button>
-        </div>
-      )}
-      {dlError && <div className="mb-1 text-caption text-red shrink-0">{dlError}</div>}
       <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
@@ -576,14 +510,14 @@ function FileCard({ item, copied, onCopy, onFail }: { item: FileItem; copied: bo
 }
 
 /** A kept snippet: click copies it, dragging it out gives the text. */
-function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: boolean; copied: boolean; onCopy: () => void }) { const [dl, setDl] = useState<string | null>(null); const isVid = looksLikeVideoUrl(item.text); const startDl = (audioOnly: boolean) => { setDl(audioOnly ? "audio" : "video"); void invoke("ytdlp_download", { url: item.text.trim(), audioOnly }).catch(() => setDl(null)); }; useEffect(() => { if (!dl) return; let un: (() => void) | undefined; void listen<{ url: string; status: string }>("downloads://ytdlp", (e) => { if (e.payload.url === item.text.trim() && (e.payload.status === "done" || e.payload.status === "error")) setDl(null); }).then((fn) => { un = fn; }); return () => { un?.(); }; }, [dl, item.text]);
+function TextCard({ item, hidden, copied, onCopy }: { item: TextItem; hidden: boolean; copied: boolean; onCopy: () => void }) {
   return (
     <div className="relative flex size-full flex-col overflow-hidden rounded-[14px] bg-fill-1">
       <button onClick={onCopy} title={t("Klicken zum Kopieren")} className="pressable flex min-h-0 flex-1 items-start overflow-hidden px-2.5 pt-2.5 text-start">
         {hidden ? <Redacted lines={4} /> : <p className="line-clamp-6 text-caption break-words whitespace-pre-wrap text-label-2">{item.text}</p>}
       </button>
       <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-        <span className="tabular min-w-0 truncate text-caption text-label-3">{dl ? (dl === "video" ? t("Lade Video …") : t("Lade Audio …")) : item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span> {isVid && !dl && (<span className="flex opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100"><IconBtn label={t("Video herunterladen")} icon={DownloadSimple} onClick={() => startDl(false)} /><IconBtn label={t("Audio (MP3) herunterladen")} icon={FileAudio} onClick={() => startDl(true)} /></span>)}
+        <span className="tabular min-w-0 truncate text-caption text-label-3">{item.text.length === 1 ? t("1 Zeichen") : t("{n} Zeichen", { n: item.text.length })}</span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={copied ? "done" : "copy"}

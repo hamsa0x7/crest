@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Crosshair, DownloadSimple, MagnifyingGlass } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../shelf/ShelfView";
+import { Crosshair, DownloadSimple, MagnifyingGlass } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../downloader/DownloaderView";
 import { capture } from "../../platform/services";
 import { Button, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";

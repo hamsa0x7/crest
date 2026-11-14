@@ -53,11 +53,12 @@ export function LyricsCardApp() {
 
   return (
     <div
+      data-tauri-drag-region
       onMouseDown={startDrag}
       className="relative flex h-screen w-screen flex-col select-none overflow-hidden rounded-[18px] bg-elevated/95 backdrop-blur-2xl border border-separator shadow-2xl p-4 text-label"
     >
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-separator shrink-0">
+      <div data-tauri-drag-region className="flex items-center justify-between gap-3 pb-3 border-b border-separator shrink-0">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {np?.artwork ? (
             <img src={np.artwork} alt="" className="size-9 rounded-[8px] object-cover shrink-0" />

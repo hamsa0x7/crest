@@ -4,7 +4,7 @@ import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
 import { GlassLayer, type GlassMode } from "./glass/GlassLayer";
 
-import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset } from "./rim";
+import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset, type RimEffect } from "./rim";
 
 interface Props {
   geometry: NotchGeometry;
@@ -22,6 +22,8 @@ interface Props {
   rimPreset?: RimPreset;
   rimThickness?: number;
   rimGlow?: number;
+  rimEffect?: RimEffect;
+  rimSpeed?: number;
   rimCustomStart?: string;
   rimCustomEnd?: string;
   frostedGlass?: boolean;
@@ -68,6 +70,8 @@ export function NotchShape({
   rimPreset = "none",
   rimThickness = 1.2,
   rimGlow = 35,
+  rimEffect = "none",
+  rimSpeed = 1.0,
   rimCustomStart = "#60a5fa",
   rimCustomEnd = "#c084fc",
   frostedGlass = false,
@@ -261,9 +265,19 @@ export function NotchShape({
         }}
       />
       {rimStops && (
-        <svg
+        <motion.svg
           aria-hidden
           className="absolute inset-0 pointer-events-none z-20 overflow-visible"
+          animate={
+            rimEffect === "shifting"
+              ? { filter: ["hue-rotate(0deg)", "hue-rotate(360deg)"] }
+              : undefined
+          }
+          transition={
+            rimEffect === "shifting"
+              ? { repeat: Infinity, duration: 4 / rimSpeed, ease: "linear" }
+              : undefined
+          }
         >
           <defs>
             <linearGradient id="notch-rim-grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -288,8 +302,31 @@ export function NotchShape({
             strokeWidth={rimThickness}
             strokeLinecap="round"
             filter={rimGlow > 0 ? "url(#notch-rim-glow)" : undefined}
+            strokeDasharray={rimEffect === "wave" ? "120 40" : undefined}
+            animate={
+              rimEffect === "breathing"
+                ? { opacity: [0.35, 1, 0.35] }
+                : rimEffect === "wave"
+                ? { strokeDashoffset: [0, 400] }
+                : rimEffect === "zoom"
+                ? { strokeWidth: [rimThickness * 0.8, rimThickness * 1.5, rimThickness * 0.8] }
+                : rimEffect === "neon"
+                ? { opacity: [0.85, 1, 0.65, 1, 0.9, 1] }
+                : undefined
+            }
+            transition={
+              rimEffect === "breathing"
+                ? { repeat: Infinity, duration: 3 / rimSpeed, ease: "easeInOut" }
+                : rimEffect === "wave"
+                ? { repeat: Infinity, duration: 4 / rimSpeed, ease: "linear" }
+                : rimEffect === "zoom"
+                ? { repeat: Infinity, duration: 2.2 / rimSpeed, ease: "easeInOut" }
+                : rimEffect === "neon"
+                ? { repeat: Infinity, duration: 1.6 / rimSpeed, ease: "easeInOut" }
+                : undefined
+            }
           />
-        </svg>
+        </motion.svg>
       )}
       <motion.div
         // clip instead of hidden: no scroll container, so focus/scrollIntoView can't shift the content.

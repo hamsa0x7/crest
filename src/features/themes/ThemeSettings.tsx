@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
-import { RIM_PRESETS, type RimPreset } from "../../notch/rim";
+import { RIM_PRESETS, RIM_EFFECTS, type RimPreset, type RimEffect } from "../../notch/rim";
 import { accentFrom } from "../../lib/accent";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
@@ -62,7 +62,6 @@ export function ThemeSettings() {
       <DayNight />
       <MaterialYouSettings />
       <RimSettings />
-      <FrostedGlassSettings />
       <ThemeEditor />
       <ThemeFiles />
     </>
@@ -574,6 +573,31 @@ function RimSettings() {
       </Row>
       {d.rimPreset !== "none" && (
         <>
+          <Row label={t("Lichteffekte")} hint={t("Dynamische Randanimation (Atmen, Welle, Zoom, Neon)")}>
+            <Select
+              width="w-48"
+              value={d.rimEffect}
+              onChange={(v) => updateDisplay({ rimEffect: v as RimEffect })}
+              options={RIM_EFFECTS.map((e) => ({ value: e.id, label: t(e.label) }))}
+            />
+          </Row>
+          {d.rimEffect !== "none" && (
+            <Row label={t("Geschwindigkeit")}>
+              <div className="flex w-52 items-center gap-2">
+                <Slider
+                  min={0.5}
+                  max={3.0}
+                  step={0.1}
+                  value={d.rimSpeed}
+                  onChange={(rimSpeed) => updateDisplay({ rimSpeed })}
+                  label={t("Geschwindigkeit")}
+                />
+                <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">
+                  {d.rimSpeed.toFixed(1)}x
+                </span>
+              </div>
+            </Row>
+          )}
           <Row label={t("Rand-Dicke")}>
             <div className="flex w-52 items-center gap-2">
               <Slider
@@ -622,60 +646,6 @@ function RimSettings() {
               </Row>
             </>
           )}
-        </>
-      )}
-    </Group>
-  );
-}
-
-function FrostedGlassSettings() {
-  const s = settings.use();
-  const d = s.display;
-  const updateDisplay = (patch: Partial<typeof d>) => updateSettings((cur) => ({ display: { ...cur.display, ...patch } }));
-
-  return (
-    <Group title={t("Flüssiges Mattglas")} id="settings-frosted-glass">
-      <Row
-        label={t("Mattglas-Hintergrund")}
-        hint={t("Echtzeit-Hintergrundunschärfe im Acryl/Mica-Stil")}
-      >
-        <Switch
-          label={t("Mattglas-Hintergrund")}
-          checked={d.frostedGlass}
-          onChange={(frostedGlass) => updateDisplay({ frostedGlass })}
-        />
-      </Row>
-      {d.frostedGlass && (
-        <>
-          <Row label={t("Deckkraft")}>
-            <div className="flex w-52 items-center gap-2">
-              <Slider
-                min={20}
-                max={95}
-                step={1}
-                value={d.glassOpacity}
-                onChange={(glassOpacity) => updateDisplay({ glassOpacity })}
-                label={t("Deckkraft")}
-              />
-              <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">
-                {d.glassOpacity} %
-              </span>
-            </div>
-          </Row>
-          <Row label={t("Oberflächen-Glanz")} hint={t("Subtiler Glanzreflex auf der Glasoberfläche")}>
-            <Switch
-              label={t("Oberflächen-Glanz")}
-              checked={d.surfaceSheen}
-              onChange={(surfaceSheen) => updateDisplay({ surfaceSheen })}
-            />
-          </Row>
-          <Row label={t("Lichtbrechende Kante")} hint={t("Heller Glanzstreifen an der Kante")}>
-            <Switch
-              label={t("Lichtbrechende Kante")}
-              checked={d.refractiveHighlight}
-              onChange={(refractiveHighlight) => updateDisplay({ refractiveHighlight })}
-            />
-          </Row>
         </>
       )}
     </Group>

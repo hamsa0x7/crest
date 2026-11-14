@@ -120,8 +120,8 @@ export function MusicSettings() {
         <Row label={t("Schwebende Songtexte")} hint={t("Frei bewegliches transparentes Desktop-Fenster (Tastenkürzel: Strg + Alt + L)")}>
           <Button onClick={() => void invoke("lyrics_window_open", {})}>{t("Fenster öffnen")}</Button>
         </Row>
-        <Row label={t("yt-dlp Video & Audio Downloader")} hint={t("Video-Links aus YouTube, X oder Instagram in der Shelf als MP4 oder MP3 herunterladen")}>
-          <Button onClick={() => navigate("shelf")}>{t("In Shelf öffnen")}</Button>
+        <Row label={t("yt-dlp Video & Audio Downloader")} hint={t("Video-Links aus YouTube, X oder Instagram als MP4 oder MP3 herunterladen")}>
+          <Button onClick={() => navigate("downloader")}>{t("Downloader öffnen")}</Button>
         </Row>
       </Group>
     </>

@@ -437,8 +437,12 @@ export function Notch() {
     }
     if (status === "open") {
       const s = settings.get();
-      if (s.openMode === "click" && !isInteractive(e.target)) {
-        close();
+      if (s.openMode === "click") {
+        const target = e.target as Element | null;
+        if (target?.closest?.("[data-open-panel]")) return;
+        if (!isInteractive(target)) {
+          close();
+        }
       }
       return;
     }
@@ -717,6 +721,8 @@ export function Notch() {
           rimPreset={displaySettings.rimPreset}
           rimThickness={displaySettings.rimThickness}
           rimGlow={displaySettings.rimGlow}
+          rimEffect={displaySettings.rimEffect}
+          rimSpeed={displaySettings.rimSpeed}
           rimCustomStart={displaySettings.rimCustomStart}
           rimCustomEnd={displaySettings.rimCustomEnd}
           frostedGlass={displaySettings.frostedGlass}

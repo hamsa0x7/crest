@@ -3,7 +3,16 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowDownLeft, FastForward, Pause, Play, PictureInPicture, Rewind, X } from "@phosphor-icons/react";
 import { media, useNowPlaying } from "../../platform/media";
-import { YouTubeMirror, useMirrorVideo, customVideo, extractYouTubeId } from "../now-playing/YouTubeMirror";
+import {
+  YouTubeMirror,
+  useMirrorVideo,
+  customVideo,
+  customVideoPlaying,
+  customVideoProgress,
+  toggleCustomVideo,
+  seekCustomVideo,
+  extractYouTubeId,
+} from "../now-playing/YouTubeMirror";
 import { Marquee } from "../../notch/row/Marquee";
 import { t } from "../../i18n";
 
@@ -11,10 +20,15 @@ const SNAP_AFTER_MS = 220;
 
 export function PipApp() {
   const np = useNowPlaying();
+  const customId = customVideo.use();
+  const isCustom = !!customId;
+  const customPlaying = customVideoPlaying.use();
+  const customProgress = customVideoProgress.use();
+
   const video = useMirrorVideo(np?.videoId);
-  const playing = !!np?.isPlaying;
-  const positionMs = (np?.position ?? 0) * 1000;
-  const durationMs = (np?.duration ?? 0) * 1000;
+  const playing = isCustom ? customPlaying : !!np?.isPlaying;
+  const positionMs = isCustom ? customProgress.time * 1000 : (np?.position ?? 0) * 1000;
+  const durationMs = isCustom ? customProgress.duration * 1000 : (np?.duration ?? 0) * 1000;
   const [hovered, setHovered] = useState(false);
   const [manualUrl, setManualUrl] = useState("");
 
@@ -53,6 +67,7 @@ export function PipApp() {
 
   return (
     <div
+      data-tauri-drag-region
       onMouseDown={startDrag}
       onWheel={onWheel}
       onMouseEnter={() => setHovered(true)}
@@ -60,7 +75,7 @@ export function PipApp() {
       className="relative size-full select-none overflow-hidden rounded-[14px] bg-black border border-separator shadow-2xl"
     >
       {video ? (
-        <YouTubeMirror videoId={video} positionMs={positionMs} playing={playing} live={!np?.duration} className="size-full" />
+        <YouTubeMirror videoId={video} positionMs={positionMs} playing={playing} live={!durationMs} className="size-full" />
       ) : np?.artwork ? (
         <img src={np.artwork} alt="" className="size-full object-cover opacity-60" />
       ) : (
@@ -98,14 +113,14 @@ export function PipApp() {
 
       {/* Hover Controls Overlay */}
       <div
-        className={`pointer-events-none absolute inset-0 flex flex-col justify-between bg-black/60 p-2.5 transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-0 z-30 flex flex-col justify-between bg-black/60 p-2.5 transition-opacity duration-200 ${
           hovered ? "pointer-events-auto opacity-100" : "opacity-0"
         }`}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between gap-2">
+        <div data-tauri-drag-region className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <Marquee text={np?.title || t("Crest Video")} textWidth={180} width={180} paused={!playing} />
+            <Marquee text={np?.title || (isCustom ? t("YouTube Video") : t("Crest Video"))} textWidth={180} width={180} paused={!playing} />
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -130,10 +145,15 @@ export function PipApp() {
           {/* Progress bar */}
           <div
             onClick={(e) => {
-              if (!np?.duration) return;
+              const totalSec = isCustom ? customProgress.duration : np?.duration;
+              if (!totalSec) return;
               const rect = e.currentTarget.getBoundingClientRect();
               const pct = (e.clientX - rect.left) / rect.width;
-              media.seek(pct * np.duration);
+              if (isCustom) {
+                seekCustomVideo(pct * totalSec);
+              } else {
+                media.seek(pct * totalSec);
+              }
             }}
             className="group/bar relative h-1.5 w-full cursor-pointer rounded-full bg-white/20 overflow-hidden"
           >
@@ -143,21 +163,39 @@ export function PipApp() {
           {/* Transport buttons */}
           <div className="flex items-center justify-center gap-3">
             <button
-              onClick={() => media.previous()}
+              onClick={() => {
+                if (isCustom) {
+                  seekCustomVideo(Math.max(0, customProgress.time - 10));
+                } else {
+                  media.previous();
+                }
+              }}
               className="pressable text-white/80 hover:text-white"
               title={t("Zurück")}
             >
               <Rewind size={18} weight="fill" />
             </button>
             <button
-              onClick={() => media.toggle()}
+              onClick={() => {
+                if (isCustom) {
+                  toggleCustomVideo();
+                } else {
+                  media.toggle();
+                }
+              }}
               className="pressable flex size-8 items-center justify-center rounded-full bg-white text-black hover:scale-105"
               title={playing ? t("Pause") : t("Wiedergabe")}
             >
               {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" className="ml-0.5" />}
             </button>
             <button
-              onClick={() => media.next()}
+              onClick={() => {
+                if (isCustom) {
+                  seekCustomVideo(customProgress.time + 10);
+                } else {
+                  media.next();
+                }
+              }}
               className="pressable text-white/80 hover:text-white"
               title={t("Weiter")}
             >
