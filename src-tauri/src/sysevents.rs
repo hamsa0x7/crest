@@ -62,13 +62,16 @@ const GUID_CONSOLE_DISPLAY_STATE: GUID = GUID::from_u128(0x6fe69556_704a_47a0_8f
 const GUID_POWER_SAVING_STATUS: GUID = GUID::from_u128(0xe00958c0_c213_4ace_ac77_fecced2eeea5);
 /// Battery level Windows takes from the hands-free indicators or the LE battery service; not in the crate.
 const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x104ea319_6ee2_4701_bd47_8ddbf425bbe5), pid: 2 };
-/// Paired Bluetooth and Bluetooth LE devices, as Settings lists them. Audio endpoints cannot tell them apart: with an
-/// offload driver (AMD's) their enumerator is the driver's GUID, not BTHENUM, and mice or controllers have none.
-const BT_PAIRED: &str = r#"System.Devices.Aep.IsPaired:=System.StructuredQueryType.Boolean#True AND (System.Devices.Aep.ProtocolId:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" OR System.Devices.Aep.ProtocolId:="{bb7bb05e-5972-42b5-94fc-76eaa7084d49}")"#;
-const BT_CONNECTED: &str = "System.Devices.Aep.IsConnected";
-const BT_CATEGORY: &str = "System.Devices.Aep.Category";
+/// Paired Bluetooth and Bluetooth LE devices, as Settings lists them: the device nodes Windows keeps for them (class Bluetooth,
+/// with an address), read from its device store without the radio. Audio endpoints cannot tell them apart: with an offload
+/// driver (AMD's) their enumerator is the driver's GUID, not BTHENUM, and mice or controllers have none. A watcher on the
+/// association endpoints kept the radio searching for devices, which broke Bluetooth audio up on some PCs (issue #48).
+const BT_PAIRED: &str = r#"System.Devices.ClassGuid:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" AND System.Devices.Aep.DeviceAddress:<>[]"#;
+/// True while the device is connected; Windows gives this property of a Bluetooth device node no public name.
+const BT_CONNECTED: &str = "{83DA6326-97A6-4088-9453-A1923F573B29} 15";
+const BT_CATEGORY: &str = "System.Devices.CategoryIds";
 const BT_ADDRESS: &str = "System.Devices.Aep.DeviceAddress";
-const BT_CONTAINER: &str = "System.Devices.Aep.ContainerId";
+const BT_CONTAINER: &str = "System.Devices.ContainerId";
 
 /// WM_POWERBROADCAST is sent straight to the window procedure; it reposts this to reach the loop.
 const WM_POWER: u32 = WM_APP + 1;
@@ -246,8 +249,7 @@ fn run(app: AppHandle) {
             .ok();
         let paired = Paired::default();
         let mut watcher = (sources & SRC_BT != 0).then(|| bt_watch(h, paired.clone())).flatten();
-        // `None` until the watcher has listed every paired device (which can take 30 s, in bursts) and that has settled:
-        // that reading is the baseline, not a change.
+        // `None` until the watcher has listed every paired device and that has settled: that reading is the baseline, not a change.
         let mut connected: Option<HashMap<String, BtDevice>> = None;
         let mut enumerated = false;
 
@@ -511,7 +513,7 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
     }
 }
 
-/// A connected Bluetooth device, as the association endpoint describes it.
+/// A connected Bluetooth device, as its device node describes it.
 struct BtDevice {
     name: String,
     /// Windows' device categories ("Audio.Headphone", "Input.Mouse"), for the icon.
@@ -526,8 +528,7 @@ fn bt_props() -> IIterable<HSTRING> {
     IIterable::from([BT_CONNECTED, BT_CATEGORY, BT_ADDRESS, BT_CONTAINER].map(HSTRING::from).to_vec())
 }
 
-/// The paired devices as the watcher reported them, by association endpoint id. Kept from its events because a fresh
-/// query (FindAllAsync) runs the whole enumeration and takes 30 s, while the watcher reports each change at once.
+/// The paired devices as the watcher reported them, by device instance id. Kept from its events, which come at each change.
 type Paired = Arc<Mutex<HashMap<String, DeviceInformation>>>;
 
 fn lock(paired: &Paired) -> MutexGuard<'_, HashMap<String, DeviceInformation>> {
@@ -541,7 +542,7 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
         let _ = PostMessageW(Some(HWND(h as _)), WM_BT, WPARAM(done), LPARAM(0));
     };
     let (added, updated) = (paired.clone(), paired.clone());
-    DeviceInformation::CreateWatcherWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::AssociationEndpoint)
+    DeviceInformation::CreateWatcherWithKindAqsFilterAndAdditionalProperties(&BT_PAIRED.into(), &bt_props(), DeviceInformationKind::Device)
         .and_then(|w| {
             w.Added(&TypedEventHandler::new(move |_, info: Ref<DeviceInformation>| {
                 if let Some(info) = info.as_ref() {
@@ -571,7 +572,7 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
         .ok()
 }
 
-/// The paired devices connected now, by association endpoint id.
+/// The paired devices connected now, by device instance id.
 fn bluetooth(paired: &Paired) -> HashMap<String, BtDevice> {
     lock(paired).iter().filter_map(|(id, d)| {
         let props = d.Properties().ok()?;

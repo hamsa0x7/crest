@@ -797,7 +797,7 @@ export function Notch() {
                   <SideDock tabs={visible} activeId={tab.id} edge={edge as "left" | "right"} />
                 )}
                 <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
-                  <Header title={t(tab.label)} ink={glass === "shown" && bridged ? closedInk : undefined} fade={glass !== "off" && !reduced} />
+                  <Header title={t(tab.label)} />
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -868,8 +868,6 @@ const GLASS_STATUS = { "--color-orange": "var(--glass-orange)", "--color-red": "
 const GLASS_STATUS_FADE = "--color-orange 300ms var(--ease-out), --color-red 300ms var(--ease-out), --color-green 300ms var(--ease-out), --color-caution 300ms var(--ease-out)";
 /** The closed row's ink over the closed glass changes with --shape's fade, like the open panel's status colours. */
 const CLOSED_INK_FADE = `${GLASS_STATUS_FADE}, --color-yellow 300ms var(--ease-out), --color-link 300ms var(--ease-out), --accent 300ms var(--ease-out)`;
-/** The header's ink changes with the brow under it as the glass comes and goes; the accent keeps global.css's fade. */
-const INK_FADE = "--color-label 300ms var(--ease-out), --color-label-2 300ms var(--ease-out), --color-label-3 300ms var(--ease-out), --accent 500ms ease";
 /** The Dock's fills step aside for the glass and come back with --shape's fade. */
 const FILL_FADE = "transition-colors duration-300 ease-out motion-reduce:transition-none";
 
@@ -890,16 +888,16 @@ function LineProgress({ along }: { along: "x" | "y" }) {
   );
 }
 
-/** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. `fade`: the glass is on, see INK_FADE. */
-function Header({ title, ink, fade }: { title: string; ink?: Record<string, string>; fade: boolean }) {
+/** Header: tool title on the left, actions + pin on the right. The middle (camera) stays free. */
+function Header({ title }: { title: string }) {
   const isPinned = pinned.use();
   return (
     // Empty header space = drag handle; the hit zone around it starts the drag (one handler, or two drags would run).
-    // The title's colour is body's, worked out from the theme's label: set again here so the ink (the brow's, the cover's) reaches it.
+    // The title's colour is body's, worked out from the theme's label: set again here so the cover's ink reaches it.
     <div
       data-drag-handle
       className="flex shrink-0 items-center justify-between gap-3 ps-5 pe-3"
-      style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)", ...ink, ...(fade && { transition: INK_FADE }) }}
+      style={{ height: HEADER_HEIGHT + 4, color: "var(--color-label)" }}
     >
       <div className="relative min-w-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
@@ -926,14 +924,12 @@ function Header({ title, ink, fade }: { title: string; ink?: Record<string, stri
 }
 
 /**
- * Tool bar at the bottom (like OmniNotch). The gear at the end toggles between settings and the last tool. A drop under the pointed or
+ * Tool bar at the bottom (like OmniNotch). The gear at the end opens settings like any tool, also when they are open (#49). A drop under the pointed or
  * the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the shader draws the bar as a
  * capsule of glass and the drop on it, and the Dock's own fills step aside.
  * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
  */
 function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
-  const lastTool = useRef(tabs[0]?.id);
-  if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
   const inSettings = activeId === settingsTab.id;
   const updateReady = update.use().phase === "available";
   // Dot on the gear = update ready or unseen changes → jump straight to that section.
@@ -1014,10 +1010,7 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
           liquid={liquid}
           lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
-          onClick={() => {
-            if (inSettings) navigate(lastTool.current ?? tabs[0].id);
-            else navigate(settingsTab.id, badge ? "updates" : null);
-          }}
+          onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
       </div>
     </div>

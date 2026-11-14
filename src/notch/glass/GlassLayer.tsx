@@ -103,15 +103,15 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
   // The canvas's width in CSS px and its device px per CSS px; scale 0 while it rests at 1x1.
   let box = { w: 0, scale: 0 };
   let showing = false, covering = false, coverTimer = 0, themeUntil = 0;
-  let tokens: { tint: Tint; edge: number; clear: number; rim: Tint; brow: Tint; fill: Tint } | null = null;
+  let tokens: { tint: Tint; edge: number; clear: number; rim: Tint; fill: Tint } | null = null;
 
   /** The theme's glass tokens (themes.ts) as the shader takes them; false while one does not read as a colour. */
   const readTokens = () => {
     const css = getComputedStyle(document.documentElement), read = (name: string) => parseTint(css.getPropertyValue(name));
     const tint = read("--glass-tint"), edge = read("--glass-tint-edge"), clear = read("--glass-tint-clear");
-    const rim = read("--glass-rim"), brow = read("--notch-closed"), fill = read("--color-fill-3");
-    if (!tint || !edge || !clear || !rim || !brow || !fill) return false;
-    tokens = { tint, edge: edge[3], clear: clear[3], rim, brow, fill };
+    const rim = read("--glass-rim"), fill = read("--color-fill-3");
+    if (!tint || !edge || !clear || !rim || !fill) return false;
+    tokens = { tint, edge: edge[3], clear: clear[3], rim, fill };
     return true;
   };
 
@@ -125,7 +125,7 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     if (theme.closedNotch) return tokens && { ...tokens, dark: theme.dark };
     const ink = darkInk(), tint = parseTint(ink["--glass-tint"]), clear = parseTint(ink["--glass-tint-clear"]), rim = parseTint(ink["--glass-rim"]);
     if (!tint || !clear || !rim) return null;
-    return { tint, edge: tint[3], clear: clear[3], rim, brow: tint, fill: [0, 0, 0, 0] as Tint, dark: true };
+    return { tint, edge: tint[3], clear: clear[3], rim, fill: [0, 0, 0, 0] as Tint, dark: true };
   };
 
   const paint = () => {
@@ -173,11 +173,10 @@ function startGlass(canvas: HTMLCanvasElement, shape: Shape, live: { current: Li
     gl.uniform1f(u.uVeilEdge, closed ? veil(t.tint[3], t.clear) : veil(t.edge));
     gl.uniform1f(u.uBarVeil, covering ? 1 : t.edge);
     gl.uniform1f(u.uDock, DOCK_HEIGHT);
-    // The brow only on a panel hanging from the edge: a floating capsule's header keeps the theme's ink (Notch.tsx). Covering draws
-    // what --shape turns into, so no brow, but while round top corners and ears meet (a capsule near the edge springing): there the
-    // brow hides the top rim.
-    const brow = !closed && live.current.hangs && (!covering || (rt >= 0.5 && shape.ear.get() > 0));
-    gl.uniform4f(u.uBrow, t.brow[0], t.brow[1], t.brow[2], brow ? HEADER_HEIGHT : -1);
+    // The header is glass like the rest (issue #49). The brow, the veil's colour over it, is left only while covering and round top
+    // corners and ears meet (a capsule near the edge springing): there it hides the top rim, and over the full veil it does not show.
+    const brow = !closed && live.current.hangs && covering && rt >= 0.5 && shape.ear.get() > 0;
+    gl.uniform4f(u.uBrow, t.tint[0], t.tint[1], t.tint[2], brow ? HEADER_HEIGHT : -1);
     gl.uniform4f(u.uRim, t.rim[0], t.rim[1], t.rim[2], (t.rim[3] * look.glassRim) / 100);
     if (closed) {
       // No tool bar on a closed shape: its motion values may still hold the last panel's.

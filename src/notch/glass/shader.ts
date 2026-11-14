@@ -49,7 +49,7 @@ uniform vec2 uLod;             // blur level at the rim and in the middle, with 
 uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
 uniform float uVeilEdge;       // the side bands' veil after Transparency
 uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
-uniform vec4 uBrow;            // --notch-closed and HEADER_HEIGHT; -1 where there is none (a floating panel, the closed shapes)
+uniform vec4 uBrow;            // the veil's colour and HEADER_HEIGHT while a covering panel near the edge springs; -1 elsewhere
 uniform vec4 uRim;             // --glass-rim, its strength times Rim light
 uniform float uHair;           // the outline, stronger on light themes
 uniform float uThick;          // the glass's thickness for the bend: the panel's, or the closed shapes' thinner one (params.ts GLASS)
@@ -220,10 +220,10 @@ void main() {
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
   // The veil: the theme's background, lighter in the side bands above the tool bar, thinner in the bar, with the drop's tint on it.
-  // Round top corners bring the bands under the header's buttons: there they start below it.
+  // The bands start below the header, whose buttons sit close to the sides.
   float side = smoothstep(0.35, 0.75, abs(g.x));
   float strip = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
-  float head = uRt > 0.0 ? smoothstep(HEAD, HEAD + 8.0, p.y) : 1.0;
+  float head = smoothstep(HEAD, HEAD + 8.0, p.y);
   float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip) * head;
   col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
   // The live copy holds a zone around the closed shape (live.ts): past it, while a grown shape waits for its new zone, the veil alone,
@@ -245,7 +245,7 @@ void main() {
   col += uRim.rgb * uRim.a * glow;
   col = mix(col, vec3(0.0), uHair * hairB);
 
-  // The brow: the closed notch's colour over the header, ears included.
+  // The brow: the veil's colour over the header, ears included (GlassLayer says when).
   col = mix(col, uBrow.rgb, 1.0 - smoothstep(uBrow.a - 0.5 / uDpr, uBrow.a + 0.5 / uDpr, p.y));
   o = vec4(clamp(col, 0.0, 1.0) * cover, cover);
 }`;

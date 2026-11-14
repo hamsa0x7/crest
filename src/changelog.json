@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.2.1",
+    "date": "2026-11-14",
+    "items": [
+      {
+        "en": "An Insert key alert in the closed notch, off by default, on Windows"
+      },
+      {
+        "en": "Hardware lists USB sticks, SD cards and external disks, and leaves cloud drives such as Google Drive out"
+      },
+      {
+        "en": "On a dark theme the album cover behind Now Playing keeps the glass on"
+      },
+      {
+        "en": "With Glass on, the top of the open panel is glass too instead of black"
+      },
+      {
+        "en": "The gear opens Settings like any other tool, and a second click no longer goes back"
+      },
+      {
+        "en": "Bluetooth audio no longer breaks up on some PCs while the Bluetooth devices alert is on"
+      },
+      {
+        "en": "Notices from Windows Security and other apps that register an icon show it"
+      },
+      {
+        "en": "A paused song shows its title again in place of the lyric line"
+      }
+    ]
+  },
+  {
     "version": "1.2.0",
     "date": "2026-11-13",
     "items": [
