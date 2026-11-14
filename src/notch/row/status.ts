@@ -1,7 +1,10 @@
 // Rules for the closed notch's status alerts (power, network, Bluetooth devices, the volume and brightness HUD, Caps Lock and Num Lock, the microphone mute): which transition deserves a short message. Pure; `tr` is passed in so this stays free of i18n.
 
-/** `charging`: taking charge now; the charger can be in while a full battery or a charge limit leaves it false. */
-export interface PowerState { ac: boolean; percent: number | null; battery: boolean; charging: boolean }
+/**
+ * `charging`: taking charge now; the charger can be in while a full battery or a charge limit leaves it false.
+ * `saver`: battery saver or Energy saver is on (sysevents.rs); Windows turns transparency off, and the glass follows.
+ */
+export interface PowerState { ac: boolean; percent: number | null; battery: boolean; charging: boolean; saver?: boolean }
 export interface StatusAlert {
   kind: "power" | "net" | "bt" | "volume" | "brightness" | "lock" | "mic";
   icon: "plug" | "battery" | "wifi" | "wifi-off" | "headphones" | "speaker-hifi" | "mouse" | "keyboard" | "gamepad" | "phone" | "watch" | "bluetooth" | "speaker-high" | "speaker-low" | "speaker-none" | "speaker-x" | "sun" | "sun-dim" | "caps-lock" | "num-lock" | "microphone" | "microphone-slash";
@@ -87,10 +90,11 @@ export function levelAlert(e: LevelEvent, tr: Tr): StatusAlert {
   return { kind: "volume", icon, text: e.muted ? tr("Stummgeschaltet") : tr("{p} %", { p }), tone: "normal", level: p };
 }
 
-/** A Caps Lock or Num Lock toggle from sysevents.rs, which sends only changes, never the state at start. */
-export interface LockEvent { key: "caps" | "num"; on: boolean }
+/** A Caps Lock or Num Lock toggle from sysevents.rs, which sends only changes, never the state at start. "insert" is a bare press of Insert, always `on`: programs keep their own overtype state. */
+export interface LockEvent { key: "caps" | "num" | "insert"; on: boolean }
 
 export function lockAlert(e: LockEvent, tr: Tr): StatusAlert {
+  if (e.key === "insert") return { kind: "lock", icon: "keyboard", text: tr("Einfg"), tone: "normal" };
   const text = e.key === "caps" ? tr(e.on ? "Feststelltaste an" : "Feststelltaste aus") : tr(e.on ? "Num-Taste an" : "Num-Taste aus");
   return { kind: "lock", icon: e.key === "caps" ? "caps-lock" : "num-lock", text, tone: "normal", ...(e.on ? {} : { off: true }) };
 }
@@ -107,7 +111,7 @@ type OsdAlerts = { volume: boolean; brightness: boolean; hideOsd: boolean };
 /** Whether the option to hide the Windows indicator is in force: Crest's HUD stands in for both volume and brightness (Windows draws them in one flyout). */
 export const osdArmed = (alerts: OsdAlerts): boolean => alerts.hideOsd && alerts.volume && alerts.brightness;
 
-/** Whether the Windows indicator is hidden now: the option is in force and Crest's HUD can show, so not in focus mode nor over a fullscreen app, where status alerts are dropped. */
-export function osdHidden(alerts: OsdAlerts, focus: boolean, fullscreen: boolean): boolean {
-  return osdArmed(alerts) && !focus && !fullscreen;
+/** Whether the Windows indicator is hidden now: the option is in force and Crest's HUD can show, so not over a fullscreen app, where status alerts are dropped. */
+export function osdHidden(alerts: OsdAlerts, fullscreen: boolean): boolean {
+  return osdArmed(alerts) && !fullscreen;
 }

@@ -26,6 +26,8 @@
 </p>
 
 <p align="center">
+  <a href="https://crestisland.app/"><b>Website</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/andrealo20/crest/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
   <a href="#features"><b>Features</b></a>
@@ -36,7 +38,7 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
+  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -45,7 +47,7 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
 
-The video above shows them in under two minutes, and [the demo on the project page](https://andrealo20.github.io/crest/) lets you try every tool in your browser before you install anything.
+The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
 
@@ -58,19 +60,19 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
-While a song plays it can show the lyric line instead of the title. It asks before an AI agent runs a command, warns you before an AI limit runs out and puts the next meeting's call one click away. Headphones, volume, the microphone, the charger and a finished timer each get a moment of their own.
+## What's new in 1.2.0
 
-<p align="center">
-  <img src="docs/media/features/closed-lyrics.png" alt="The closed notch showing the current lyric line of the song next to a running focus timer" width="455" /><br />
-  <img src="docs/media/features/closed-ask.png" alt="An AI agent asking in the closed notch whether it may run npm test, with Allow, Always allow and Deny" width="558" /><br />
-  <img src="docs/media/features/closed-quota.png" alt="An AI usage warning in the closed notch: Claude session 93% used, resets in 2 h 24 min" width="394" />
-  <img src="docs/media/features/closed-calendar.png" alt="A meeting about to start in the closed notch, with a button that joins the video call" width="332" /><br />
-  <img src="docs/media/features/closed-bluetooth.png" alt="Bluetooth earbuds connected, with their battery at 80%" width="236" />
-  <img src="docs/media/features/closed-volume.png" alt="The volume changing, with a slider at 52%" width="236" />
-  <img src="docs/media/features/closed-mic.png" alt="The microphone muted" width="236" /><br />
-  <img src="docs/media/features/closed-unplug.png" alt="The charger unplugged, running on battery at 55%" width="236" />
-  <img src="docs/media/features/closed-timer.png" alt="A timer that has finished, marked Done" width="236" />
-</p>
+<p align="center"><img src="docs/media/features/liquid-glass.gif" alt="Liquid Glass: a window dragged under the glass capsule shows through it, the panel opens as glass over it, and a drop of glass follows the pointer along the tool bar and bounces after a click" width="760" /></p>
+
+- **Liquid Glass**: Settings → Themes → Glass turns the open panel into glass. The screen behind it shows through, bent along the sides and blurred in the middle, and four sliders set Transparency, Refraction, Frost and Rim light. On Windows, off by default.
+- **Glass on the closed notch and the capsule** too, over a live copy of the screen just around them, on Windows 11 24H2 and later. While it is on, the notch stays out of screenshots and screen sharing.
+- **A tool bar that follows the pointer**: the highlight slides to the tool you point at, grows under it and bounces back after a click. A drop of glass over the glass, a brighter pill without it and on the Mac.
+- **Themes at sunrise and sunset**: day and night can change with the sun at the place set for the Weather, worked out on your computer.
+- **The date beside the clock** in the closed notch, and a click on a notice there opens its app right away.
+- **Overview** has play/pause and next beside the song, and synced lyrics stay through short pauses.
+- **Fixes** for a browser tooltip that stayed on screen while Crest was open, and for the privacy dot during Snipping Tool recordings.
+
+The [1.2.0 release](https://github.com/andrealo20/crest/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
@@ -81,7 +83,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Three looks**: a notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress. On the top, bottom, left or right edge, in the size you choose.
 - **The row** shows the parts you pick, in your order, rotating when they don't fit: cover, timer, title or the current lyric line, AI quota rings, CPU, RAM, GPU, network, power, battery, temperature, clock, GitHub, weather, the next event, downloads, and parts your own scripts set.
 - **Notices** take the row for a moment: a finished timer, a due to-do, a meeting about to start, a download or screenshot just saved, a quota alert, the charger, Bluetooth, the internet, Caps Lock, volume and brightness.
-- **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded.
+- **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded (on Windows only by its own capture tools and Store apps, since Windows keeps no record for desktop recorders).
 - **A pet** in a nest beside the notch, if you want one: it dances to the music and runs faster the busier the CPU is.
 
 ### Music
@@ -112,7 +114,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 - **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone.
 - **Calc**: a notebook calculator that reads units, dates, percentages, currencies and variables.
-- **Converter** for units, and currencies at the European Central Bank's rates.
+- **Converter** for units, and about 160 currencies at central bank reference rates.
 - **Colour**: pick a colour anywhere on the screen, copy it as HEX, RGB, HSL or OKLCH, check its contrast and see its harmonies.
 - **Weather** now, hour by hour and for the week, from Open-Meteo.
 - **Portfolio**: your brokers in one currency, read only.
@@ -122,7 +124,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Terminal**: PowerShell or Command Prompt inside the notch.
 - **Hardware**: CPU, GPU, RAM, network, power, temperatures, the busiest processes and FPS in games, plus the ports your PC listens on and the program behind each one.
 - **AI usage**: your limits for Claude, ChatGPT, Antigravity, Cursor and more, with a line that says where each one is heading and an optional notice when it resets.
-- **Ask**: a chat with the AI provider you choose, with your own key.
+- **Ask**: a chat with the AI provider you choose, with your own key, or with a model on your PC through LM Studio or Ollama.
 - **Agents**: the Claude Code sessions running on your PC, what each one waits for, and the command to resume it.
 - **GitHub** contribution calendar and streaks, and a **Launcher** for your pinned apps.
 - **crest-notify** lets scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.
@@ -141,7 +143,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 ### Make it yours
 
-- **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons and a day and night switch.
+- **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
@@ -161,7 +163,7 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview, the daily update check and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview, the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 
@@ -178,6 +180,7 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The layout of the collapsed row, the carousel timing, the capsule placement rules, the per-app audio capture, the way live notices learn of new Windows notifications from the event log, the screen-edge frame, the side column, the portable packaging, the window and app rules, the shortcut text and the panel sizes and scale are translated from [BrimDeck](https://github.com/MoFeng2223/BrimDeck) (Apache-2.0, license text in [licenses/BrimDeck-LICENSE](licenses/BrimDeck-LICENSE)).
 - The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula, Night Owl, Catppuccin, Nord, Rosé Pine, Gruvbox, Solarized and Everforest themes use the colours of those palettes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
 - Hiding the Windows volume and brightness indicator follows [Bloom](https://github.com/SehajveerSingh2005/bloom) (GPL-3.0, license text in [licenses/Bloom-LICENSE](licenses/Bloom-LICENSE)).
+- The glass's refraction and rim light are adapted from WinIsland (GPL-3.0, license text in [licenses/WinIsland-LICENSE](licenses/WinIsland-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
 - Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Crest.

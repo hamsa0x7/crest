@@ -19,6 +19,7 @@ import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
+import { normalizeSearch, type SearchSetting } from "../features/overview/search";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -56,10 +57,8 @@ export interface Settings {
     /** "chosen": on `monitor`; "follow": where the pointer is while closed; "all": a closed copy on every other monitor (src/notch/monitor.ts). */
     monitorMode: MonitorMode;
     offset: number;
-    /** Focus mode look: half transparent (as before) or shrunk to a thin line at the edge. */
-    focusStyle: "dim" | "line";
     /**
-     * Closed look outside focus mode: the notch, the floating capsule, or a thin line (no
+     * Closed look: the notch, the floating capsule, or a thin line (no
      * music etc.; only a finished timer opens it into the notch until dismissed). Hover and
      * click work as usual.
      */
@@ -125,7 +124,8 @@ export interface Settings {
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
   /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
-  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; water: WaterConfig };
+  /** `search`: Overview's web search line and its engine, or "off". */
+  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; search: SearchSetting; water: WaterConfig };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
   /**
@@ -190,6 +190,8 @@ export interface Settings {
   setup: { done: boolean };
   /** Clipboard tool: the small chip that decodes a JWT, Unix time, Base64, UUID, JSON, colour or tracking link on an entry. Only visual, on by default. */
   clipChips: boolean;
+  /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
+  clipPaste: boolean;
 }
 
 const defaults: Settings = {
@@ -209,7 +211,7 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
+  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
     rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
     frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
     chargerAnimation: "cinematic", dockMagnifyDots: true,
@@ -229,7 +231,7 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true, hideFromCapture: false },
   updates: { auto: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
-  productivity: { reminderSound: true, nlDates: true, quotes: false, water: WATER_DEFAULTS },
+  productivity: { reminderSound: true, nlDates: true, quotes: false, search: "off", water: WATER_DEFAULTS },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
     lyricsOpen: false,
@@ -261,6 +263,7 @@ const defaults: Settings = {
   camera: { deviceId: "", mirror: true },
   setup: { done: false },
   clipChips: true,
+  clipPaste: false,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -414,7 +417,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       clockColor: normalizeLookColor(s.timer?.clockColor, "white"),
       focusSound: normalizeFocusSound(s.timer?.focusSound),
     },
-    productivity: { ...defaults.productivity, ...s.productivity, water: normalizeWater(s.productivity?.water) },
+    productivity: { ...defaults.productivity, ...s.productivity, search: normalizeSearch(s.productivity?.search), water: normalizeWater(s.productivity?.water) },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
     // Coloured icons moved from Hardware (closed-row readings only) to Themes (the whole app).

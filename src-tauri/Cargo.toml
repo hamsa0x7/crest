@@ -1,6 +1,6 @@
 [package]
 name = "crest"
-version = "1.0.0"
+version = "1.2.0"
 edition = "2021"
 license = "GPL-3.0-only"
 # src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
@@ -51,12 +51,27 @@ aes-gcm = "0.10"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
-# macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app and
-# the pasteboard. All of them are already in the tree through tauri and native-tls.
+# macOS (src/macos/): Keychain for the API keys; AppKit for the window level above the menu bar, the frontmost app,
+# the pasteboard and the colour sampler (with block2 for its handler); a Foundation dictionary for the Accessibility
+# check a paste needs. All of them are already in the tree through tauri and native-tls.
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString"] }
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace"] }
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSObject", "NSString", "NSValue"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+  "std",
+  "libc",
+  "block2",
+  "objc2-core-foundation",
+  "NSColor",
+  "NSColorSampler",
+  "NSColorSpace",
+  "NSPasteboard",
+  "NSResponder",
+  "NSRunningApplication",
+  "NSWindow",
+  "NSWorkspace",
+] }
 
 [target.'cfg(windows)'.dependencies]
 # Already in the tree through the autostart plugin; startup.rs sets its Windows mode to the current user.
@@ -94,6 +109,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Variant",
   "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_Etw",
+  # Drives: no "no disk in the drive" dialog for an empty card reader (system/hw.rs).
+  "Win32_System_Diagnostics_Debug",
   "Win32_System_Registry",
   "Win32_System_Time",
   "Win32_Security_Credentials",

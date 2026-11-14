@@ -95,8 +95,9 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
   const lyric = useRememberedLyric(np, useLyricLine(np, (closed.parts.title && music.titleLyrics) || music.notchLyrics, { roman: music.closedRoman === true, translation: music.closedTranslation === true }));
-  // Lyric mode of the title part: the current line, the title before the first line, in gaps and without lyrics.
-  const titleLyric = music.titleLyrics && lyric;
+  // Lyric mode of the title part: the current line while the song plays; the title before the first line, in long pauses,
+  // while paused and without lyrics.
+  const titleLyric = music.titleLyrics && np?.isPlaying && lyric;
   const caption = titleLyric ? lyric : np ? trackCaption(np.title ?? "", np.artist ?? "") : "";
   // Lyrics in the closed notch: while a line is sung, cover and line (with a running timer or a Discord call) replace the row,
   // which grows and shrinks with each line.
@@ -124,7 +125,21 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
     }
-    else if (id === "clock") fixed(id, clockWidth(closed.clockSeconds, s.units.clock === "12", closed.secondTimezone, closed.secondTimezoneLabel), () => <Clock seconds={closed.clockSeconds} h12={s.units.clock === "12"} paused={covered} secondZone={closed.secondTimezone} secondLabel={closed.secondTimezoneLabel} />);
+    else if (id === "clock")
+      fixed(
+        id,
+        clockWidth(closed.clockSeconds, s.units.clock === "12", closed.clockDate, closed.secondTimezone, closed.secondTimezoneLabel),
+        () => (
+          <Clock
+            seconds={closed.clockSeconds}
+            h12={s.units.clock === "12"}
+            date={closed.clockDate}
+            paused={covered}
+            secondZone={closed.secondTimezone}
+            secondLabel={closed.secondTimezoneLabel}
+          />
+        ),
+      );
     else if (id === "title" && caption) {
       const text = measureText(caption);
       parts.push({ item: { id, kind: "title", text }, draw: (p) => titleLyric
@@ -174,7 +189,7 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
   useLayoutEffect(() => onWidth(width), [width, onWidth]);
 
   // Choosing other parts fades the whole row over; parts coming and going while it stays the same grow and shrink.
-  const chosen = `${closed.order.filter((id) => closed.parts[id]).join()}|${Object.values(closed.readings).join()}|${closed.clockSeconds}`;
+  const chosen = `${closed.order.filter((id) => closed.parts[id]).join()}|${Object.values(closed.readings).join()}|${closed.clockSeconds}|${closed.clockDate}`;
   return (
     <motion.div
       // Faded out under a notice: no longer a target for a click or a hover (Notch.tsx partTarget).

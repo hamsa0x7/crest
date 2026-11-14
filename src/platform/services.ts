@@ -307,6 +307,11 @@ export function openSponsors() {
 }
 
 /** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
+/** Overview's search line: the results in the default browser (lib.rs `web_search`, which builds the address). Not in the browser demo. */
+export function webSearch(engine: string, query: string): Promise<void> {
+  return isNative ? invoke("web_search", { engine, query }) : Promise.resolve();
+}
+
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
   else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
@@ -579,9 +584,9 @@ export const status = {
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
    *  `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
-  configure: (c: { ddc: boolean; locks: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
+  configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
 };
@@ -1385,6 +1390,12 @@ export const noticeSource = {
    * Rejects with "settings" in the Store build, which opened Windows' notification settings instead.
    */
   banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
+  /** Windows' own notification sound off for these apps while Crest plays its own (banners.rs); rejects in the Store build. */
+  sounds: (mute: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_sounds", { mute, apps }) : Promise.resolve()),
+  /** Asks for a sound file and keeps a copy in Crest's data folder; its name, or null when cancelled. Rejects with "format" or "size". */
+  pickSound: (): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
+  /** The kept sound file's bytes; rejects with "none" when there is no copy. */
+  readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
   /** Opens the app a Windows notice came from, on its start page. */
   openApp: (appId: string) => {
     if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});
@@ -1420,6 +1431,12 @@ export const noticeSource = {
       return () => void mockAskHandlers.delete(handler);
     }
     const off = listen<Ask>("notices://ask", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Ids of Windows toasts that left the notification centre: their app withdrew them, or they were cleared there. */
+  onToastsGone: (handler: (ids: number[]) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<number[]>("notices://gone", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   /** The asker hung up or its time ran out. */
@@ -1516,7 +1533,18 @@ export interface RunningApp {
 }
 /** in-use: another program holds the combination. */
 export type HotkeyState = "unset" | "active" | "in-use" | "invalid";
-export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState };
+/** `tools`: each tool shortcut sent, by tool id (an older backend leaves it out). */
+export type HotkeyStates = { open: HotkeyState; hide: HotkeyState; resize: HotkeyState; find: HotkeyState; mic: HotkeyState; tools?: Record<string, HotkeyState> };
+export interface HotkeyConfig {
+  open: string;
+  hide: string;
+  resize: string;
+  find: string;
+  mic: string;
+  /** The tools' own shortcuts: each opens the notch on its tool (shell.rs). */
+  tools: { id: string; keys: string }[];
+  openLabel: string;
+}
 
 export const windowShell = {
   screen: (): Promise<ScreenBehavior> => (isNative ? invoke<ScreenBehavior>("display_screen") : Promise.resolve("normal")),
@@ -1546,14 +1574,27 @@ export const windowShell = {
           { name: "chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
           { name: "vlc", path: "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe" },
         ]),
-  applyHotkeys: (config: { open: string; hide: string; resize: string; find: string; mic: string; openLabel: string }): Promise<HotkeyStates> =>
+  applyHotkeys: (config: HotkeyConfig): Promise<HotkeyStates> =>
     isNative
       ? invoke<HotkeyStates>("hotkeys_apply", { config })
-      : Promise.resolve({ open: config.open ? "active" : "unset", hide: config.hide ? "active" : "unset", resize: config.resize ? "active" : "unset", find: config.find ? "active" : "unset", mic: config.mic ? "active" : "unset" }),
+      : Promise.resolve({
+          open: config.open ? "active" : "unset",
+          hide: config.hide ? "active" : "unset",
+          resize: config.resize ? "active" : "unset",
+          find: config.find ? "active" : "unset",
+          mic: config.mic ? "active" : "unset",
+          tools: Object.fromEntries(config.tools.map((x) => [x.id, "active" as const])),
+        }),
   /** The Find on screen shortcut. */
   onFindKey: (handler: () => void): (() => void) => {
     if (!isNative) return () => {};
     const off = listen("notch://find", handler);
+    return () => void off.then((f) => f());
+  },
+  /** A tool's own shortcut: the tool id it opens. */
+  onToolKey: (handler: (id: string) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<string>("notch://tool", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   /** The resize shortcut: one arrow press. */
@@ -1566,6 +1607,32 @@ export const windowShell = {
     if (isNative) void invoke("crash_log", { text });
   },
 };
+// ---------- Colour ----------
+
+/**
+ * The Colour tool's pick from the screen: Crest's own eyedropper on Windows (capture/eyedropper.rs), AppKit's colour sampler on
+ * a Mac (macos/colour.rs). "#rrggbb", or null when cancelled. Not in the browser, which has its own (src/features/colour/store.ts).
+ */
+export const screenColour = {
+  pick: (): Promise<string | null> => (isNative ? invoke<string | null>("colour_pick") : Promise.resolve(null)),
+};
+
+// ---------- Backup ----------
+
+/** Backup files (backup.rs): errors are short codes ("too-big", "unreadable", "write", "no-folder"). Native only. */
+export const backupFiles = {
+  /** Writes a new file into Documents/Crest/Backups; its path. */
+  save: (text: string, beforeRestore: boolean): Promise<string> =>
+    isNative ? invoke<string>("backup_save", { text, beforeRestore }) : Promise.reject(new Error("unsupported")),
+  /** The text of the backup file the user picks; null when cancelled. */
+  open: (): Promise<string | null> => (isNative ? invoke<string | null>("backup_open") : Promise.resolve(null)),
+  /** Restarts Crest, which applies a pending restore before anything reads the saved data. */
+  restart: async () => {
+    const { relaunch } = await import("@tauri-apps/plugin-process");
+    await relaunch();
+  },
+};
+
 // ---------- Portable ----------
 
 /** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */

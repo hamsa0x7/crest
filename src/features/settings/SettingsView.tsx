@@ -56,6 +56,7 @@ import {
   type MonitorInfo,
   type SecretName,
 } from "../../platform/services";
+import { BackupSettings } from "./BackupSettings";
 import { diagnosticsText } from "./diagnostics";
 import { searchSettings, type SearchEntry } from "./search";
 import { github } from "../github/store";
@@ -88,7 +89,6 @@ import { keycaps } from "../window/hotkeys";
 import { hotkeyStatus } from "../window/store";
 import { TradingSettings } from "../trading/TradingSettings";
 import { detectPlace } from "../weather/store";
-import { focusMode, setFocusMode } from "../../notch/focus";
 import { checkForUpdate, installUpdate, update } from "../../lib/update";
 import { across } from "../../notch/edge";
 import { EdgeSettings } from "../../notch/EdgeSettings";
@@ -152,7 +152,7 @@ let savedPage: PageId = "general";
 
 type Hit = SearchEntry & { page: PageId; groupId: string };
 
-const textOf = (el: Element | null | undefined) => el?.textContent?.trim() ?? "";
+const textOf = (el: Node | null | undefined) => el?.textContent?.trim() ?? "";
 /** The Row whose label and group a hit names, inside `root`. */
 const findRow = (root: Element, h: Hit) =>
   [...root.querySelectorAll<HTMLElement>("[data-row]")].find((r) => textOf(r.querySelector("[data-row-label]")) === h.label && (r.closest("section")?.id ?? "") === h.groupId);
@@ -169,9 +169,10 @@ function readRows(root: HTMLElement): Hit[] {
       const key = `${page}|${groupId}|${label}`;
       if (!label || seen.has(key)) return [];
       seen.add(key);
-      const hint = textOf(row.querySelector("[data-row-hint]"));
+      // A hint can be several texts (a description and a warning under it): each is an entry of its own, read and put into English apart.
+      const hints = [...(row.querySelector("[data-row-hint]")?.childNodes ?? [])].map(textOf).filter(Boolean);
       const group = textOf(section?.querySelector(":scope > h3"));
-      return [{ page, groupId, label, hint, group, en: { label: english(label), hint: english(hint), group: english(group) } }];
+      return [{ page, groupId, label, hint: hints.join(" "), group, en: { label: english(label), hint: hints.map(english).filter(Boolean).join(" "), group: english(group) } }];
     }),
   );
 }
@@ -377,6 +378,7 @@ function PageContent({ page }: { page: PageId }) {
           <General />
           <Weather />
           <Updates />
+          <BackupSettings />
           <Support />
         </>
       )}
@@ -507,7 +509,7 @@ function Updates() {
         )}
       </AnimatePresence>
       {!u.store && (
-        <Row label={t("Automatisch suchen")} hint={t("Einmal täglich, anonym bei GitHub, ohne deine Daten")}>
+        <Row label={t("Automatisch suchen")} hint={t("Alle 4 Stunden, anonym bei GitHub, ohne deine Daten")}>
           <Switch label={t("Automatisch suchen")} checked={auto} onChange={(on) => updateSettings({ updates: { auto: on } })} />
         </Row>
       )}
@@ -718,7 +720,11 @@ function Ask() {
           />
         </Row>
       )}
-      <SecretRow name={`ai.${s.ask.provider}` as SecretName} label={t("API-Schlüssel")} />
+      <SecretRow
+        name={`ai.${s.ask.provider}` as SecretName}
+        label={t("API-Schlüssel")}
+        hint={s.ask.provider === "custom" ? t("Für einen Server auf diesem Computer wie LM Studio oder Ollama nicht nötig") : undefined}
+      />
       <Row label={t("Modell")} hint={s.ask.provider === "openrouter" ? t("Modell-ID von openrouter.ai/models") : undefined}>
         <TextField
           value={s.ask.configs[s.ask.provider].model}
@@ -889,6 +895,7 @@ const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["volume", "Lautstärke", "Mit Pegel, wenn sich die Lautstärke oder Stummschaltung ändert"],
   ["brightness", "Helligkeit", "Eingebauter Bildschirm sofort, externe Monitore über DDC/CI alle 2 Sekunden"],
   ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
+  ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht"],
   ["mic", "Mikrofon", "Wenn das Tastenkürzel das Mikrofon stumm- oder wieder einschaltet"],
   ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
 ];
@@ -897,7 +904,6 @@ const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
 function Display() {
   const s = settings.use();
   const d = s.display;
-  const focus = focusMode.use();
   const fpsError = fps.use().error;
   // The unlock row shows once the counter has answered "no-admin", so ask while gaming mode is on, not only when a game is up.
   useFpsPolling(!isMac && s.gaming.mode !== "off");
@@ -1051,24 +1057,6 @@ function Display() {
           ))}
         </>
       )}
-      <Row label={t("Fokus-Modus")} hint={t("Klicks gehen durch. 3× schnell auf die Notch klicken schaltet um, oder im Tray-Menü.")}>
-        <Switch label={t("Fokus-Modus")} checked={focus} onChange={setFocusMode} />
-      </Row>
-      <Row
-        label={t("Fokus-Darstellung")}
-        hint={d.focusStyle === "line" ? t("Nur eine dünne Linie am Rand, ohne Musik und Co.") : t("Halb durchsichtig, Musik und Co. bleiben sichtbar")}
-      >
-        <Segmented
-          id="focus-style"
-          size="sm"
-          value={d.focusStyle}
-          onChange={(focusStyle) => updateSettings((cur) => ({ display: { ...cur.display, focusStyle } }))}
-          options={[
-            { value: "dim", label: t("Durchsichtig") },
-            { value: "line", label: t("Linie") },
-          ]}
-        />
-      </Row>
       {/* Hardware readings and FPS have no Mac backend yet. */}
       {!isMac && (
         <>
@@ -1213,7 +1201,7 @@ const NO_MAC_PARTS = new Set<PartId>(["readings", "discord", "downloads"]);
 
 /** Parts of the closed row (notch and capsule share them): drag to reorder, switch on/off. Same pattern as `Tools()`. */
 function ClosedParts() {
-  const { closed: c, music, tools, notices, github } = settings.use();
+  const { closed: c, music, tools, notices, github, dock } = settings.use();
   const [dragging, setDragging] = useState<PartId | null>(null);
   const setClosed = (patch: (cur: ClosedSettings) => Partial<ClosedSettings>) => updateSettings((cur) => ({ closed: { ...cur.closed, ...patch(cur.closed) } }));
   // Only these always show; battery, power and temperature can be missing, so they cannot keep the part alone. The network
@@ -1273,6 +1261,8 @@ function ClosedParts() {
                       onChange={(v) => (v || readingsOn > 1) && setClosed((cur) => ({ readings: { ...cur.readings, [k]: v } }))}
                     />
                   ))}
+                {/* Not on a side edge: the narrow column shows the time alone. */}
+                {on && id === "clock" && !across(dock.edge) && <SubSwitch label={t("Datum")} checked={c.clockDate} onChange={(clockDate) => setClosed(() => ({ clockDate }))} />}
                 {on && id === "clock" && (
                   <div className="flex items-center gap-2">
                     <SubSwitch label={t("Sekunden")} checked={c.clockSeconds} onChange={(clockSeconds) => setClosed(() => ({ clockSeconds }))} />

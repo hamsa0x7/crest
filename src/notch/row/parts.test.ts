@@ -14,6 +14,7 @@ test("default values", () => {
   assert.deepEqual(CLOSED_DEFAULTS.parts, { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false });
   assert.deepEqual(CLOSED_DEFAULTS.readings, { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false });
   assert.equal(CLOSED_DEFAULTS.clockSeconds, false); assert.equal(CLOSED_DEFAULTS.lineProgress, true); assert.equal(CLOSED_DEFAULTS.quotaAlerts, true); assert.equal(CLOSED_DEFAULTS.downloadAlerts, true);
+  assert.equal(CLOSED_DEFAULTS.clockDate, false);
   assert.equal(CLOSED_DEFAULTS.secondTimezone, null); assert.equal(CLOSED_DEFAULTS.secondTimezoneLabel, "");
 });
 test("total on any shape", () => {
@@ -29,6 +30,8 @@ test("keeps valid saved values", () => {
   assert.equal(normalizeClosed({ readings: { net: true, temp: "x" } }).readings.net, true);
   assert.equal(normalizeClosed({ readings: { net: true, temp: "x" } }).readings.temp, false);
   assert.equal(n.clockSeconds, true); assert.equal(n.lineProgress, false); assert.equal(n.quotaAlerts, false);
+  // The date beside the clock (issue #41): off unless it was saved on.
+  assert.equal(n.clockDate, false); assert.equal(normalizeClosed({ clockDate: true }).clockDate, true); assert.equal(normalizeClosed({ clockDate: 1 }).clockDate, false);
   assert.equal(normalizeClosed({ secondTimezone: "America/New_York", secondTimezoneLabel: "NYC" }).secondTimezone, "America/New_York");
   assert.equal(normalizeClosed({ secondTimezone: "America/New_York", secondTimezoneLabel: "NYC" }).secondTimezoneLabel, "NYC");
   assert.equal(normalizeClosed({ parts: { clock: "yes", rings: 0 } }).parts.clock, false); assert.equal(normalizeClosed({ parts: { rings: 0 } }).parts.rings, true);
@@ -39,7 +42,7 @@ test("does not alias the defaults", () => {
   assert.deepEqual(CLOSED_DEFAULTS.order, [...PART_IDS]); assert.equal(CLOSED_DEFAULTS.parts.timer, true); assert.equal(CLOSED_DEFAULTS.readings.cpu, true);
 });
 test("status alerts setting", () => {
-  const alerts = { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, hideOsd: false, mic: true };
+  const alerts = { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, insert: false, hideOsd: false, mic: true };
   assert.deepEqual(normalizeClosed(undefined).statusAlerts, alerts);
   // 0.2 saved only the first three: the new ones take their defaults.
   assert.deepEqual(normalizeClosed({ statusAlerts: { net: false, power: true, bt: true } }).statusAlerts, { ...alerts, net: false });

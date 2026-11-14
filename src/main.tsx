@@ -10,7 +10,6 @@ import { clipboard } from "./platform/clipboard";
 import { settings } from "./settings/store";
 import { applyDisplay, placementKey } from "./notch/drag";
 import { closedLive } from "./notch/ClosedResize";
-import { focusMode, startFocusMode } from "./notch/focus";
 import { monitor, monitors, reloadMonitor, startMonitorWatch } from "./notch/monitor";
 import { startSystemPolling } from "./features/system/store";
 import { startUsagePolling } from "./features/usage/store";
@@ -24,6 +23,7 @@ import { startWaterReminders } from "./features/water/store";
 import { startBreaks } from "./features/breaks/store";
 import { startMusic } from "./features/now-playing/music";
 import { startThemes } from "./features/themes/store";
+import { startGlassLive } from "./notch/glass/live";
 import { startLauncher } from "./features/launcher/store";
 import { startGithub } from "./features/github/store";
 import { startCalendar } from "./features/calendar/store";
@@ -42,7 +42,6 @@ if (showcase) startShowcase();
 if (demo) startDemo();
 
 startDropListener();
-startFocusMode();
 startMonitorWatch();
 startSystemPolling();
 startUsagePolling();
@@ -56,6 +55,7 @@ startWaterReminders();
 startBreaks();
 startMusic();
 startThemes();
+startGlassLive();
 startLauncher();
 startGithub();
 startCalendar();
@@ -66,7 +66,7 @@ startPlugins();
 startMeeting();
 
 // Send display settings (monitor, fullscreen, offset, window top, gaming) to Rust on start and on every change.
-// The window top follows the style, the capsule's y, focus mode and the monitor once it has loaded.
+// The window top follows the style, the capsule's y and the monitor once it has loaded.
 let lastDisplay = "";
 let lastScale = 100;
 const syncDisplay = () => {
@@ -87,7 +87,6 @@ syncDisplay();
 settings.subscribe(syncDisplay);
 monitor.subscribe(syncDisplay);
 monitors.subscribe(syncDisplay);
-focusMode.subscribe(syncDisplay);
 closedLive.subscribe(syncDisplay);
 screen.subscribe(syncDisplay);
 
@@ -105,7 +104,7 @@ settings.subscribe(syncClipboardMode);
 
 // The tray menu is Rust's; its texts follow the language from here.
 language.subscribe(() =>
-  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), focus: t("Fokus-Modus"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
+  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
 );
 const languageReady = startLanguage(settings);
 

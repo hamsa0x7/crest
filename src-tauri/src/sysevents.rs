@@ -7,8 +7,11 @@
 //! a failure is logged and leaves only that source off. What a source reads at registration goes
 //! into the seed (`status://seed`, `status_seed`), never into a change event. The volume callback only fires on a change,
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
-//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show.
+//! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show;
+//! the Insert alert reads that key's toggle bit on the same thread.
 //! The Bluetooth watcher and the volume callback run only while their alerts are on (`status_configure`).
+//! The session's lock and its move to a remote client or away from the console come as WM_WTSSESSION_CHANGE; with the
+//! screen and sleep state they go to the page as `status://session`, which the glass's live copy waits on.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
@@ -18,7 +21,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use windows::core::{implement, w, GUID, PCWSTR};
+use windows::core::{implement, w, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_GETIDLIST_FILTER_ENUMERATOR,
     CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
@@ -36,11 +39,18 @@ use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInforma
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL, VK_NUMLOCK};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetAsyncKeyState, GetKeyState, VIRTUAL_KEY, VK_CAPITAL, VK_CONTROL, VK_INSERT, VK_LWIN, VK_MENU, VK_NUMLOCK, VK_RWIN, VK_SHIFT,
+};
 use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
+use windows::Win32::System::RemoteDesktop::{
+    WTSFreeMemory, WTSQuerySessionInformationW, WTSRegisterSessionNotification, WTSSessionInfoEx, NOTIFY_FOR_THIS_SESSION, WTSINFOEXW,
+    WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
-    HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_POWERBROADCAST, WM_TIMER, WNDCLASSW,
+    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, GetSystemMetrics, KillTimer, PostMessageW, RegisterClassW, SetTimer, DEVICE_NOTIFY_WINDOW_HANDLE,
+    HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, SM_REMOTESESSION, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP,
+    WM_POWERBROADCAST, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_CONSOLE_CONNECT, WTS_CONSOLE_DISCONNECT, WTS_REMOTE_CONNECT, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
 };
 
 // Not in the enabled features; values from winnt.h.
@@ -48,6 +58,8 @@ const GUID_ACDC_POWER_SOURCE: GUID = GUID::from_u128(0x5d3e9a59_e9d5_4b00_a6bd_f
 const GUID_BATTERY_PERCENTAGE_REMAINING: GUID = GUID::from_u128(0xa7ad8041_b45a_4cae_87a3_eecbb468a9e1);
 /// The console display: 0 off, 1 on, 2 dimmed (standby.rs).
 const GUID_CONSOLE_DISPLAY_STATE: GUID = GUID::from_u128(0x6fe69556_704a_47a0_8f24_c28d936fda47);
+/// Battery saver or Energy saver switched on or off.
+const GUID_POWER_SAVING_STATUS: GUID = GUID::from_u128(0xe00958c0_c213_4ace_ac77_fecced2eeea5);
 /// Battery level Windows takes from the hands-free indicators or the LE battery service; not in the crate.
 const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x104ea319_6ee2_4701_bd47_8ddbf425bbe5), pid: 2 };
 /// Paired Bluetooth and Bluetooth LE devices, as Settings lists them. Audio endpoints cannot tell them apart: with an
@@ -82,6 +94,48 @@ const SRC_VOLUME: usize = 2;
 static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME);
 /// The loop's window, 0 until it exists.
 static LOOP: AtomicIsize = AtomicIsize::new(0);
+/// The session was locked or unlocked, moved to or from a remote client, or the screen or sleep state changed.
+const WM_SESSION: u32 = WM_APP + 7;
+/// Fires once the screen has been back for `standby::SETTLE`, when `asleep` turns false.
+const SETTLE_TIMER: usize = 3;
+/// Tries the session notifications again, which fail before the Remote Desktop services are up (RPC_S_INVALID_BINDING).
+const WTS_TIMER: usize = 4;
+const WTS_RETRY_MS: u32 = 5000;
+const WTS_TRIES: u32 = 12;
+/// Win+L or the lock after idle; set from the session notifications.
+static LOCKED: AtomicBool = AtomicBool::new(false);
+/// Shown on a remote client, or not shown at all (the console went to another session, the remote client disconnected).
+static REMOTE: AtomicBool = AtomicBool::new(false);
+
+/// The session is locked.
+pub(crate) fn locked() -> bool {
+    LOCKED.load(Ordering::SeqCst)
+}
+
+/// The session is not on this PC's own screen.
+pub(crate) fn remote() -> bool {
+    REMOTE.load(Ordering::SeqCst)
+}
+
+/// What keeps the glass's live copy (capture/glass_live.rs) stopped, for the page as `status://session`. `asleep`: the
+/// screen off or the PC suspended, and for `standby::SETTLE` after it comes back.
+#[derive(Serialize, Clone, Copy, PartialEq, Default, Debug)]
+struct Session {
+    locked: bool,
+    remote: bool,
+    asleep: bool,
+}
+
+impl Session {
+    fn now() -> Session {
+        Session { locked: locked(), remote: remote(), asleep: crate::standby::settling() }
+    }
+
+    /// Why the live copy stops now, the first that holds; None when nothing stops it.
+    fn halts(self) -> Option<&'static str> {
+        [(self.asleep, "asleep"), (self.locked, "locked"), (self.remote, "remote")].into_iter().find_map(|(on, why)| on.then_some(why))
+    }
+}
 
 #[derive(Serialize, Clone, Copy, PartialEq)]
 pub struct Power {
@@ -91,6 +145,8 @@ pub struct Power {
     battery: bool,
     /// Taking charge now; false on a full battery or under a charge limit, though the charger is in.
     charging: bool,
+    /// Battery saver or Energy saver is on: Windows turns transparency off, and the glass (src/notch/glass) follows.
+    saver: bool,
 }
 
 /// Current state of each source, `null` while a source is off. Kept up to date after the
@@ -132,7 +188,7 @@ fn run(app: AppHandle) {
         let sources = SOURCES.load(Ordering::SeqCst);
 
         // Registering sends the current value at once; it matches the seed, so it emits nothing.
-        let power_on = [GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING].iter().fold(false, |on, guid| {
+        let power_on = [GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING, GUID_POWER_SAVING_STATUS].iter().fold(false, |on, guid| {
             match RegisterPowerSettingNotification(HANDLE(hwnd.0), guid, DEVICE_NOTIFY_WINDOW_HANDLE) {
                 Ok(_) => true,
                 Err(e) => {
@@ -152,6 +208,25 @@ fn run(app: AppHandle) {
         if let Err(e) = RegisterSuspendResumeNotification(HANDLE(hwnd.0), DEVICE_NOTIFY_WINDOW_HANDLE) {
             eprintln!("sysevents: suspend notification failed: {e}");
         }
+        // Registering sends nothing: a Crest started inside a remote session reads it here.
+        REMOTE.store(GetSystemMetrics(SM_REMOTESESSION) != 0, Ordering::SeqCst);
+        let mut wts_tries = 0;
+        if !watch_session(hwnd) {
+            SetTimer(Some(hwnd), WTS_TIMER, WTS_RETRY_MS, None);
+        }
+        let mut session = Session::now();
+        // The live copy stops and the page hears of it off this loop, which must not wait for a start meanwhile (the screen
+        // going off comes here); one thread, so the events keep their order.
+        let (to_page, changes) = std::sync::mpsc::channel::<Session>();
+        let page = app.clone();
+        thread::spawn(move || {
+            for now in changes {
+                if let Some(why) = now.halts() {
+                    crate::capture::glass_live::halt(&page, why);
+                }
+                let _ = page.emit("status://session", now);
+            }
+        });
 
         let h = hwnd.0 as isize;
         let handler = NetworkStatusChangedEventHandler::new(move |_| {
@@ -208,6 +283,18 @@ fn run(app: AppHandle) {
                     if seed().online != now {
                         seed().online = now;
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
+                    }
+                }
+                WM_SESSION => session_changed(hwnd, &mut session, &to_page),
+                WM_TIMER if msg.wParam.0 == SETTLE_TIMER => {
+                    let _ = KillTimer(Some(hwnd), SETTLE_TIMER);
+                    session_changed(hwnd, &mut session, &to_page);
+                }
+                WM_TIMER if msg.wParam.0 == WTS_TIMER => {
+                    wts_tries += 1;
+                    if watch_session(hwnd) || wts_tries >= WTS_TRIES {
+                        let _ = KillTimer(Some(hwnd), WTS_TIMER);
+                        session_changed(hwnd, &mut session, &to_page);
                     }
                 }
                 WM_BT if watcher.is_some() => {
@@ -324,9 +411,56 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND => crate::standby::set_suspended(false),
                 _ => {}
             }
+            // The loop compares with what it last sent: a battery change sends nothing there.
+            let _ = PostMessageW(Some(hwnd), WM_SESSION, WPARAM(0), LPARAM(0));
             return LRESULT(1);
         }
+        if msg == WM_WTSSESSION_CHANGE {
+            match wparam.0 as u32 {
+                WTS_SESSION_LOCK => LOCKED.store(true, Ordering::SeqCst),
+                WTS_SESSION_UNLOCK => LOCKED.store(false, Ordering::SeqCst),
+                WTS_REMOTE_CONNECT | WTS_CONSOLE_DISCONNECT => REMOTE.store(true, Ordering::SeqCst),
+                WTS_CONSOLE_CONNECT => REMOTE.store(false, Ordering::SeqCst),
+                _ => {}
+            }
+            let _ = PostMessageW(Some(hwnd), WM_SESSION, WPARAM(0), LPARAM(0));
+            return LRESULT(0);
+        }
         DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+}
+
+/// Sends the session state on to the page when it changed, the live copy stopping first when something takes the screen
+/// away, and looks again once the screen has been back for `standby::SETTLE`.
+fn session_changed(hwnd: HWND, last: &mut Session, to_page: &std::sync::mpsc::Sender<Session>) {
+    let now = Session::now();
+    if now.asleep && !crate::standby::asleep() {
+        unsafe { SetTimer(Some(hwnd), SETTLE_TIMER, crate::standby::SETTLE.as_millis() as u32 + 100, None) };
+    }
+    if now != *last {
+        *last = now;
+        let _ = to_page.send(now);
+    }
+}
+
+/// The session notifications, and whether the session is locked now, which registering does not send (a Crest restarted
+/// while the PC is locked). False when registering failed.
+fn watch_session(hwnd: HWND) -> bool {
+    unsafe {
+        if let Err(e) = WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) {
+            eprintln!("sysevents: session notification failed: {e}");
+            return false;
+        }
+        let (mut info, mut size) = (PWSTR::null(), 0u32);
+        if WTSQuerySessionInformationW(Some(WTS_CURRENT_SERVER_HANDLE), WTS_CURRENT_SESSION, WTSSessionInfoEx, &mut info, &mut size).is_ok() {
+            // Only the flags: the rest names the user and the domain.
+            let ex = &*(info.0 as *const WTSINFOEXW);
+            if ex.Level == 1 {
+                LOCKED.store(ex.Data.WTSInfoExLevel1.SessionFlags == WTS_SESSIONSTATE_LOCK as i32, Ordering::SeqCst);
+            }
+            WTSFreeMemory(info.0 as _);
+        }
+        true
     }
 }
 
@@ -335,7 +469,13 @@ fn power() -> Option<Power> {
     unsafe { GetSystemPowerStatus(&mut s) }.ok()?;
     // 128 = no system battery; 255 = unknown percent.
     let battery = s.BatteryFlag & 128 == 0;
-    Some(Power { ac: s.ACLineStatus == 1, percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent), battery, charging: s.BatteryFlag & 8 != 0 })
+    Some(Power {
+        ac: s.ACLineStatus == 1,
+        percent: (battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent),
+        battery,
+        charging: s.BatteryFlag & 8 != 0,
+        saver: s.SystemStatusFlag & 1 != 0,
+    })
 }
 
 /// No internet profile (cable out, Wi-Fi off) counts as offline.
@@ -541,12 +681,13 @@ pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
 }
 
 /// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, Caps Lock and Num Lock only
-/// while theirs is on and can show, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
+/// while theirs is on and can show, Insert likewise with its own, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
 /// indicator is hidden only while the frontend says Crest's HUD replaces it (`osd_armed`: the option is on, even if it is not hiding just now).
 #[tauri::command]
-pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
+pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
     crate::brightness::set_ddc(ddc);
-    watch_locks(&app, locks);
+    INSERT_ON.store(insert, Ordering::SeqCst);
+    watch_locks(&app, locks || insert);
     crate::osd::set(hide_osd, osd_armed);
     SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 }, Ordering::SeqCst);
     let h = LOOP.load(Ordering::SeqCst);
@@ -557,6 +698,8 @@ pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, bt: bool, volume
 
 const LOCK_POLL: Duration = Duration::from_millis(150);
 static LOCKS_ON: AtomicBool = AtomicBool::new(false);
+/// The Insert alert is on and can show; the lock poll then runs for it too.
+static INSERT_ON: AtomicBool = AtomicBool::new(false);
 /// Bumped on every switch; a polling thread runs while the number is still its own, so turning off ends it.
 static LOCKS_RUN: AtomicUsize = AtomicUsize::new(0);
 
@@ -578,7 +721,7 @@ fn watch_locks(app: &AppHandle, on: bool) {
     }
     let app = app.clone();
     thread::spawn(move || {
-        let mut last = None;
+        let (mut last, mut insert) = (None, None);
         while LOCKS_RUN.load(Ordering::SeqCst) == run {
             if crate::standby::asleep() {
                 thread::sleep(LOCK_POLL);
@@ -586,6 +729,12 @@ fn watch_locks(app: &AppHandle, on: bool) {
             }
             for (key, on) in lock_changes(&mut last, locks()) {
                 let _ = app.emit("status://lock", serde_json::json!({ "key": key, "on": on }));
+            }
+            // Off, Insert is not read, and turning it on starts from a new baseline.
+            if !INSERT_ON.load(Ordering::SeqCst) {
+                insert = None;
+            } else if insert_pressed(&mut insert, insert_state()) {
+                let _ = app.emit("status://lock", serde_json::json!({ "key": "insert", "on": true }));
             }
             thread::sleep(LOCK_POLL);
         }
@@ -596,6 +745,23 @@ fn watch_locks(app: &AppHandle, on: bool) {
 fn lock_changes(last: &mut Option<Locks>, now: Locks) -> Vec<(&'static str, bool)> {
     let Some(before) = last.replace(now) else { return Vec::new() };
     [("caps", before.0, now.0), ("num", before.1, now.1)].into_iter().filter(|(_, was, is)| was != is).map(|(key, _, is)| (key, is)).collect()
+}
+
+/// Insert's toggle bit, and whether Ctrl, Shift, Alt or a Windows key is down.
+type Insert = (bool, bool);
+
+fn insert_state() -> Insert {
+    let down = |key: VIRTUAL_KEY| unsafe { GetAsyncKeyState(key.0 as i32) } as u16 & 0x8000 != 0;
+    // The toggle flips on each press, once for a held key; programs keep their own overtype state, so it says nothing of on or off.
+    (unsafe { GetKeyState(VK_INSERT.0 as i32) } & 1 != 0, [VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN].into_iter().any(down))
+}
+
+/// A bare press: the toggle flipped since the last reading and no modifier was down at either reading, so Shift+Insert
+/// and Ctrl+Insert stay silent. The first reading is the baseline. shortcut: two presses between readings cancel out,
+/// and a modifier pressed and released between them goes unseen; a keyboard hook would see both, at the cost of every key.
+fn insert_pressed(last: &mut Option<Insert>, now: Insert) -> bool {
+    let Some(before) = last.replace(now) else { return false };
+    before.0 != now.0 && !before.1 && !now.1
 }
 
 #[cfg(test)]
@@ -623,6 +789,28 @@ mod tests {
     }
 
     #[test]
+    fn power_carries_the_saver_to_the_page() {
+        let sent = serde_json::to_value(Power { ac: true, percent: Some(50), battery: true, charging: false, saver: true }).unwrap();
+        assert_eq!(sent["saver"], true);
+    }
+
+    #[test]
+    fn the_session_goes_to_the_page_as_three_flags() {
+        let sent = serde_json::to_value(Session { locked: true, remote: false, asleep: true }).unwrap();
+        assert_eq!(sent, serde_json::json!({ "locked": true, "remote": false, "asleep": true }));
+    }
+
+    #[test]
+    fn the_live_copy_stops_for_the_first_reason_that_holds() {
+        assert_eq!(Session::default().halts(), None);
+        assert_eq!(Session { locked: true, ..Default::default() }.halts(), Some("locked"));
+        assert_eq!(Session { remote: true, ..Default::default() }.halts(), Some("remote"));
+        assert_eq!(Session { asleep: true, ..Default::default() }.halts(), Some("asleep"));
+        assert_eq!(Session { locked: true, remote: true, asleep: true }.halts(), Some("asleep"));
+        assert_eq!(Session { locked: true, remote: true, asleep: false }.halts(), Some("locked"));
+    }
+
+    #[test]
     fn lock_changes_skip_the_first_reading_and_repeats() {
         let mut last = None;
         assert!(lock_changes(&mut last, (false, true)).is_empty());
@@ -630,5 +818,21 @@ mod tests {
         assert_eq!(lock_changes(&mut last, (true, true)), vec![("caps", true)]);
         assert_eq!(lock_changes(&mut last, (false, false)), vec![("caps", false), ("num", false)]);
         assert_eq!(last, Some((false, false)));
+    }
+
+    #[test]
+    fn insert_counts_only_a_bare_press() {
+        let mut last = None;
+        // The first reading is the baseline.
+        assert!(!insert_pressed(&mut last, (true, false)));
+        // Held or untouched: the toggle stays, nothing.
+        assert!(!insert_pressed(&mut last, (true, false)));
+        assert!(insert_pressed(&mut last, (false, false)));
+        // Shift+Insert or Ctrl+Insert: a modifier down now, or at the reading before, is a shortcut.
+        assert!(!insert_pressed(&mut last, (true, true)));
+        assert!(!insert_pressed(&mut last, (true, true)));
+        assert!(!insert_pressed(&mut last, (false, false)));
+        assert!(insert_pressed(&mut last, (true, false)));
+        assert_eq!(last, Some((true, false)));
     }
 }

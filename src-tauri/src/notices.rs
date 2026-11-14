@@ -3,9 +3,10 @@
 //!
 //! Windows raises `UserNotificationListener`'s change event only for packaged apps, but its reading calls work for a
 //! desktop program. The push notification service writes an entry to its event log for every toast delivered to this
-//! user, with the toast's id and app id; Crest subscribes to that log and reads the one toast it names. Nothing is
-//! changed or removed in the action centre. When the log is turned off or the subscription fails, the list is read
-//! every POLL instead. Both sources send `notices://in`; rules, quiet hours and history live in the frontend.
+//! user, with the toast's id and app id; Crest subscribes to that log and reads the one toast it names. A toast its app
+//! withdraws, or a clear in the notification centre, is in the log too, and sends `notices://gone` with the ids that left.
+//! When the log is turned off or the subscription fails, the list is read every POLL instead. Both sources send
+//! `notices://in`; rules, quiet hours and history live in the frontend.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -28,6 +29,9 @@ const COALESCE: Duration = Duration::from_millis(100);
 const CHANNEL: &str = "Microsoft-Windows-PushNotification-Platform/Operational";
 const DELIVERED: u32 = 3052;
 const SUBMITTED: u32 = 3053;
+/// An app withdrew one of its toasts, named by its id: a chat app does this once the message was read in it.
+const CANCELED: u32 = 3054;
+/// Toasts were cleared (by the user in the notification centre, or by their app); the entry does not say which.
 const CLEARED: u32 = 3055;
 /// Notifications Crest itself might raise (the identifier in tauri.conf.json).
 const OWN_APP: &str = "io.github.andrealo20.crest";
@@ -297,6 +301,8 @@ fn set_status(app: &AppHandle, change: impl FnOnce(&mut Status)) {
 enum Trigger {
     /// Read this toast and check it belongs to this app.
     Read(u32, String),
+    /// This toast left the notification centre: it leaves Crest too.
+    Gone(u32),
     /// An entry without a usable id: compare the whole list with the known ids.
     Full,
     Ignore,
@@ -307,13 +313,21 @@ enum Trigger {
 }
 
 /// What one log entry asks for. A delivered toast is read directly only when both its id and app id are there, so an
-/// entry never leads to showing another app's toast. A clear (3055) does not say which toast went and needs nothing here.
+/// entry never leads to showing another app's toast. A withdrawn toast needs only its id: the frontend drops just the
+/// notice that showed it. A clear, or a withdrawal without an id, is found by reading the list again.
 fn trigger(event_id: u32, kind: Option<&str>, app_id: Option<&str>, tracking: Option<u32>) -> Trigger {
+    let tracking = tracking.filter(|&id| id > 0);
+    if event_id == CANCELED {
+        return tracking.map_or(Trigger::Full, Trigger::Gone);
+    }
+    if event_id == CLEARED {
+        return Trigger::Full;
+    }
     let toast = event_id == DELIVERED || (event_id == SUBMITTED && kind.is_some_and(|k| k.eq_ignore_ascii_case("toast")));
-    if event_id == CLEARED || !toast {
+    if !toast {
         return Trigger::Ignore;
     }
-    match (tracking.filter(|&id| id > 0), app_id.map(str::trim).filter(|a| !a.is_empty())) {
+    match (tracking, app_id.map(str::trim).filter(|a| !a.is_empty())) {
         (Some(id), Some(app)) => Trigger::Read(id, app.to_string()),
         _ => Trigger::Full,
     }
@@ -328,7 +342,7 @@ fn query(sid: Option<&str>) -> String {
         }
         _ => String::new(),
     };
-    format!("*[System[(EventID={DELIVERED}){user}] or (System[EventID={SUBMITTED}{user}] and EventData[Data[@Name='NotificationType']='toast'])]")
+    format!("*[System[(EventID={DELIVERED} or EventID={CANCELED} or EventID={CLEARED}){user}] or (System[EventID={SUBMITTED}{user}] and EventData[Data[@Name='NotificationType']='toast'])]")
 }
 
 fn current(app: &AppHandle, generation: u64) -> bool {
@@ -414,6 +428,8 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
         }
 
         let mut full = subscription.is_none() || batch.contains(&Trigger::Full);
+        // Toasts their app withdrew go at once; the ones a clear took are found by the reading below.
+        let mut gone: Vec<u32> = batch.iter().filter_map(|t| if let Trigger::Gone(id) = t { Some(*id) } else { None }).collect();
         if !full {
             for t in batch {
                 let Trigger::Read(id, app_id) = t else { continue };
@@ -433,19 +449,27 @@ fn windows_source(app: AppHandle, generation: u64, tx: mpsc::Sender<Trigger>, rx
                 std::thread::sleep(Duration::from_millis(500));
             }
         }
-        // The log never says which toasts were cleared; a long session prunes the set with one reading.
+        // A clear never says which toasts went, and a long session prunes the set: one reading answers both.
         if full || known.len() > 1000 {
-            let Ok(list) = read_all(&listener) else { continue };
-            let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
-            if full {
-                for n in &list {
-                    if n.Id().is_ok_and(|id| !known.contains(&id)) {
-                        emit_toast(&app, n, None, &mut icons);
+            if let Ok(list) = read_all(&listener) {
+                let ids: HashSet<u32> = list.iter().filter_map(|n| n.Id().ok()).collect();
+                if full {
+                    for n in &list {
+                        if n.Id().is_ok_and(|id| !known.contains(&id)) {
+                            emit_toast(&app, n, None, &mut icons);
+                        }
                     }
                 }
+                // What left the notification centre since the last reading leaves Crest too, and the set stays its size.
+                gone.extend(known.difference(&ids));
+                known = ids;
             }
-            // Removed toasts leave the set, so it stays the size of the action centre.
-            known = ids;
+        }
+        if !gone.is_empty() {
+            for id in &gone {
+                known.remove(id);
+            }
+            let _ = app.emit("notices://gone", gone);
         }
     }
 }
@@ -504,7 +528,7 @@ fn read_toast(
     }
     // DateTime counts 100 ns steps since 1601.
     let at = n.CreationTime().map(|t| ((t.UniversalTime - 116_444_736_000_000_000).max(0) / 10_000) as u64).unwrap_or_else(|_| now_ms());
-    let icon = icons.entry(app_id.clone()).or_insert_with(|| display.as_ref().and_then(logo)).clone();
+    let icon = icons.entry(app_id.clone()).or_insert_with(|| display.as_ref().and_then(logo).or_else(|| start_icon(&app_id)).or_else(|| registered_icon(&app_id))).clone();
     Some(NoticeIn {
         source: "windows",
         app_name: notify_wire::clean(Some(app_name), notify_wire::MAX_FIELD, false).unwrap_or_default(),
@@ -587,6 +611,83 @@ fn logo(display: &windows::ApplicationModel::AppDisplayInfo) -> Option<String> {
         _ => "image/png",
     };
     Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Desktop programs (Chrome, Discord and the like) often give no logo above. The Start menu has an icon for most app
+/// ids a toast can come from, the one Windows shows for them too (issue #31). Read on an STA thread, once per app.
+fn start_icon(app_id: &str) -> Option<String> {
+    if !valid_app_id(app_id) {
+        return None;
+    }
+    let id = format!(r"shell:AppsFolder\{app_id}");
+    crate::launcher::on_sta(move || crate::launcher::icon_png(&id)).flatten()
+}
+
+/// Ids with no Start menu entry (Windows Security and other system toasts) name their icon in the registry, under
+/// `Classes\AppUserModelId\<id>` as `IconUri` (issue #43). Another program writes it, so `icon_source` checks it.
+fn registered_icon(app_id: &str) -> Option<String> {
+    use base64::Engine;
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_EXPAND_SZ, RRF_RT_REG_SZ};
+    if !valid_app_id(app_id) {
+        return None;
+    }
+    let key = windows::core::HSTRING::from(format!(r"Software\Classes\AppUserModelId\{app_id}"));
+    // Most system values are "%SystemRoot%\...": RegGetValueW expands them, and `icon_source` checks the result.
+    let uri = [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE].into_iter().find_map(|root| {
+        let mut value = [0u16; 1024];
+        let mut size = (value.len() * 2) as u32;
+        let ok = unsafe { RegGetValueW(root, &key, windows::core::w!("IconUri"), RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, None, Some(value.as_mut_ptr().cast()), Some(&mut size)) }
+            == windows::Win32::Foundation::ERROR_SUCCESS;
+        // After expanding, `size` still counts the stored string: the value ends at its first NUL.
+        ok.then(|| String::from_utf16_lossy(value.split(|&c| c == 0).next().unwrap_or_default()))
+    })?;
+    match icon_source(&uri)? {
+        IconSource::Shell(path) => crate::launcher::on_sta(move || crate::launcher::icon_png(&path)).flatten(),
+        IconSource::Image(path) => {
+            // The same cap as `logo`.
+            let size = std::fs::metadata(&path).ok()?.len();
+            if size == 0 || size > 256 * 1024 {
+                return None;
+            }
+            let bytes = std::fs::read(&path).ok()?;
+            let mime = match image::guess_format(&bytes).ok()? {
+                image::ImageFormat::Png => "image/png",
+                image::ImageFormat::Jpeg => "image/jpeg",
+                image::ImageFormat::Bmp => "image/bmp",
+                image::ImageFormat::Gif => "image/gif",
+                _ => return None,
+            };
+            Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum IconSource {
+    /// An image file, read as it is.
+    Image(String),
+    /// An .exe or .ico, whose icon the shell extracts.
+    Shell(String),
+}
+
+/// What an `IconUri` value points to. Only absolute paths on a drive letter: a UNC path would make Crest connect to a
+/// server another program chose. Package resources (`ms-resource:`, `@{...}`) and dlls (a generic icon) give None.
+fn icon_source(uri: &str) -> Option<IconSource> {
+    let uri = uri.trim();
+    let b = uri.as_bytes();
+    if b.len() < 4 || !b[0].is_ascii_alphabetic() || b[1] != b':' || b[2] != b'\\' || uri.contains("..") {
+        return None;
+    }
+    // "app.exe,0": the icon index, dropped (the shell gives the main icon).
+    let path = match uri.rsplit_once(',') {
+        Some((p, n)) if n.trim().parse::<i32>().is_ok() => p,
+        _ => uri,
+    };
+    match std::path::Path::new(path).extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" | "jpg" | "jpeg" | "bmp" | "gif" => Some(IconSource::Image(path.into())),
+        "exe" | "ico" => Some(IconSource::Shell(path.into())),
+        _ => None,
+    }
 }
 
 /// The event log subscription. Its callback runs on a thread of the log service and only queues triggers.
@@ -954,6 +1055,31 @@ mod tests {
         assert!(!valid_app_id("a&calc"));
     }
 
+    #[test]
+    fn icon_sources() {
+        use IconSource::*;
+        assert_eq!(icon_source(r"C:\WINDOWS\system32\WindowsSecurityIcon.png"), Some(Image(r"C:\WINDOWS\system32\WindowsSecurityIcon.png".into())));
+        assert_eq!(icon_source(r"d:\Apps\logo.JPG"), Some(Image(r"d:\Apps\logo.JPG".into())));
+        assert_eq!(icon_source(r"C:\Apps\Gemini.exe,0"), Some(Shell(r"C:\Apps\Gemini.exe".into())));
+        assert_eq!(icon_source(r"C:\Apps\Gemini.exe"), Some(Shell(r"C:\Apps\Gemini.exe".into())));
+        assert_eq!(icon_source(r"C:\Apps\app.ico"), Some(Shell(r"C:\Apps\app.ico".into())));
+        // A dll's own icon is the generic one.
+        assert_eq!(icon_source(r"C:\WINDOWS\system32\shell32.dll,-16"), None);
+        // UNC, device and relative paths, or a way up the tree, never reach the file system.
+        assert_eq!(icon_source(r"\\server\share\logo.png"), None);
+        assert_eq!(icon_source("//server/share/logo.png"), None);
+        assert_eq!(icon_source(r"\\?\C:\logo.png"), None);
+        assert_eq!(icon_source(r"Assets\logo.png"), None);
+        assert_eq!(icon_source(r"C:logo.png"), None);
+        assert_eq!(icon_source(r"C:\Apps\..\..\logo.png"), None);
+        assert_eq!(icon_source("ms-resource://Windows.UI.ShellCommon/Files/Images/NearShare.png"), None);
+        assert_eq!(icon_source(r"@{C:\WINDOWS\SystemApps\x\resources.pri?ms-resource://x/Files/Assets/Logo.png}"), None);
+        // Variables are expanded before this; one left over is not a path.
+        assert_eq!(icon_source(r"%SystemRoot%\system32\logo.png"), None);
+        assert_eq!(icon_source(""), None);
+        assert_eq!(icon_source(r"C:\Apps\readme.txt"), None);
+    }
+
     #[cfg(windows)]
     #[test]
     fn codes() {
@@ -970,7 +1096,12 @@ mod tests {
         assert_eq!(trigger(DELIVERED, None, None, Some(7)), Trigger::Full);
         assert_eq!(trigger(DELIVERED, None, Some("a"), Some(0)), Trigger::Full);
         assert_eq!(trigger(DELIVERED, None, Some("a"), None), Trigger::Full);
-        assert_eq!(trigger(CLEARED, None, Some("a"), Some(7)), Trigger::Ignore);
+        // An app withdrew its toast (issue #30): no reading needed, its id is enough.
+        assert_eq!(trigger(CANCELED, None, Some("a"), Some(7)), Trigger::Gone(7));
+        assert_eq!(trigger(CANCELED, None, None, Some(7)), Trigger::Gone(7));
+        assert_eq!(trigger(CANCELED, None, Some("a"), None), Trigger::Full);
+        // A clear does not say which toasts went: the list read again does.
+        assert_eq!(trigger(CLEARED, None, None, None), Trigger::Full);
         assert_eq!(trigger(1, None, Some("a"), Some(7)), Trigger::Ignore);
         // An id past i32::MAX arrives negative from the log and is taken back bit for bit.
         assert_eq!(trigger(DELIVERED, None, Some("a"), Some(-5i32 as u32)), Trigger::Read(4294967291, "a".into()));
@@ -985,6 +1116,7 @@ mod tests {
     #[test]
     fn queries() {
         assert!(query(Some("S-1-5-21-1-2")).contains("Security[@UserID='S-1-5-21-1-2']"));
+        assert!(query(None).contains("EventID=3054") && query(None).contains("EventID=3055"));
         assert!(!query(Some("S-1-5' or '1'='1")).contains("UserID"));
         assert!(!query(None).contains("UserID"));
     }

@@ -1,12 +1,13 @@
 import { createStore } from "../../lib/store";
+import { decodeSound, playNotice } from "../../lib/sound";
+import { holdOpen } from "../../notch/useNotchState";
 import { noticeSource, systemControls, windowShell, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
-import { focusMode } from "../../notch/focus";
 import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
 import { screen } from "../window/store";
-import { addNotice, removeApp, removeNotice, type Notice } from "./history";
-import { rememberApp, route, ruleFor, setRule, type NoticeRule } from "./rules";
+import { addNotice, removeApp, removeNotice, removeToasts, sameKey, type Notice } from "./history";
+import { rememberApp, route, ruleFor, setRule, type NoticeRule, type NoticeSoundSetting } from "./rules";
 import { applyPart, livePart, nextExpiry, type PartMessage, type ScriptPart } from "./scriptParts";
 import { addAsk, removeAsk, type Ask } from "./asks";
 import { isStaleNotice } from "./stale";
@@ -56,14 +57,14 @@ export const asks = createStore<Ask[]>([]);
 /*
  * An ask is work the user started, so quiet hours, focus and full screen do not hold it back, and it stays until
  * answered. It is not kept in the history. Off for its source, while presenting (its text could be a command on a
- * shared screen), or when nothing can show it (focus mode as a line, the window hidden by a rule or the shortcut),
+ * shared screen), or when nothing can show it (the window hidden by a rule or the shortcut),
  * it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
  */
 let windowHidden = false;
 
 function receiveAsk(a: Ask) {
   const s = settings.get().notices;
-  const unseen = windowHidden || screen.get() === "hide" || (focusMode.get() && settings.get().display.focusStyle === "line");
+  const unseen = windowHidden || screen.get() === "hide";
   if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow() || unseen) return noticeSource.answer(a.id, null);
   const apps = rememberApp(s.apps, a.appId, a.appName);
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
@@ -89,49 +90,104 @@ function ingest(input: IncomingNotice, focus: boolean) {
   const s = settings.get().notices;
   if (!s.enabled) return;
   const apps = rememberApp(s.apps, input.appId, input.appName);
-  // A new app: its first notice already had its Windows banner, the next ones only pop up here (syncBanners).
+  // A new app: its first notice already had its Windows banner and sound, the next ones only pop up here (syncWindows).
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
-  else if (input.source === "windows") syncBanners(true);
+  else if (input.source === "windows") syncWindows(true);
   const d = new Date();
   const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus });
   if (where === "drop") return;
   const n: Notice = { ...input, id: `${Date.now()}-${nextId++}` };
+  const inPlace = history.get().some((old) => sameKey(old, n));
   history.set((list) => addNotice(list, n, Date.now()));
-  // The newest notice takes the closed notch; an update with the same replace key refreshes it there.
+  // The newest notice takes the closed notch; an update with the same replace key refreshes it there, without a sound.
   // Stale notices (e.g. past meeting reminders or delayed notices after PC sleep) stay in history silently and are suppressed from popping.
-  if (where === "pop" && !isStaleNotice(input, Date.now())) pop(n);
+  if (where === "pop" && !isStaleNotice(input, Date.now())) {
+    pop(n);
+    if (!inPlace) playNoticeSound();
+  }
 }
 
 /*
- * Windows' banners stay off only while Crest pops the notices up itself: turning off live notices or the Windows
- * source, Windows taking the access back or the source failing brings them back, so nothing is left without any
- * banner. Only apps whose rule is "show" lose theirs. banners.rs marks what it turned off.
+ * Crest's own sound when a notice pops up (issue #31), with the card rather than Windows' sound before it. The picked
+ * file is decoded once, and again only after another pick; a missing or broken file plays Ding instead of nothing.
  */
-let bannersKey: string | null = null;
+let fileSound: Promise<AudioBuffer | null> | null = null;
+
+export function playNoticeSound(sound: NoticeSoundSetting = settings.get().notices.sound) {
+  if (sound === "off") return;
+  if (sound !== "file") return playNotice(sound);
+  fileSound ??= noticeSource.readSound().then(decodeSound).catch(() => null);
+  void fileSound.then((buffer) => playNotice(buffer ?? "ding"));
+}
+
+/** Why the last picked file was refused: "format", "size", or the file system's words. */
+export const soundFileError = createStore<string | null>(null);
+
+/** Asks for a sound file; once copied it becomes the notice sound and plays once. */
+export async function pickSoundFile() {
+  // The picker takes the pointer off the notch; it stays open meanwhile.
+  holdOpen(true);
+  try {
+    const name = await noticeSource.pickSound();
+    if (name === null) return;
+    fileSound = null;
+    soundFileError.set(null);
+    updateSettings((cur) => ({ notices: { ...cur.notices, sound: "file", soundFile: name } }));
+    playNoticeSound("file");
+  } catch (e) {
+    soundFileError.set(String(e));
+  } finally {
+    holdOpen(false);
+  }
+}
+
+/*
+ * Windows' banners and sound stay off only while Crest pops the notices up (and plays its own sound) itself: turning
+ * off live notices or the Windows source, Windows taking the access back or the source failing brings them back, so
+ * nothing is left without any banner or sound. Only apps whose rule is "show" lose theirs. banners.rs marks what it
+ * turned off.
+ */
 let statusSeen = false;
-function syncBanners(again = false) {
-  const n = settings.get().notices, st = sourceStatus.get();
-  const wanted = n.enabled && n.windows && n.hideBanners;
-  // Before the first status, or while the source is still starting, its state is unknown: wait rather than give the
-  // banners back for a moment.
-  if (wanted && (!statusSeen || (st.access === "allowed" && st.mode === "off"))) return;
-  const hide = wanted && st.access === "allowed" && st.mode !== "failed";
-  const apps = hide ? Object.keys(n.apps).filter((a) => ruleFor(n.rules, a) === "show") : [];
-  const key = `${hide}|${apps.join("\n")}`;
-  // `again`: an app Windows gave a fresh key (reinstalled, reset) is hidden again; Rust skips the ones already hidden.
-  if (key === bannersKey && !(again && hide)) return;
-  bannersKey = key;
-  void noticeSource.banners(hide, apps).catch((e: unknown) => {
+const sendBanners = whenChanged((hide, apps) =>
+  noticeSource.banners(hide, apps).catch((e: unknown) => {
     // The Store build cannot change Windows' settings and opened them for the user instead: the switch goes back off.
     if (hide && String(e) === "settings") updateSettings((cur) => ({ notices: { ...cur.notices, hideBanners: false } }));
-  });
+  }),
+);
+// The Store build cannot mute Windows' sound and refuses; its settings row says where the user turns it off.
+const sendSounds = whenChanged((mute, apps) => noticeSource.sounds(mute, apps).catch(() => {}));
+
+function syncWindows(again = false) {
+  const n = settings.get().notices, st = sourceStatus.get();
+  const on = n.enabled && n.windows;
+  // Before the first status, or while the source is still starting, its state is unknown: wait rather than give the
+  // banners and the sound back for a moment.
+  if (on && (n.hideBanners || n.sound !== "off") && (!statusSeen || (st.access === "allowed" && st.mode === "off"))) return;
+  const live = on && st.access === "allowed" && st.mode !== "failed";
+  const apps = live ? Object.keys(n.apps).filter((a) => ruleFor(n.rules, a) === "show") : [];
+  const hide = live && n.hideBanners, mute = live && n.sound !== "off";
+  // `again`: an app Windows gave a fresh key (reinstalled, reset) is turned off again; Rust skips the ones already off.
+  sendBanners(hide, hide ? apps : [], again);
+  sendSounds(mute, mute ? apps : [], again);
 }
-settings.subscribe(() => syncBanners());
+
+/** `send` only when what it sends changed, or `again` while it turns something off. */
+function whenChanged(send: (off: boolean, apps: string[]) => Promise<unknown>) {
+  let last: string | null = null;
+  return (off: boolean, apps: string[], again: boolean) => {
+    const key = `${off}|${apps.join("\n")}`;
+    if (key === last && !(again && off)) return;
+    last = key;
+    void send(off, apps);
+  };
+}
+
+settings.subscribe(() => syncWindows());
 sourceStatus.subscribe(() => {
   statusSeen = true;
-  syncBanners();
+  syncWindows();
 });
-syncBanners();
+syncWindows();
 
 function pop(n: Notice) {
   popping.set(n);
@@ -159,6 +215,21 @@ export function deleteNotice(id: string) {
   noticeSource.removeWindows(windowsIds(history.get().filter((n) => n.id === id)));
   history.set((list) => removeNotice(list, id));
   if (popping.get()?.id === id) dismissPop();
+}
+
+/*
+ * The other way round: a toast that left the notification centre leaves Crest too, say once its app withdrew it
+ * because the message was read there (issue #30). In the queue, so a toast withdrawn right after it came in is not
+ * added back by the notice still on its way.
+ */
+function forgetToasts(ids: number[]) {
+  queue = queue
+    .then(() => {
+      history.set((list) => removeToasts(list, ids));
+      const shown = popping.get();
+      if (shown && !history.get().includes(shown)) dismissPop();
+    })
+    .catch(console.error);
 }
 
 export function clearHistory() {
@@ -197,6 +268,7 @@ export function startNotices() {
   if (started) return;
   started = true;
   noticeSource.onNotice(receive);
+  noticeSource.onToastsGone(forgetToasts);
   noticeSource.onStatus((s) => sourceStatus.set(s));
   noticeSource.onPart(receivePart);
   noticeSource.onAsk(receiveAsk);

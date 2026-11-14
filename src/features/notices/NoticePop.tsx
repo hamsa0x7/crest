@@ -1,19 +1,21 @@
 import { t } from "../../i18n";
 import { openOn } from "../../notch/nav";
 import { isMac } from "../../platform/native";
-import { noticeCard } from "../../notch/row/NoticeCard";
+import { noticeSource } from "../../platform/services";
+import { ICON_BOX, noticeCard } from "../../notch/row/NoticeCard";
 import { settings } from "../../settings/store";
 import { BrandLogo, brandColor, brandFor } from "../../ui/brands";
 import { CopyCodeButton, copyCodeWidth } from "./CopyCode";
 import { noticeText } from "./format";
-import type { Notice } from "./history";
+import { appOpens, type Notice } from "./history";
 import { noticeCode } from "./otp";
 import { InlineReplyButton, REPLY_COLLAPSED_WIDTH } from "./InlineReply";
 import { isMessagingApp } from "./chat";
+import { dismissPop } from "./store";
 
-const LOGO = 32, RING = 18;
+const LOGO = ICON_BOX, RING = 18;
 
-/** The app's logo, or its initial when Windows gave none (crest-notify, desktop programs without a logo). */
+/** The app's logo (or its Start menu icon), or its initial when there is neither (crest-notify, an app Start does not list). */
 export function AppIcon({ n, size, rounded }: { n: Pick<Notice, "icon" | "appName">; size: number; rounded?: boolean }) {
   const corner = rounded ? "rounded-[8px]" : "rounded-[4px]";
   if (n.icon) return <img src={n.icon} alt="" width={size} height={size} className={`shrink-0 ${corner} object-contain`} draggable={false} />;
@@ -68,10 +70,21 @@ export function noticePop(n: Notice, max: number) {
       key: `notice:${n.replace ? `${n.appId}:${n.replace}` : n.id}`,
       image: <AppIcon n={n} size={LOGO} rounded />,
       hue: "blue",
-      color: brandAccent(n.appName),
+      plain: true,
       title: n.title || n.appName,
-      // The Notices page is a Windows tool; a plugin's notice on a Mac has none to open.
-      onOpen: isMac ? undefined : () => openOn("notices"),
+      // A Windows notice opens its app and goes, as a click on its toast would: the notch stays closed (issue #34).
+      // crest-notify has no app, and Windows cannot open one whose id is a full path, so those notices open the Notices page;
+      // that page is a Windows tool, so a plugin's notice on a Mac opens nothing.
+      onOpen:
+        n.source === "windows" && appOpens(n.appId)
+          ? (e) => {
+              e.stopPropagation();
+              noticeSource.openApp(n.appId);
+              dismissPop();
+            }
+          : isMac
+            ? undefined
+            : () => openOn("notices"),
       text: n.title ? first || n.appName : first,
       actions,
       actionsWidth,
@@ -80,7 +93,7 @@ export function noticePop(n: Notice, max: number) {
   );
 }
 
-/** A brand's own colour for a notice's accent line, when the app is one Crest knows. */
+/** A brand's own colour for a question's accent line (AskNotice), when the app is one Crest knows. */
 export function brandAccent(appName: string): string | undefined {
   const brand = brandFor(appName);
   return brand ? brandColor[brand] : undefined;

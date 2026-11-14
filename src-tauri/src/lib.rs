@@ -2,6 +2,7 @@ mod agents;
 pub mod ai;
 #[cfg(windows)]
 mod audio;
+mod backup;
 #[cfg(windows)]
 mod banners;
 #[cfg(windows)]
@@ -48,10 +49,13 @@ mod mirror;
 #[cfg(windows)]
 mod mixer;
 #[cfg(windows)]
+mod notice_sound;
+#[cfg(windows)]
 mod notices;
 mod notify_wire;
 #[cfg(windows)]
 mod osd;
+mod picker;
 mod plugins;
 pub mod portable;
 mod ports;
@@ -101,11 +105,11 @@ use std::sync::Mutex;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Emitter, Manager, State, WebviewWindow};
+use tauri::{App, AppHandle, Manager, State, WebviewWindow};
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, IsWindow, SetForegroundWindow};
 
 /// Milliseconds since 1970 (0 if the clock is before it).
 pub(crate) fn now_ms() -> u64 {
@@ -253,7 +257,6 @@ pub fn run() {
             hit_test::set_hit_rect,
             hit_test::set_pet_rect,
             hit_test::set_pinned,
-            hit_test::set_passthrough,
             idle::idle_seconds,
             media::media_get,
             media::media_control,
@@ -265,6 +268,7 @@ pub fn run() {
             clipboard::clipboard_list,
             clipboard::clipboard_mode,
             clipboard::clipboard_copy,
+            clipboard::clipboard_paste,
             clipboard::clipboard_delete,
             clipboard::clipboard_clear,
             clipboard::clipboard_preview,
@@ -330,7 +334,6 @@ pub fn run() {
             mixer::mixer_set,
             #[cfg(windows)]
             mixer::media_open_source,
-            tray_focus,
             tray_texts,
             #[cfg(windows)]
             controls::focus_get,
@@ -369,6 +372,8 @@ pub fn run() {
             #[cfg(windows)]
             vault::vault_copy,
             #[cfg(windows)]
+            vault::vault_copy_text,
+            #[cfg(windows)]
             vault::vault_codes,
             #[cfg(windows)]
             vault::vault_options,
@@ -392,6 +397,7 @@ pub fn run() {
             diagnostics_info,
             open_sponsors,
             open_store_review,
+            web_search,
             open_bug_report,
             #[cfg(windows)]
             brightness::brightness_get,
@@ -433,6 +439,12 @@ pub fn run() {
             timer_window::timer_window_close,
             #[cfg(windows)]
             banners::notices_banners,
+            #[cfg(windows)]
+            banners::notices_sounds,
+            #[cfg(windows)]
+            notice_sound::notices_sound_pick,
+            #[cfg(windows)]
+            notice_sound::notices_sound_read,
             #[cfg(windows)]
             shelf::shelf_drag_out,
             #[cfg(windows)]
@@ -484,6 +496,8 @@ pub fn run() {
             notices::notices_open_app,
             #[cfg(windows)]
             notices::notices_copy_code,
+            backup::backup_save,
+            backup::backup_open,
             plugins::plugins_list,
             plugins::plugins_pick,
             plugins::plugins_stage,
@@ -521,6 +535,28 @@ pub fn run() {
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,
+            #[cfg(windows)]
+            capture::eyedropper::colour_pick,
+            #[cfg(windows)]
+            capture::backdrop::glass_backdrop,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_supported,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_exclude,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_start,
+            #[cfg(windows)]
+            capture::glass_live::glass_live_stop,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_supported,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_exclude,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_start,
+            #[cfg(target_os = "macos")]
+            macos::glass_live_stop,
+            #[cfg(target_os = "macos")]
+            macos::colour::colour_pick,
             agents::agents_list,
             mic::mic_mute,
             sharing::sharing_hide,
@@ -648,14 +684,33 @@ fn keyboard_focus(focus: bool, window: WebviewWindow, state: State<'_, FocusStat
     display::closed(window.app_handle());
 }
 
-/// The pointer came onto the pet: its click activates the window, so note the app it takes the keyboard from;
-/// the frontend then calls keyboard_focus(false) to give it back.
+/// A paste from the clipboard history (clipboard.rs): gives the keyboard back to the app that had it before the notch
+/// opened, as closing the notch does. Returns that app's window, or None when there is none (0, or closed since).
+#[cfg(windows)]
+pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
+    let previous = std::mem::take(&mut *app.state::<FocusState>().0.lock().unwrap());
+    let window = HWND(previous as *mut _);
+    (previous != 0 && unsafe { IsWindow(Some(window)) }.as_bool() && unsafe { SetForegroundWindow(window) }.as_bool()).then_some(previous)
+}
+
+/// The same on a Mac, with the app's process id.
+#[cfg(target_os = "macos")]
+pub(crate) fn return_keyboard(app: &AppHandle) -> Option<isize> {
+    let previous = std::mem::take(&mut *app.state::<FocusState>().0.lock().unwrap());
+    (previous != 0 && macos::activate_pid(previous as i32)).then_some(previous)
+}
+
+/// The pointer came onto the notch or the pet: a click there activates the window, so note the app it takes the keyboard
+/// from; closing the notch gives it back (keyboard_focus) and a paste goes there. By process: `hwnd()` waits for the main
+/// thread, which the poll in hit_test.rs must not do.
 #[cfg(windows)]
 fn remember_foreground(window: &WebviewWindow) {
-    let Ok(own) = window.hwnd() else { return };
-    let foreground = unsafe { GetForegroundWindow() }.0 as isize;
-    if foreground != own.0 as isize {
-        *window.state::<FocusState>().0.lock().unwrap() = foreground;
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+    let foreground = unsafe { GetForegroundWindow() };
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(foreground, Some(&mut pid)) };
+    if pid != 0 && pid != std::process::id() {
+        *window.state::<FocusState>().0.lock().unwrap() = foreground.0 as isize;
     }
 }
 
@@ -704,7 +759,7 @@ fn diagnostics_info(window: tauri::WebviewWindow) -> serde_json::Value {
 
 /// The PC's own architecture, which GetSystemInfo hides from an emulated process.
 #[cfg(windows)]
-fn native_machine() -> Option<&'static str> {
+pub(crate) fn native_machine() -> Option<&'static str> {
     use windows::Win32::System::SystemInformation::{IMAGE_FILE_MACHINE, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64};
     use windows::Win32::System::Threading::{GetCurrentProcess, IsWow64Process2};
     let (mut process, mut native) = (IMAGE_FILE_MACHINE::default(), IMAGE_FILE_MACHINE::default());
@@ -741,6 +796,30 @@ fn open_store_review() -> Result<(), String> {
     open_url("ms-windows-store://review/?ProductId=9N2KXJ2924KS")
 }
 
+/// The search engines of Overview's search line, by the id the settings save.
+const SEARCH_ENGINES: [(&str, &str); 4] = [
+    ("google", "https://www.google.com/search"),
+    ("bing", "https://www.bing.com/search"),
+    ("duckduckgo", "https://duckduckgo.com/"),
+    ("brave", "https://search.brave.com/search"),
+];
+
+/// The results page for `query` on `engine`; None for an unknown engine or an empty or very long query.
+fn search_url(engine: &str, query: &str) -> Option<String> {
+    let query = query.trim();
+    if query.is_empty() || query.chars().count() > 2000 {
+        return None;
+    }
+    let (_, base) = SEARCH_ENGINES.iter().find(|(id, _)| *id == engine)?;
+    reqwest::Url::parse_with_params(base, &[("q", query)]).ok().map(String::from)
+}
+
+/// Overview's search line: the results in the default browser. The addresses are fixed here, so the interface opens nothing else.
+#[tauri::command]
+fn web_search(engine: String, query: String) -> Result<(), String> {
+    open_url(&search_url(&engine, &query).ok_or("bad-search")?)
+}
+
 /// Enables autostart on the very first launch; after that the tray check and settings decide.
 fn enable_autostart_once(app: &AppHandle) {
     // A portable copy writes nothing outside its folder unless asked to (tray or settings); in the Store build the user turns it on.
@@ -774,24 +853,14 @@ struct TrayItems(Mutex<Option<Tray>>);
 
 struct Tray {
     settings: MenuItem<tauri::Wry>,
-    focus: CheckMenuItem<tauri::Wry>,
     autostart: CheckMenuItem<tauri::Wry>,
     quit: MenuItem<tauri::Wry>,
-}
-
-/// The frontend owns focus mode; the tray check only mirrors it.
-#[tauri::command]
-fn tray_focus(on: bool, state: State<'_, TrayItems>) {
-    if let Some(tray) = state.0.lock().unwrap().as_ref() {
-        let _ = tray.focus.set_checked(on);
-    }
 }
 
 #[derive(serde::Deserialize)]
 struct TrayTexts {
     open: String,
     settings: String,
-    focus: String,
     autostart: String,
     quit: String,
 }
@@ -801,7 +870,6 @@ struct TrayTexts {
 fn tray_texts(texts: TrayTexts, app: AppHandle, state: State<'_, TrayItems>) {
     if let Some(tray) = state.0.lock().unwrap().as_ref() {
         let _ = tray.settings.set_text(texts.settings);
-        let _ = tray.focus.set_text(texts.focus);
         let _ = tray.autostart.set_text(texts.autostart);
         let _ = tray.quit.set_text(texts.quit);
     }
@@ -839,19 +907,16 @@ fn build_tray(app: &App) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", shell::default_open_label(), true, None::<&str>)?;
     shell::set_tray_open(app, open.clone());
     let settings = MenuItem::with_id(app, "settings", "Settings …", true, None::<&str>)?;
-    // The real state follows right after start (the frontend calls tray_focus).
-    let focus = CheckMenuItem::with_id(app, "focus", "Focus mode", true, false, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, enabled, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Crest", true, None::<&str>)?;
     *app.state::<TrayItems>().0.lock().unwrap() =
-        Some(Tray { settings: settings.clone(), focus: focus.clone(), autostart: autostart.clone(), quit: quit.clone() });
+        Some(Tray { settings: settings.clone(), autostart: autostart.clone(), quit: quit.clone() });
     let menu = Menu::with_items(
         app,
-        &[&open, &settings, &PredefinedMenuItem::separator(app)?, &focus, &autostart, &PredefinedMenuItem::separator(app)?, &quit],
+        &[&open, &settings, &PredefinedMenuItem::separator(app)?, &autostart, &PredefinedMenuItem::separator(app)?, &quit],
     )?;
 
     let autostart_item = autostart.clone();
-    let focus_item = focus.clone();
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .tooltip("Crest")
@@ -866,11 +931,6 @@ fn build_tray(app: &App) -> tauri::Result<()> {
             "open" => shell::open(app, None),
             "settings" => shell::open(app, Some("settings")),
             "quit" => app.exit(0),
-            "focus" => {
-                // The click already toggled the check; the frontend applies it and mirrors it back.
-                let on = focus_item.is_checked().unwrap_or(false);
-                let _ = app.emit("notch://focus-set", on);
-            }
             "autostart" => {
                 // The check item toggles itself on click; read the new state.
                 let on = autostart_item.is_checked().unwrap_or(false);
@@ -905,6 +965,19 @@ mod tests {
         assert!(ok("mirror-1", "mirror_picture") && !ok("mirror-1", "vault_reveal"));
         assert!(ok("pip", "close_pip") && ok("lyrics", "lyrics_window_close") && !ok("pip", "vault_reveal"));
         assert!(!ok("plugin", "secret_set") && !ok("", "mirror_picture"));
+    }
+
+    #[test]
+    fn web_search_opens_only_the_known_engines() {
+        use super::search_url as url;
+        assert_eq!(url("google", "  rust tauri "), Some("https://www.google.com/search?q=rust+tauri".into()));
+        // The query stays one parameter, whatever it holds.
+        assert_eq!(url("duckduckgo", "a&b=c #1"), Some("https://duckduckgo.com/?q=a%26b%3Dc+%231".into()));
+        assert_eq!(url("brave", "caffè"), Some("https://search.brave.com/search?q=caff%C3%A8".into()));
+        assert_eq!(url("bing", "x"), Some("https://www.bing.com/search?q=x".into()));
+        assert_eq!(url("evil", "x"), None);
+        assert_eq!(url("google", "   "), None);
+        assert_eq!(url("google", &"x".repeat(2001)), None);
     }
 
     #[test]

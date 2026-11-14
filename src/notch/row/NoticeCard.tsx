@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { HUE_PALETTE } from "../../features/themes/themes";
 import type { Hue } from "../../features/themes/hues";
@@ -7,13 +7,20 @@ import { Marquee } from "./Marquee";
 
 /*
  * A notice as a card in the closed notch: its icon in a circle tinted with the notice's colour, a title,
- * a line of text and buttons on the right, with a line of the same colour drawn along the bottom edge.
+ * a line of text and buttons on the right, and (unless `plain`) a line of the same colour along the bottom edge.
  * The notch grows to CARD_H while one shows (NoticeLayer reports the height, Notch.tsx takes it).
  */
 
 /** Designed height of a card, like the row's 30 (drawn at the notch's content scale). */
-export const CARD_H = 52;
-const ICON_BOX = 32, GAP = 10, PAD = 6, TEXT_MAX = 300, TEXT_MIN = 120;
+export const CARD_H = 46;
+/** The icon's box; an app's own icon (NoticePop, AskNotice) has the same size. */
+export const ICON_BOX = 28;
+const GAP = 10, PAD = 6, TEXT_MAX = 300, TEXT_MIN = 120;
+/**
+ * The shape's margin around a card, which has PAD of its own: the notch only clears its bottom corners (radius 10, geometry.ts),
+ * the capsule centres the icon in its round end. Both far narrower than the row's insets.
+ */
+export const CARD_INSET = { notch: 4, capsule: (CARD_H - ICON_BOX) / 2 - PAD } as const;
 
 export interface CardSpec {
   key: string;
@@ -31,8 +38,10 @@ export interface CardSpec {
   read?: boolean;
   actions?: ReactNode;
   actionsWidth?: number;
-  /** A click on the icon or the text. Not stopped, so the notch also opens. */
-  onOpen?: () => void;
+  /** A click on the icon or the text. Not stopped, so the notch also opens, unless the handler stops it (it opens an app instead). */
+  onOpen?: (e: MouseEvent) => void;
+  /** No colour line along the bottom edge: an app's notice, whose icon already says where it comes from (issue #31). */
+  plain?: boolean;
 }
 
 /** The light shade of a hue: the card always sits on the black notch. */
@@ -77,14 +86,16 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
         </button>
         {spec.actions && <span className="flex shrink-0 items-center gap-1.5">{spec.actions}</span>}
         {/* The notice's colour along the bottom edge, drawn out from the middle as the card arrives. */}
-        <motion.span
-          aria-hidden
-          className="pointer-events-none absolute bottom-[3px] h-[2px] rounded-full"
-          style={{ left: PAD + 8, right: PAD + 8, background: tint, transformOrigin: "50% 50%" }}
-          initial={{ opacity: 0, transform: "scaleX(0)" }}
-          animate={{ opacity: 0.85, transform: "scaleX(1)" }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
-        />
+        {!spec.plain && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute bottom-[3px] h-[2px] rounded-full"
+            style={{ left: PAD + 8, right: PAD + 8, background: tint, transformOrigin: "50% 50%" }}
+            initial={{ opacity: 0, transform: "scaleX(0)" }}
+            animate={{ opacity: 0.85, transform: "scaleX(1)" }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
+          />
+        )}
       </span>
     ),
   };

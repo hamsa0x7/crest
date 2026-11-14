@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NOTICE_DEFAULTS, MAX_APPS, inQuiet, minutes, normalizeNotices, rememberApp, route, ruleFor, setRule } from "./rules.ts";
-import { HISTORY, addNotice, removeApp, type Notice } from "./history.ts";
+import { HISTORY, addNotice, appOpens, removeApp, removeToasts, type Notice } from "./history.ts";
 import { duration, noticeText, popLine, shortTime } from "./format.ts";
 
 const tr = (de: string, vars?: Record<string, string | number>) => (vars ? `${de} ${JSON.stringify(vars)}` : de);
@@ -68,6 +68,14 @@ test("normalizing saved settings", () => {
   assert.equal(normalizeNotices({ enabled: true }).copyCodes, true);
   assert.equal(normalizeNotices({ copyCodes: false }).copyCodes, false);
   assert.equal(normalizeNotices({ copyCodes: "no" }).copyCodes, true);
+  // Crest's own sound is off unless one of its sounds or the file was saved; a broken value never mutes Windows (#31).
+  assert.equal(normalizeNotices({ enabled: true }).sound, "off");
+  assert.deepEqual(
+    [normalizeNotices({ sound: "balloon" }).sound, normalizeNotices({ sound: "file" }).sound, normalizeNotices({ sound: "loud" }).sound],
+    ["balloon", "file", "off"],
+  );
+  assert.equal(normalizeNotices({ soundFile: "Ping.mp3" }).soundFile, "Ping.mp3");
+  assert.equal(normalizeNotices({ soundFile: 7 }).soundFile, "");
 });
 
 test("apps seen", () => {
@@ -98,6 +106,13 @@ test("history: replace key, age and cap", () => {
   assert.deepEqual(removeApp(list, "other").map((x) => x.id), ["5"]);
 });
 
+test("history: toasts that left the notification centre go, the rest stay (issue #30)", () => {
+  const list = [n({ id: "a", windowsId: 7 }), n({ id: "b", windowsId: 8 }), n({ id: "c", source: "cli" }), n({ id: "d", windowsId: null })];
+  assert.deepEqual(removeToasts(list, [7, 99]).map((x) => x.id), ["b", "c", "d"]);
+  // Nothing of ours went: the same list, so the history does not draw again.
+  assert.equal(removeToasts(list, [99]), list);
+});
+
 test("words", () => {
   // English for the German ids, as en.json has them.
   const en = (de: string, vars?: Record<string, string | number>) =>
@@ -120,4 +135,13 @@ test("words", () => {
   assert.equal(noticeText(n({ exitCode: 2, durationMs: 100 }), en), "Fehlgeschlagen (Code 2) nach 100 ms");
   assert.equal(popLine(n({ title: "Mail", body: "Hello\nmore" }), tr), "Mail · Hello");
   assert.equal(popLine(n({ title: "", body: "Only" }), tr), "Only");
+});
+
+test("an app Windows can open by its id: a package or a name, not a full path", () => {
+  assert.equal(appOpens("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"), true);
+  assert.equal(appOpens("{6D809377-6AF0-444B-8957-A3773F02200E}\\Notepad++\\notepad++.exe"), true);
+  assert.equal(appOpens("C:\\Program Files\\App\\app.exe"), false);
+  assert.equal(appOpens("..\\App"), false);
+  assert.equal(appOpens("App & more"), false);
+  assert.equal(appOpens(""), false);
 });

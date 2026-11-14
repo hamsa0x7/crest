@@ -1,5 +1,104 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-11-13",
+    "items": [
+      {
+        "en": "Liquid Glass: the open panel as glass that bends and blurs the screen behind it, with four sliders. On Windows, off by default"
+      },
+      {
+        "en": "Glass on the closed notch and the capsule too, over a live copy of the screen, on Windows 11 24H2 and later"
+      },
+      {
+        "en": "The tool bar's highlight follows the pointer, grows under it and bounces back after a click"
+      },
+      {
+        "en": "Day and night themes at sunrise and sunset, and the date beside the clock in the closed notch"
+      },
+      {
+        "en": "A click on a notice in the closed notch opens its app, and Overview has play/pause and next"
+      },
+      {
+        "en": "Lyrics stay through short pauses, and notices open as the capsule when it is the chosen look"
+      },
+      {
+        "en": "Fixes for a browser tooltip that stayed on screen and for the privacy dot during Snipping Tool recordings"
+      }
+    ]
+  },
+  {
+    "version": "1.1.2",
+    "date": "2026-11-11",
+    "items": [
+      {
+        "en": "A notice opens the line into the notch for a few seconds, like a finished timer"
+      },
+      {
+        "en": "The Claude card in AI usage stays current on Windows with the desktop app's sign-in, no terminal needed"
+      },
+      {
+        "en": "A question from crest-notify too long to show whole is refused, so Allow never approves text you did not see"
+      },
+      {
+        "en": "A broken or hostile calendar feed can no longer stop Crest"
+      }
+    ]
+  },
+  {
+    "version": "1.1.1",
+    "date": "2026-11-11",
+    "items": [
+      {
+        "en": "A sound of Crest's own when a notice pops up: ten short ones or a file of yours, with Windows' sound off for those apps"
+      },
+      {
+        "en": "The app's own icon on notices from desktop programs like Chrome and Discord, larger on the Notices page"
+      },
+      {
+        "en": "A notice you read in its app, like a WhatsApp message, leaves Crest too"
+      },
+      {
+        "en": "Switching to a smaller tool no longer closes the notch"
+      },
+      {
+        "en": "A Copy button in the Vault's password form"
+      },
+      {
+        "en": "Focus mode is gone: three quick clicks on the notch no longer make it half transparent"
+      }
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-11-10",
+    "items": [
+      {
+        "en": "A shortcut of its own for any tool, which opens the notch straight on it from anywhere"
+      },
+      {
+        "en": "Paste directly from the Clipboard history into the app you were in, like Win + V. Off by default"
+      },
+      {
+        "en": "Crest's own eyedropper, right on every monitor whatever its scaling, and the system's colour sampler on the Mac"
+      },
+      {
+        "en": "Back up settings, notes, to-dos and the tools' data to a file, and restore them on this PC or another one"
+      },
+      {
+        "en": "Web search from Overview, and Ask with a model on your PC through LM Studio or Ollama, without a key"
+      },
+      {
+        "en": "Panel scale from 80 to 200 percent, and the album cover behind the whole panel in Now Playing"
+      },
+      {
+        "en": "About 160 currencies in the Converter and Calc, the Vietnamese dong among them"
+      },
+      {
+        "en": "Fixes for drags out of the Shelf, an invisible banner window that caught the pointer, and new tracks that started at their end"
+      }
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-06",
     "items": [

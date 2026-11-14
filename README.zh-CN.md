@@ -26,6 +26,8 @@
 </p>
 
 <p align="center">
+  <a href="https://crestisland.app/"><b>网站</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/andrealo20/crest/releases/latest"><b>下载</b></a>
   &nbsp;·&nbsp;
   <a href="#功能"><b>功能</b></a>
@@ -36,7 +38,7 @@
 </p>
 
 <p align="center">
-  <a href="https://andrealo20.github.io/crest/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
+  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -45,7 +47,7 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
 
-上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://andrealo20.github.io/crest/)让你在安装之前就能在浏览器里试用每一个工具。
+上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
 
@@ -58,19 +60,19 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
   <img src="docs/media/features/caps-lock.png" alt="收起的刘海里短暂显示“大写锁定已开启”" width="236" />
 </p>
 
-播放歌曲时，它可以用当前歌词代替歌名。AI 代理要运行命令前它会先问你，AI 额度快用完时会提醒你，下一个会议的通话一键就能加入。耳机、音量、麦克风、充电器和结束的计时器也都会短暂出现。
+## 1.2.0 新功能
 
-<p align="center">
-  <img src="docs/media/features/closed-lyrics.png" alt="收起的刘海显示歌曲的当前歌词，旁边是正在运行的专注计时器" width="455" /><br />
-  <img src="docs/media/features/closed-ask.png" alt="收起的刘海里 AI 代理询问是否可以运行 npm test，带“允许”“始终允许”和“拒绝”" width="558" /><br />
-  <img src="docs/media/features/closed-quota.png" alt="收起的刘海里的 AI 用量提醒：Claude 会话已用 93%，2 小时 24 分钟后重置" width="394" />
-  <img src="docs/media/features/closed-calendar.png" alt="收起的刘海里即将开始的会议，带加入视频通话的按钮" width="332" /><br />
-  <img src="docs/media/features/closed-bluetooth.png" alt="蓝牙耳机已连接，电量 80%" width="236" />
-  <img src="docs/media/features/closed-volume.png" alt="音量变化，滑块在 52%" width="236" />
-  <img src="docs/media/features/closed-mic.png" alt="麦克风已静音" width="236" /><br />
-  <img src="docs/media/features/closed-unplug.png" alt="拔掉充电器，使用电池，电量 55%" width="236" />
-  <img src="docs/media/features/closed-timer.png" alt="结束的计时器，显示“完成”" width="236" />
-</p>
+<p align="center"><img src="docs/media/features/liquid-glass.gif" alt="液态玻璃：拖到玻璃胶囊下方的窗口会透过它显示出来，面板以玻璃的形式在它上方展开，一滴玻璃沿着工具栏跟随指针，并在点击后回弹" width="760" /></p>
+
+- **液态玻璃**：在 **设置 → 主题 → 玻璃** 中把展开的面板变成玻璃。面板后面的屏幕会透出来，边缘处发生折射，中间呈磨砂效果，四个滑块分别调节透明度、折射、磨砂和边缘光。仅限 Windows，默认关闭。
+- **收起的刘海和胶囊也可以是玻璃**：它们实时显示周围的屏幕画面，需要 Windows 11 24H2 或更高版本。开启期间，刘海不会出现在截图和屏幕共享中。
+- **跟随指针的工具栏**：高亮会滑向你指向的工具，在指针下方变大，点击后回弹。开启玻璃时是一滴玻璃；关闭时以及在 Mac 上是一个更亮的圆角块。
+- **按日出和日落切换主题**：日间和夜间主题可以按“天气”中设置的地点随太阳切换，时间在你的电脑上计算。
+- **时钟旁显示日期**：收起的刘海中的时钟可以显示日期；点击其中的通知会直接打开对应的应用。
+- **概览**中的歌曲旁新增播放/暂停和下一首按钮，同步歌词在短暂停顿时保持显示。
+- **修复**：Crest 打开时浏览器的提示框一直留在屏幕上，以及截图工具录屏时隐私圆点不亮。
+
+[1.2.0 版本](https://github.com/andrealo20/crest/releases/tag/v1.2.0)页面提供下载和完整的发布说明（英文），并列出每项改动对应的 issue。
 
 ## 功能
 
@@ -81,7 +83,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **三种样式**：贴住屏幕边缘的刘海、可以拖到任意高度的胶囊，或显示歌曲进度的细线。可放在上、下、左、右任一边缘，大小由你决定。
 - **这一行**按你选择的顺序显示你挑选的部分，放不下时轮流显示：封面、计时器、歌名或当前歌词、AI 额度环、CPU、内存、GPU、网络、功耗、电池、温度、时钟、GitHub、天气、下一个日程、下载，以及你自己的脚本设置的部分。
 - **通知**会短暂占用这一行：计时结束、待办到期、会议即将开始、刚保存的下载或截图、额度提醒、充电器、蓝牙、网络、大写锁定、音量和亮度。
-- **隐私圆点**在麦克风或摄像头使用时变绿，屏幕被录制时变红。
+- **隐私圆点**在麦克风或摄像头使用时变绿，屏幕被录制时变红（在 Windows 上仅限系统自带的截图录屏工具和商店应用，因为 Windows 不为桌面录屏软件留下记录）。
 - **宠物**住在刘海旁边的小窝里（如果你想要）：随音乐跳舞，CPU 越忙跑得越快。
 
 ### 音乐
@@ -112,7 +114,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 - **概览**：时间、天气、正在播放的歌曲、专注、保持唤醒、音量、亮度，以及 Wi-Fi、蓝牙、深色主题和麦克风的快捷开关。
 - **计算器**：笔记本式计算器，能识别单位、日期、百分比、货币和变量。
-- **转换器**用于单位换算，货币按欧洲中央银行的汇率换算。
+- **转换器**用于单位换算，以及按各国中央银行参考汇率换算约 160 种货币。
 - **取色**：从屏幕任意位置取色，复制为 HEX、RGB、HSL 或 OKLCH，检查对比度并查看配色方案。
 - **天气**：当前天气、逐小时和一周预报，数据来自 Open-Meteo。
 - **投资组合**：把多个券商的资产换算成一种货币显示，只读。
@@ -122,7 +124,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **终端**：刘海里的 PowerShell 或命令提示符。
 - **硬件**：CPU、GPU、内存、网络、功耗、温度、最忙的进程和游戏帧率，还有电脑正在监听的端口以及对应的程序。
 - **AI 用量**：Claude、ChatGPT、Antigravity、Cursor 等的额度，附带一行预测每项额度的走向，额度重置时可选择通知你。
-- **提问**：用你自己的密钥与你选择的 AI 服务对话。
+- **提问**：用你自己的密钥与你选择的 AI 服务对话，或通过 LM Studio 或 Ollama 使用你电脑上的模型。
 - **Agents**：电脑上正在运行的 Claude Code 会话、每个会话在等什么，以及恢复它的命令。
 - **GitHub** 贡献日历和连续天数，以及固定应用的**启动器**。
 - **crest-notify** 让脚本和构建发送通知、用按钮提问，或在收起的一行里放入自己的部分。
@@ -141,7 +143,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 ### 个性化
 
-- **主题**：十五个内置主题、主题编辑器、十六种字体、彩色图标和昼夜切换。
+- **主题**：十五个内置主题、主题编辑器、十六种字体、彩色图标、可随日出日落切换的昼夜主题，以及 Windows 上的液态玻璃。
 - 全屏应用和游戏的**窗口规则**，可放在任意**显示器**或所有显示器上，每个面板的大小都可以调整。
 - **11 种语言**：英语、简体中文、西班牙语、印地语、从右到左的阿拉伯语、法语、葡萄牙语、俄语、日语、德语和意大利语。
 - **插件**：用 HTML、CSS 和 JavaScript 编写你自己的工具，在沙盒中运行（[docs/plugins.md](docs/plugins.md)）。

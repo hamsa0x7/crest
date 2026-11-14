@@ -1,15 +1,19 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, WarningCircle } from "@phosphor-icons/react";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import { RIM_PRESETS, type RimPreset } from "../../notch/rim";
 import { accentFrom } from "../../lib/accent";
 import { formatTime } from "../../lib/format";
+import { isMac } from "../../platform/native";
 import { openFile, revealFile, themeFiles } from "../../platform/services";
+import { demo } from "../../dev/showcase-data";
+import { glassShape } from "../../notch/glass/params";
+import { liveSupport } from "../../notch/glass/live";
 import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { contrast, parseColor, toHex, withAlpha, type Rgba } from "./color";
 import { ColorPicker } from "./ColorPicker";
-import { HALF_HOURS, activeThemeId, isNight } from "./daynight";
+import { HALF_HOURS, activeThemeId, isNight, sunHours } from "./daynight";
 import { original } from "./history";
 import {
   activeTheme,
@@ -31,7 +35,21 @@ import {
   themesFolder,
   undoEdit,
 } from "./store";
-import { BUILT_IN_THEMES, EDITOR_KEYS, FONTS, FONT_NAMES, findTheme, isBuiltIn, resolveTheme, type Adjustment, type FontId, type ThemeFile, type ThemeKey } from "./themes";
+import {
+  BUILT_IN_THEMES,
+  EDITOR_KEYS,
+  FONTS,
+  FONT_NAMES,
+  GLASS_RANGE,
+  findTheme,
+  glassVeilAt,
+  isBuiltIn,
+  resolveTheme,
+  type Adjustment,
+  type FontId,
+  type ThemeFile,
+  type ThemeKey,
+} from "./themes";
 
 /** The two plain built-ins are named after their look; the ported editor themes keep their own names. */
 const themeName = (theme: ThemeFile) => (!isBuiltIn(theme.id) ? theme.name : theme.id === "dark" ? t("Dunkel") : theme.id === "light" ? t("Hell") : theme.name);
@@ -66,13 +84,14 @@ const KEY_LABELS: Record<Adjustment["key"], string> = {
 };
 
 function ThemeChoice() {
-  const themes = settings.use().themes;
+  const s = settings.use();
+  const { themes, weather } = s;
   activeTheme.use(); // re-render when day turns to night
   const forced = forcedColors.use();
   const editing = draft.use();
   const [pending, setPending] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const current = findTheme(activeThemeId(themes, new Date()), themes.custom);
+  const current = findTheme(activeThemeId(themes, new Date(), weather), themes.custom);
   const list = [...BUILT_IN_THEMES, ...themes.custom];
 
   const choose = (id: string) => {
@@ -81,6 +100,10 @@ function ThemeChoice() {
     discardEdits();
     pickTheme(id);
   };
+  // For the saved look; a window rule can change it for a while (Notch.tsx works from the look on screen).
+  const fits = glassShape(s.display.idleStyle, s.dock.edge);
+  // The live glass's switch only where it can run: Windows 11 24H2 on x64, not the Store build (capture/glass_live.rs).
+  const support = liveSupport.use();
 
   return (
     <Group title={t("Theme")} id="settings-themes">
@@ -147,7 +170,88 @@ function ThemeChoice() {
           onChange={(coverTint) => updateSettings((cur) => ({ themes: { ...cur.themes, coverTint } }))}
         />
       </Row>
+      {!isMac && !demo && (
+        <Row
+          label={t("Glas")}
+          hint={fits ? t("Das offene Panel lässt den Bildschirm dahinter durchscheinen, wie Glas") : t("Nur mit der Kapsel oder wenn das offene Panel oben am Bildschirmrand hängt")}
+        >
+          <Switch label={t("Glas")} checked={themes.glass} onChange={(glass) => updateSettings((cur) => ({ themes: { ...cur.themes, glass } }))} />
+        </Row>
+      )}
+      {!isMac && !demo && themes.glass && <GlassLook />}
+      {!isMac && !demo && themes.glass && support?.supported === true && <GlassLive />}
     </Group>
+  );
+}
+
+/** The live glass's switch (src/notch/glass/live.ts), with the battery warning always under it, so it is read before switching on. */
+function GlassLive() {
+  const on = settings.use().themes.glassLive;
+  const label = t("Auch geschlossene Notch und Kapsel");
+  return (
+    <Row
+      label={label}
+      hint={
+        <>
+          {t("Zeigt live, was hinter der geschlossenen Notch und der Kapsel liegt, bis zu 10-mal pro Sekunde. Solange das an ist, fehlen Notch und Kapsel in Screenshots, Aufnahmen und Bildschirmfreigaben.")}
+          <span className="mt-1 flex items-start gap-1 text-caution">
+            <WarningCircle aria-hidden size={12} weight="fill" className="mt-px shrink-0" />
+            {t("Braucht mehr Akku: Windows hat bei jeder Änderung auf dem Bildschirm mehr Arbeit")}
+          </span>
+        </>
+      }
+    >
+      {/* Read out on its own, the label does not say what it adds to: the switch names the glass. */}
+      <Switch label={`${t("Glas")}: ${label}`} checked={on} onChange={(glassLive) => updateSettings((cur) => ({ themes: { ...cur.themes, glassLive } }))} />
+    </Row>
+  );
+}
+
+/** The glass's look, under its switch; src/notch/glass shows each move on its next frame. */
+function GlassLook() {
+  const transparency = settings.use().themes.glassTransparency;
+  const vars = activeTheme.use().vars;
+  // The theme's veils as transparency in %: the mark's, and the slider's now.
+  const alpha = (name: string) => parseColor(vars[name])?.a ?? 1;
+  const percent = (veil: number) => Math.round((1 - veil) * 100);
+  const safe = alpha("--glass-tint"), past = transparency > 0;
+  return (
+    <>
+      <GlassSlider
+        label={t("Transparenz")}
+        // A status, so crossing the mark is read out.
+        hint={
+          <span role="status" className={past ? "text-label" : undefined}>
+            {past ? t("Über hellen oder gestreiften Hintergründen kann Text schlechter zu lesen sein") : t("Bis zur Markierung ({n} %) bleibt jeder Text über jedem Hintergrund lesbar", { n: percent(safe) })}
+          </span>
+        }
+        field="glassTransparency"
+        step={5}
+        mark={0}
+        text={`${percent(glassVeilAt(safe, transparency, alpha("--glass-tint-clear")))} %`}
+      />
+      <GlassSlider label={t("Lichtbrechung")} hint={t("Wie stark der Rand den Hintergrund biegt")} field="glassRefraction" step={10} />
+      <GlassSlider label={t("Mattierung")} hint={t("Wie stark der Hintergrund in der Mitte verschwimmt")} field="glassFrost" step={10} />
+      <GlassSlider label={t("Licht am Rand")} hint={t("Wie hell der Rand des Glases leuchtet")} field="glassRim" step={10} />
+    </>
+  );
+}
+
+/**
+ * A slider of the glass's look, with its value beside it; saved on every step, like the other sliders in the settings. A drag repeats
+ * the same step over a few px, and each save would draw the whole panel again.
+ */
+function GlassSlider(props: { label: string; hint: ReactNode; field: keyof typeof GLASS_RANGE; step: number; mark?: number; text?: string }) {
+  const value = settings.use().themes[props.field];
+  const [min, max] = GLASS_RANGE[props.field];
+  const text = props.text ?? `${value} %`;
+  return (
+    <Row label={props.label} hint={props.hint}>
+      <div className="flex w-52 shrink-0 items-center gap-2">
+        <Slider label={props.label} value={value} min={min} max={max} step={props.step} mark={props.mark} valueText={text} onChange={(v) => v !== value && updateSettings((cur) => ({ themes: { ...cur.themes, [props.field]: v } }))} />
+        <span className="tabular w-10 shrink-0 text-end text-caption text-label-2">{text}</span>
+      </div>
+    </Row>
   );
 }
 
@@ -168,13 +272,20 @@ function ThemePreview({ theme }: { theme: ThemeFile }) {
 }
 
 function DayNight() {
-  const { themes } = settings.use();
+  const { themes, weather } = settings.use();
   activeTheme.use(); // the "now" hint follows the change
   const s = themes.schedule;
   const set = (patch: Partial<typeof s>) => updateSettings((x) => ({ themes: { ...x.themes, schedule: { ...x.themes.schedule, ...patch } } }));
   const options = allThemes().map((theme) => ({ value: theme.id, label: themeName(theme) }));
   // formatTime follows the 12 or 24 hour setting.
-  const times = HALF_HOURS.map((v) => ({ value: v, label: formatTime(new Date(2000, 0, 1, Number(v.slice(0, 2)), Number(v.slice(3)))) }));
+  const clock = (minutes: number) => formatTime(new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
+  const times = HALF_HOURS.map((v) => ({ value: v, label: clock(Number(v.slice(0, 2)) * 60 + Number(v.slice(3))) }));
+  const now = new Date();
+  // Following the sun, today's sunrise and sunset stand where the two set times are. Without them (no place set, or a
+  // day the sun does not rise or set) the set times still apply, so their menus stay.
+  const sun = s.sun ? sunHours(now, weather) : null;
+  const start = (minutes: number | undefined, value: string, onChange: (v: string) => void) =>
+    minutes === undefined ? <Select width="w-24" value={value} options={times} onChange={onChange} /> : <span className="tabular flex w-24 items-center justify-center text-body text-label-2">{clock(minutes)}</span>;
 
   const turnOn = (on: boolean) => {
     if (!on) return set({ on });
@@ -187,21 +298,25 @@ function DayNight() {
     <Group title={t("Tag und Nacht")} id="settings-daynight">
       <Row
         label={t("Nach Uhrzeit wechseln")}
-        hint={s.on ? (isNight(s, new Date()) ? t("Jetzt gilt das Nacht-Theme") : t("Jetzt gilt das Tag-Theme")) : t("Ein Theme für den Tag, eins für die Nacht")}
+        hint={s.on ? (isNight(s, now, weather) ? t("Jetzt gilt das Nacht-Theme") : t("Jetzt gilt das Tag-Theme")) : t("Ein Theme für den Tag, eins für die Nacht")}
       >
         <Switch checked={s.on} onChange={turnOn} label={t("Nach Uhrzeit wechseln")} />
       </Row>
       {s.on && (
         <>
+          {/* The place whose sun it is, or where to set one (issue #41). */}
+          <Row label={t("Bei Sonnenaufgang und Sonnenuntergang")} hint={s.sun ? (weather ? weather.name : t("Lege zuerst deinen Ort unter Wetter fest")) : undefined}>
+            <Switch checked={s.sun} onChange={(sun) => set({ sun })} label={t("Bei Sonnenaufgang und Sonnenuntergang")} />
+          </Row>
           <Row label={t("Tag ab")}>
             <div className="flex gap-1.5">
-              <Select width="w-24" value={s.dayStart} options={times} onChange={(dayStart) => set({ dayStart })} />
+              {start(sun?.[0], s.dayStart, (dayStart) => set({ dayStart }))}
               <Select width="w-32" value={s.day} options={options} onChange={(day) => set({ day })} />
             </div>
           </Row>
           <Row label={t("Nacht ab")}>
             <div className="flex gap-1.5">
-              <Select width="w-24" value={s.nightStart} options={times} onChange={(nightStart) => set({ nightStart })} />
+              {start(sun?.[1], s.nightStart, (nightStart) => set({ nightStart }))}
               <Select width="w-32" value={s.night} options={options} onChange={(night) => set({ night })} />
             </div>
           </Row>

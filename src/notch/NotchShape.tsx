@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { animate, motion, useMotionValue, useTransform, type Transition } from "motion/react";
+import { animate, motion, useMotionValue, useTransform, type MotionValue, type Transition } from "motion/react";
 import type { NotchGeometry } from "./geometry";
 import { across, uprightCss, type Edge } from "./edge";
+import { GlassLayer, type GlassMode } from "./glass/GlassLayer";
 
 import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset } from "./rim";
 
@@ -29,6 +30,14 @@ interface Props {
   refractiveHighlight?: boolean;
   shaking?: boolean;
   lockFeedback?: "locked" | "unlocked" | null;
+  /** The open panel as glass (src/notch/glass): armed, the canvas waits; shown, it draws and --shape clears to let it through. */
+  glass?: GlassMode;
+  /** Which copy the glass draws: the open panel's (snapshot.ts) or the closed shapes' live one (live.ts). */
+  look?: "panel" | "closed";
+  /** The shape's top as it springs (Notch.tsx), which moves the glass's canvas over the copy. */
+  top?: MotionValue<number>;
+  /** The open panel hangs from the edge (not a floating capsule's): the glass keeps the closed notch's colour under its header. */
+  hangs?: boolean;
   children?: ReactNode;
 }
 
@@ -50,6 +59,10 @@ export function NotchShape({
   elevated,
   edge = "top",
   thin = false,
+  glass = "off",
+  look = "panel",
+  top: propTop,
+  hangs = true,
   birthAnimation = false,
   tinted = false,
   rimPreset = "none",
@@ -65,6 +78,8 @@ export function NotchShape({
   lockFeedback = null,
   children,
 }: Props) {
+  const fallbackTop = useMotionValue(0);
+  const top = propTop ?? fallbackTop;
   const shouldBirth = useRef(birthAnimation && !hasBirthedSession).current;
   if (!hasBirthedSession) {
     hasBirthedSession = true;
@@ -132,14 +147,15 @@ export function NotchShape({
       className="relative"
       animate={shaking ? { x: [-6, 6, -4, 4, -2, 2, 0] } : undefined}
       transition={{ duration: 0.45, ease: "easeInOut" }}
-      // The theme's background open; closed black, unless the theme opts in (--notch-closed). Crossfades (themes.css).
       style={{
         width: wPx,
         height: hPx,
         y: birthY,
-        ["--shape" as string]: shapeColor,
+        ["--shape" as string]: glass === "shown" && (elevated || look === "closed") ? "transparent" : shapeColor,
       }}
     >
+      {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}
+      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} />}
       <motion.span
         aria-hidden
         className="absolute top-0 pointer-events-none"

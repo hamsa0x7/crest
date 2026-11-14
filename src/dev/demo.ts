@@ -22,10 +22,12 @@ import { calendar, calendarDue } from "../features/calendar/store";
 import { usage } from "../features/usage/store";
 import { recording, startRecording, stopRecording, takeShot } from "../features/capture/store";
 import { checkForUpdate, update } from "../lib/update";
-import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
-import { PET_IDS } from "../notch/row/parts";
+import { PART_IDS, PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
+import { PANEL_SCALES } from "../features/window/panelSize";
+import { normalizeSearch } from "../features/overview/search";
+import { TIMER_LOOKS } from "../features/timer/looks";
 
 /*
  * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
@@ -37,6 +39,7 @@ import { viewZoom } from "../notch/viewZoom";
  * URL: ?tool=<id> opens on a tool, ?lang=<code> (default en), ?open starts open, ?bare drops the fake desktop (transparent page,
  * for the host page's stage). Bare, the notch opens on a click and stays open until a click outside it or a "close" command (the
  * mouse leaving the frame must not empty the stage); otherwise hover opens it, as in the app. Touch always works like bare.
+ * ?hover keeps bare's transparent page but opens on hover and closes when the mouse leaves, exactly as in the app (the home page).
  * Not bare, a phone gets the page scale that fits the open panel, and the fake desktop has a "Back to the site" link.
  *
  * Host -> demo (postMessage on the iframe's window):
@@ -47,14 +50,18 @@ import { viewZoom } from "../notch/viewZoom";
  *   { cmd: "play" } { cmd: "pause" }
  *   { cmd: "lang", code } { cmd: "style", style: notch | capsule | line } { cmd: "edge", edge: top | bottom | left | right }
  *   { cmd: "theme", id } { cmd: "pet", on, kind? }   kind: cat cocker monkey sloth samurai robot flame zombie (omitted: keep, else cat)
- * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
+ *   { cmd: "scale", value }      panel scale in %, one of PANEL_SCALES
+ *   { cmd: "cover", on }         the Music tool's cover behind the whole panel
+ *   { cmd: "search", engine }    Overview's web search line: google | bing | duckduckgo | brave | off
+ *   { cmd: "look", look }        the timer's look, one of TIMER_LOOKS
+ * Every command first undoes what would hide its result: presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
  *   { event: "ready", tools: [{ id, label, hue }] }   the tools in the dock (sent again when the language changes)
  *   { event: "tool", tool }    the visible tool changed
  *   { event: "open", open }    the notch opened or closed
  *   { event: "size", w, h }    the notch's outer size in CSS px (follows its spring)
- *   { event: "state", lang, theme, style, edge, pet }   after "ready" and on every change, from any source (pet: kind id or null)
+ *   { event: "state", lang, theme, style, edge, pet, scale, cover, search }   after "ready" and on every change, from any source (pet: kind id or null)
  */
 
 const params = new URLSearchParams(location.search);
@@ -67,8 +74,8 @@ const DEMO_TOOLS = [
 
 /** A finger has no hover: the notch opens on a tap, and an open one stays until a tap outside. */
 const coarse = matchMedia("(pointer: coarse)").matches;
-/** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. */
-const pinOpen = coarse || bare;
+/** Same for the host page's stage: the mouse leaves the frame all the time, and the stage must not go empty. ?hover asks for the app's own hover. */
+const pinOpen = coarse || (bare && !params.has("hover"));
 
 /** The host page is served from the same origin once built; in development it is the site's own dev server. */
 const hostOrigin = import.meta.env.DEV ? "*" : location.origin;
@@ -96,6 +103,9 @@ export function startDemo() {
     usage: { ...s.usage, cursor: true },
     github: { user: "andrealo20" },
     privacyDots: true,
+    // Every tool in its own colour, the way the website shows them, and the timer in its pixel look.
+    themes: { ...s.themes, iconColors: true },
+    timer: { ...s.timer, look: "pixel" },
     notices: { ...s.notices, enabled: true, windows: true, cli: true },
     calendar: {
       ...s.calendar,
@@ -110,10 +120,12 @@ export function startDemo() {
     },
     // The focus timer below may end in a forgotten tab: silently.
     alarm: { ...s.alarm, volume: 0 },
-    music: { ...s.music, titleLyrics: true },
+    music: { ...s.music, titleLyrics: true, coverBackground: true },
     closed: {
       ...s.closed,
-      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: true, readings: true, equalizer: true, clock: true, github: true, calendar: true, script: true, downloads: true, weather: true },
+      // The equalizer right after the cover, so the song reads as one group.
+      order: ["equalizer", ...PART_IDS.filter((id) => id !== "equalizer")],
+      parts: { ...s.closed.parts, timer: true, discord: true, rings: true, title: false, readings: true, equalizer: true, clock: true, github: false, calendar: false, script: true, downloads: true, weather: true },
       readings: { ...s.closed.readings, cpu: true, ram: true, gpu: true },
     },
   }));
@@ -198,12 +210,15 @@ function sendReadyOnChange() {
   };
 }
 
-/** Language, theme, closed style, edge and pet, so the page's chips follow what the visitor changes in Settings. */
+/** Language, theme, closed style, edge, pet and the 1.1 settings the page shows, so the page's chips follow what the visitor changes in Settings. */
 function sendStateOnChange() {
   let last = "";
   return (force?: boolean) => {
     const s = settings.get();
-    const state = { lang: language.get(), theme: s.themes.id, style: s.display.idleStyle, edge: s.dock.edge, pet: s.closed.pet.id };
+    const state = {
+      lang: language.get(), theme: s.themes.id, style: s.display.idleStyle, edge: s.dock.edge, pet: s.closed.pet.id,
+      scale: s.behavior.scale, cover: s.music.coverBackground, search: s.productivity.search,
+    };
     const key = JSON.stringify(state);
     if (key === last && force !== true) return;
     last = key;
@@ -267,6 +282,14 @@ function onMessage(e: MessageEvent) {
       const kind = PET_IDS.find((x) => x === m.kind);
       return void updateSettings((s) => ({ closed: { ...s.closed, pet: { ...s.closed.pet, id: m.on ? (kind ?? s.closed.pet.id ?? "cat") : null } } }));
     }
+    case "scale":
+      return void ((PANEL_SCALES as readonly unknown[]).includes(m.value) && updateSettings((s) => ({ behavior: { ...s.behavior, scale: m.value as (typeof PANEL_SCALES)[number] } })));
+    case "cover":
+      return void updateSettings((s) => ({ music: { ...s.music, coverBackground: m.on === true } }));
+    case "look":
+      return void ((TIMER_LOOKS as readonly unknown[]).includes(m.look) && updateSettings((s) => ({ timer: { ...s.timer, look: m.look as (typeof TIMER_LOOKS)[number] } })));
+    case "search":
+      return void updateSettings((s) => ({ productivity: { ...s.productivity, search: normalizeSearch(m.engine) } }));
   }
 }
 
@@ -342,9 +365,8 @@ function notice(kind: string) {
   }
 }
 
-/** Focus mode, presentation mode and quiet hours keep notices and clicks away; a visitor who tried them would see nothing happen. */
+/** Presentation mode and quiet hours keep notices away; a visitor who tried them would see nothing happen. */
 function undoStates() {
-  setFocusMode(false);
   const { presentation, notices } = settings.get();
   if (presentation.manual || notices.quiet.on) {
     updateSettings((s) => ({ presentation: { ...s.presentation, manual: false }, notices: { ...s.notices, quiet: { ...s.notices.quiet, on: false } } }));
