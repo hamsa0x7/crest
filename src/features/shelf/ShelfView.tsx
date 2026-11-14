@@ -426,7 +426,7 @@ export function ShelfView() {
                 initial={{ opacity: 0, transform: "scale(0.94)" }}
                 animate={{ opacity: 1, transform: "scale(1)" }}
                 exit={{ opacity: 0, transform: "scale(0.94)", transition: fade }}
-                className="group relative h-[132px] w-[124px] shrink-0"
+                className="group relative h-[124px] w-[116px] shrink-0"
                 onPointerDown={(e) => onPointerDown(e, key)}
                 onPointerMove={onPointerMove}
                 onPointerUp={() => (press.current = null)}

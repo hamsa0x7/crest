@@ -155,7 +155,7 @@ export function UsageView() {
   const list: (Partial<UsageProvider> & { id: UsageId })[] = updatedAt === null ? ids.map((id) => ({ id })) : providers;
   const today = dayStart(now, 0), week = dayStart(now, 6);
   return (
-    <div className="flex h-full gap-2 overflow-x-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
+    <div className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
       {actions}
       {list.map((p, i) => {
         const tool = TOKEN_TOOL[p.id];
@@ -166,7 +166,7 @@ export function UsageView() {
         return (
           <motion.div
             key={p.id}
-            className="flex min-w-[180px] max-w-[270px] flex-1 flex-col rounded-[14px] bg-fill-1 px-3 py-2.5"
+            className="flex min-w-[200px] max-w-[280px] flex-1 flex-col self-start rounded-[14px] bg-fill-1 px-3 py-2.5"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
             transition={{ ...content.enter, delay: 0.05 * i }}

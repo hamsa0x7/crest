@@ -121,7 +121,6 @@ export function NotchShape({
           animate(r, geometry.r, tBirth),
           animate(rt, geometry.rt, tBirth),
           animate(ear, geometry.ear, { duration: 0.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }),
-          animate(contentOpacity, 1, { duration: 0.35, delay: 0.25, ease: "easeOut" }),
         ];
         return () => controls.forEach((c) => c.stop());
       }
@@ -135,6 +134,22 @@ export function NotchShape({
     const controls = [animate(w, geometry.w, t), animate(h, geometry.h, t), animate(r, geometry.r, t), animate(ear, geometry.ear, t), animate(rt, geometry.rt, top)];
     return () => controls.forEach((c) => c.stop());
   }, [geometry.w, geometry.h, geometry.r, geometry.ear, geometry.rt, transition, w, h, r, ear, rt]);
+
+  useEffect(() => {
+    if (elevated) {
+      contentOpacity.set(1);
+      return;
+    }
+    if (shouldBirth) {
+      const c = animate(contentOpacity, 1, { duration: 0.35, delay: 0.25, ease: "easeOut" });
+      return () => {
+        c.stop();
+        contentOpacity.set(1);
+      };
+    } else {
+      contentOpacity.set(1);
+    }
+  }, [shouldBirth, elevated, contentOpacity]);
 
   useEffect(() => {
     const c = animate(shadow, elevated ? 1 : 0, { duration: 0.3, ease: [0.23, 1, 0.32, 1] });
@@ -341,7 +356,7 @@ export function NotchShape({
             }}
           />
         )}
-        <motion.div style={{ opacity: contentOpacity }} className="relative z-1 h-full w-full">
+        <motion.div style={{ opacity: elevated ? 1 : contentOpacity }} className="relative z-1 h-full w-full">
           {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
         </motion.div>
       </motion.div>

@@ -212,7 +212,7 @@ export function Notch() {
   const fixedW = Math.max(640, dragging?.w ?? displaySettings.panelWidth ?? displaySettings.panelMinWidth ?? 640);
   const fixedH = Math.max(350, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 350);
   const monH = monitorMetrics().height;
-  const clampedH = Math.min(fixedH, Math.max(300, monH - 24));
+  const clampedH = Math.min(fixedH, Math.max(350, monH - 24));
   const rawSize = { w: fixedW, h: clampedH };
   // const rawSizeOverridden = overridden
 
@@ -726,7 +726,7 @@ export function Notch() {
           shaking={shaking}
           lockFeedback={lockFeedbackVal}
         >
-          {isTucked && displaySettings.tuckStyle === "eyes" ? (
+          {isTucked && status !== "open" && displaySettings.tuckStyle === "eyes" ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <CompanionEyes glowColor={accent} />
             </div>
