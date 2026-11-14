@@ -1,4 +1,5 @@
 import { createStore } from "../lib/store";
+import { playMechanicalClick } from "../lib/sound";
 import { notchOpen, stayUntilVisit } from "./useNotchState";
 
 /**
@@ -9,6 +10,7 @@ import { notchOpen, stayUntilVisit } from "./useNotchState";
 export const nav = createStore<{ tabId: string; section: string | null }>({ tabId: "media", section: null });
 
 export function navigate(tabId: string, section: string | null = null) {
+  if (nav.get().tabId !== tabId) playMechanicalClick();
   // Open, another tool may be smaller and leave the pointer outside it: that must not close the notch (#29).
   if (notchOpen.get() && nav.get().tabId !== tabId) stayUntilVisit();
   nav.set({ tabId, section });

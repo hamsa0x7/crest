@@ -2,8 +2,6 @@ import { createStore } from "../../lib/store";
 import { capture, type CaptureRecState } from "../../platform/services";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
-import { settings } from "../../settings/store";
-import { addToShelf } from "../shelf/ShelfView";
 import type { RecClock } from "./clock";
 
 /*
@@ -18,6 +16,8 @@ export interface Saved {
   kind: "shot" | "video" | "audio";
   path: string;
   thumb: string | null;
+  width?: number;
+  height?: number;
   /** The recording ended early (an error): what was saved is cut short. */
   cut?: boolean;
   /** Date.now() when saved, so a second save in a row shows again. */
@@ -44,9 +44,15 @@ export function startCapture() {
 export async function takeShot(mode: "all" | "monitor" | "region", monitor: string | null) {
   const shot = await capture.shot(mode, monitor);
   if (!shot) return;
-  saved.set({ kind: "shot", path: shot.path, thumb: shot.thumb, at: Date.now() });
+  saved.set({
+    kind: "shot",
+    path: shot.path,
+    thumb: shot.thumb,
+    width: shot.width,
+    height: shot.height,
+    at: Date.now(),
+  });
   libraryEpoch.set((n) => n + 1);
-  if (settings.get().capture.shelf) addToShelf([shot.path]);
 }
 
 export async function startRecording(source: string, fps: number, mic: boolean, system: boolean, border: boolean) {

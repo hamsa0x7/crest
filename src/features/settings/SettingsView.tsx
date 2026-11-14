@@ -35,7 +35,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { content, fade, springs } from "../../design/motion";
-import { alarmSounds, playAlarm, type AlarmDuration } from "../../lib/sound";
+import { alarmSounds, playAlarm, playMechanicalClick, playSpringWhoosh, playTimerChime, type AlarmDuration } from "../../lib/sound";
 import { nav, navigate } from "../../notch/nav";
 import { findTab, setupTab } from "../../notch/tabs";
 import { PluginSettings } from "../plugins/PluginSettings";
@@ -385,6 +385,7 @@ function PageContent({ page }: { page: PageId }) {
       {page === "display" && (
         <>
           <Display />
+          <AcousticsSettings />
           <MusicSettings />
           <Presentation />
         </>
@@ -1089,6 +1090,76 @@ function Display() {
         <Row label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
           <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
         </Row>
+      )}
+    </Group>
+  );
+}
+
+/** Shell acoustic sound effects & mechanical switch feedback. */
+function AcousticsSettings() {
+  const ac = settings.use().acoustics;
+  const set = (patch: Partial<typeof ac>) => updateSettings((cur) => ({ acoustics: { ...cur.acoustics, ...patch } }));
+  return (
+    <Group id="settings-acoustics">
+      <Row label={t("Akustisches Feedback")} hint={t("Tastatur-Klicks und Klangeffekte bei Aktionen")}>
+        <Switch
+          label={t("Akustisches Feedback")}
+          checked={ac.enabled}
+          onChange={(enabled) => set({ enabled })}
+        />
+      </Row>
+      {ac.enabled && (
+        <>
+          <Row label={t("Lautstärke")}>
+            <div className="flex w-52 items-center gap-2">
+              <Slider
+                label={t("Lautstärke")}
+                value={ac.volume}
+                onChange={(volume) => {
+                  set({ volume });
+                  playMechanicalClick(volume);
+                }}
+                min={0.1}
+                max={1.0}
+                step={0.05}
+                valueText={`${Math.round(ac.volume * 100)} %`}
+              />
+              <span className="w-10 text-right text-caption font-medium tabular-nums text-label-2">
+                {Math.round(ac.volume * 100)} %
+              </span>
+            </div>
+          </Row>
+          <Row label={t("Mechanisches Schalter-Klicken")} hint={t("Klickgeräusch beim Wechseln von Tabs")}>
+            <Switch
+              label={t("Mechanisches Schalter-Klicken")}
+              checked={ac.mechanicalClicks}
+              onChange={(mechanicalClicks) => {
+                set({ mechanicalClicks });
+                if (mechanicalClicks) playMechanicalClick();
+              }}
+            />
+          </Row>
+          <Row label={t("Sanfter Feder-Whoosh")} hint={t("Luftiger Bewegungssound beim Öffnen und Schließen")}>
+            <Switch
+              label={t("Sanfter Feder-Whoosh")}
+              checked={ac.springWhoosh}
+              onChange={(springWhoosh) => {
+                set({ springWhoosh });
+                if (springWhoosh) playSpringWhoosh("expand");
+              }}
+            />
+          </Row>
+          <Row label={t("Akustische Chimes")} hint={t("Glockentöne bei Timer-Ende, Pomodoro-Phasen und Akkuwarnungen")}>
+            <Switch
+              label={t("Akustische Chimes")}
+              checked={ac.chimes}
+              onChange={(chimes) => {
+                set({ chimes });
+                if (chimes) playTimerChime();
+              }}
+            />
+          </Row>
+        </>
       )}
     </Group>
   );

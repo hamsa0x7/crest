@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BoundingBox, Camera, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
+import { BoundingBox, Camera, Check, Clock, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, PencilSimple, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
 import { fade, pulse, springs } from "../../design/motion";
 import { formatBytes, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -12,6 +12,10 @@ import { usePresenting } from "../privacy/store";
 import { locale, t } from "../../i18n";
 import { elapsedAt, formatElapsed } from "./clock";
 import { libraryEpoch, pauseRecording, recording, startRecording, stopRecording, takeShot } from "./store";
+import { deletePendingShot, keepPendingShot, pendingShots, remainingTime } from "./pending";
+import { activeAnnotation, openAnnotation } from "./annotationStore";
+import { AnnotationCanvas } from "./AnnotationCanvas";
+import { addToShelf } from "../shelf/ShelfView";
 
 /*
  * Capture: screenshots (all screens, one monitor, or a region) and screen recordings
@@ -23,6 +27,7 @@ type Patch = Partial<Settings["capture"]>;
 const setCapture = (patch: Patch) => updateSettings((s) => ({ capture: { ...s.capture, ...patch } }));
 
 export function CaptureView() {
+  const annotating = activeAnnotation.use();
   const cfg = settings.use().capture;
   const rec = recording.use();
   const [sources, setSources] = useState<CaptureSource[]>([]);
@@ -63,6 +68,10 @@ export function CaptureView() {
 
   // A sound-only recording is the Recorder's: here it only says why Record waits.
   const warning = error ?? (rec.audio ? (idle ? null : t("Es läuft schon eine Aufnahme")) : failureText(rec.failed));
+
+  if (annotating) {
+    return <AnnotationCanvas />;
+  }
 
   return (
     <div className="flex h-full flex-col gap-2 px-4 pt-1 pb-2">
@@ -247,6 +256,9 @@ function Library() {
           onChange={setFilter}
         />
       </div>
+
+      <PendingStagingSection onDeleted={() => libraryEpoch.set((n) => n + 1)} />
+
       {shown.length === 0 ? (
         <div className="flex-1 min-h-[140px] rounded-[14px] bg-fill-1 flex items-center justify-center">
           <Empty icon={filter === "video" ? FilmStrip : ImageSquare} title={t("Noch nichts aufgenommen")} text={t("Bildschirmfotos und Videos erscheinen hier")} />
@@ -325,8 +337,133 @@ function Card({ file, details, onDeleted }: { file: CaptureFile; details?: Captu
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
+        {!video && (
+          <IconBtn
+            label={t("Bearbeiten")}
+            icon={PencilSimple}
+            onClick={() =>
+              openAnnotation({
+                path: file.path,
+                name: file.name,
+                thumb: details?.thumb ?? null,
+              })
+            }
+          />
+        )}
         <IconBtn label={t("Im Explorer zeigen")} icon={FolderOpen} onClick={() => revealFile(file.path)} />
         <IconBtn label={armed ? t("Zum Löschen erneut klicken") : t("Löschen")} icon={Trash} danger={armed} onClick={onDelete} />
+      </div>
+    </div>
+  );
+}
+
+/** 24-Hour staging shelf for unkept screenshots with expiration countdowns. */
+function PendingStagingSection({ onDeleted }: { onDeleted: () => void }) {
+  const pending = pendingShots.use();
+  const cfg = settings.use().capture;
+  if (pending.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-[12px] bg-fill-2/50 p-2 border border-separator/60">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          <Clock size={13} weight="bold" className="text-cyan" />
+          <span className="text-caption font-semibold text-label">
+            {t("Ausstehend ({count})", { count: pending.length })}
+          </span>
+          <span className="text-[11px] text-label-3">
+            {t("• 24h Staging Shelf")}
+          </span>
+        </div>
+        {pending.length > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                pending.forEach((p) =>
+                  keepPendingShot(p.path, (path) => {
+                    if (cfg.shelf) addToShelf([path]);
+                  })
+                );
+              }}
+              className="pressable rounded-[5px] bg-fill-3 px-2 py-0.5 text-[11px] font-medium text-label hover:bg-fill-2"
+            >
+              {t("Alle behalten")}
+            </button>
+            <button
+              onClick={() => {
+                pending.forEach((p) => void deletePendingShot(p.path));
+                onDeleted();
+              }}
+              className="pressable rounded-[5px] bg-fill-3 px-2 py-0.5 text-[11px] font-medium text-red hover:bg-fill-2"
+            >
+              {t("Alle löschen")}
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-0.5">
+        {pending.map((p) => {
+          const rem = remainingTime(p.expiresAt);
+          const remText =
+            rem.hours > 0
+              ? t("{hours} Std.", { hours: rem.hours })
+              : t("{minutes} Min.", { minutes: rem.minutes });
+          return (
+            <div
+              key={p.path}
+              className="flex h-11 w-full items-center gap-2 rounded-[8px] bg-fill-1 px-2 border border-separator/40 hover:bg-fill-2/70 transition-colors"
+            >
+              <button
+                onClick={() => void openFile(p.path)}
+                className="relative h-8 w-11 shrink-0 overflow-hidden rounded-[5px] bg-black/40 flex items-center justify-center border border-separator/30"
+              >
+                {p.thumb ? (
+                  <img src={p.thumb} alt="" draggable={false} className="size-full object-cover" />
+                ) : (
+                  <ImageSquare size={14} weight="duotone" className="text-label-2" />
+                )}
+              </button>
+              <div className="flex min-w-0 flex-1 flex-col justify-center">
+                <p className="truncate text-caption font-medium text-label" title={p.name}>
+                  {p.name}
+                </p>
+                <div className="flex items-center gap-1.5 text-[10px] text-label-3">
+                  {p.width > 0 && <span>{p.width} × {p.height}</span>}
+                  <span>•</span>
+                  <span className="text-orange font-medium flex items-center gap-0.5">
+                    <Clock size={10} weight="bold" />
+                    {remText}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <IconBtn
+                  label={t("Bearbeiten")}
+                  icon={PencilSimple}
+                  onClick={() => openAnnotation(p)}
+                />
+                <IconBtn
+                  label={t("Behalten")}
+                  icon={Check}
+                  onClick={() =>
+                    keepPendingShot(p.path, (path) => {
+                      if (cfg.shelf) addToShelf([path]);
+                    })
+                  }
+                />
+                <IconBtn
+                  label={t("Löschen")}
+                  icon={Trash}
+                  danger
+                  onClick={() => {
+                    void deletePendingShot(p.path);
+                    onDeleted();
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

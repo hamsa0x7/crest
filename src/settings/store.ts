@@ -1,4 +1,5 @@
 import { createStore, setAside } from "../lib/store";
+import { setAcousticsProvider } from "../lib/sound";
 import { isMac } from "../platform/native";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
@@ -194,6 +195,13 @@ export interface Settings {
   clipChips: boolean;
   /** Clipboard tool: a click on an entry also pastes it into the app that had the keyboard before the notch opened (clipboard.rs). Off by default: it changes what a click does. */
   clipPaste: boolean;
+  acoustics: {
+    enabled: boolean;
+    volume: number;
+    mechanicalClicks: boolean;
+    springWhoosh: boolean;
+    chimes: boolean;
+  };
 }
 
 const defaults: Settings = {
@@ -266,6 +274,13 @@ const defaults: Settings = {
   setup: { done: false },
   clipChips: true,
   clipPaste: false,
+  acoustics: {
+    enabled: true,
+    volume: 0.5,
+    mechanicalClicks: true,
+    springWhoosh: true,
+    chimes: true,
+  },
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -301,6 +316,7 @@ export const settings = createStore<Settings>(defaults, { persist: "settings" })
 // Fill in settings from older versions: new fields + append new tools.
 try {
   settings.set(migrate);
+  setAcousticsProvider(() => settings.get().acoustics);
 } catch {
   // A saved value of the wrong shape must not stop the app from loading: keep it aside and start from the defaults.
   setAside("notch:settings", localStorage.getItem("notch:settings"));
@@ -447,6 +463,15 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     dock: normalizeDock(s.dock),
     // Only a fresh install starts from the defaults (done: false); settings saved by 0.2.x have no `setup` and never see it.
     setup: { done: s.setup ? s.setup.done === true : true },
+    acoustics: {
+      ...defaults.acoustics,
+      ...s.acoustics,
+      volume: typeof s.acoustics?.volume === "number" && !isNaN(s.acoustics.volume) ? Math.max(0, Math.min(1, s.acoustics.volume)) : defaults.acoustics.volume,
+      enabled: typeof s.acoustics?.enabled === "boolean" ? s.acoustics.enabled : defaults.acoustics.enabled,
+      mechanicalClicks: typeof s.acoustics?.mechanicalClicks === "boolean" ? s.acoustics.mechanicalClicks : defaults.acoustics.mechanicalClicks,
+      springWhoosh: typeof s.acoustics?.springWhoosh === "boolean" ? s.acoustics.springWhoosh : defaults.acoustics.springWhoosh,
+      chimes: typeof s.acoustics?.chimes === "boolean" ? s.acoustics.chimes : defaults.acoustics.chimes,
+    },
   };
 }
 

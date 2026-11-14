@@ -38,6 +38,8 @@ export interface CardSpec {
   read?: boolean;
   actions?: ReactNode;
   actionsWidth?: number;
+  /** Active countdown progress bar duration in seconds. */
+  countdownSec?: number;
   /** A click on the icon or the text. Not stopped, so the notch also opens, unless the handler stops it (it opens an app instead). */
   onOpen?: (e: MouseEvent) => void;
   /** No colour line along the bottom edge: an app's notice, whose icon already says where it comes from (issue #31). */
@@ -85,8 +87,17 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
           </span>
         </button>
         {spec.actions && <span className="flex shrink-0 items-center gap-1.5">{spec.actions}</span>}
-        {/* The notice's colour along the bottom edge, drawn out from the middle as the card arrives. */}
-        {!spec.plain && (
+        {/* The notice's colour or countdown progress bar along the bottom edge. */}
+        {spec.countdownSec ? (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute bottom-[2px] h-[2px] rounded-full"
+            style={{ left: PAD + 6, right: PAD + 6, background: tint, transformOrigin: "0% 50%" }}
+            initial={{ scaleX: 1 }}
+            animate={{ scaleX: 0 }}
+            transition={{ duration: spec.countdownSec, ease: "linear" }}
+          />
+        ) : !spec.plain ? (
           <motion.span
             aria-hidden
             className="pointer-events-none absolute bottom-[3px] h-[2px] rounded-full"
@@ -95,7 +106,7 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
             animate={{ opacity: 0.85, transform: "scaleX(1)" }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
           />
-        )}
+        ) : null}
       </span>
     ),
   };

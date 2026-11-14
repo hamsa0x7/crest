@@ -4,6 +4,7 @@ import { setPinned } from "../platform/native";
 import { hoverDelayMs, settings } from "../settings/store";
 import { closeDelayMs } from "../features/window/model";
 import { media } from "../platform/media";
+import { playSpringWhoosh } from "../lib/sound";
 import { timer as timerStore } from "../features/timer/store";
 
 /** Whether hover peek mode is currently applicable (media active or timer running). */
@@ -92,9 +93,14 @@ export function useNotchState() {
   const timer = useRef<number | undefined>(undefined);
 
   const setStatus = useCallback((s: NotchStatus) => {
+    const prev = statusRef.current;
     statusRef.current = s;
     setStatusState(s);
     if (notchOpen.get() !== (s === "open")) notchOpen.set(s === "open");
+    if (prev !== s) {
+      if (s === "open") playSpringWhoosh("expand");
+      else if (prev === "open" && s === "closed") playSpringWhoosh("collapse");
+    }
   }, []);
 
   const later = useCallback(

@@ -1789,6 +1789,12 @@ export const capture = {
     if (i >= 0) sampleLibrary.splice(i, 1);
     return Promise.resolve();
   },
+  /** Reads an image from disk as a base64 data URL for editing. */
+  readImage: (path: string): Promise<string> =>
+    isNative ? invoke<string>("capture_read_image", { path }) : Promise.resolve(""),
+  /** Saves an annotated/edited image back to disk and updates clipboard. Returns new thumbnail data URL. */
+  saveImage: (path: string, dataUrl: string): Promise<string> =>
+    isNative ? invoke<string>("capture_save_image", { path, dataUrl }) : Promise.resolve(dataUrl),
   /** Find on screen: every monitor read with OCR, nothing saved. Rejects with "timeout", "no-ocr" or "failed". */
   findScan: (): Promise<FoundLine[]> =>
     isNative ? invoke<FoundLine[]>("find_scan") : demo ? import("../dev/demo-data").then((m) => new Promise<FoundLine[]>((done) => setTimeout(() => done(m.FOUND_LINES), 700))) : new Promise((done) => setTimeout(() => done(mockFound), 600)),

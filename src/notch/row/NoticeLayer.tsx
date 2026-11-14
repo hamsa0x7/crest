@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Microphone, MicrophoneSlash, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, Waveform, WifiHigh, WifiSlash, ArrowSquareOut, ImageSquare, type Icon } from "@phosphor-icons/react";
-import { pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
+import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, Check, CheckCircle, Copy, DeviceMobile, FilmStrip, GameController, Headphones, Keyboard, Microphone, MicrophoneSlash, Mouse, NumberSquareOne, Pause, PencilSimple, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Trash, Watch, Waveform, WifiHigh, WifiSlash, ArrowSquareOut, ImageSquare, type Icon } from "@phosphor-icons/react";
+import { libraryEpoch, pauseRecording, recording, saved, stopRecording, type Saved } from "../../features/capture/store";
+import { addPendingShot } from "../../features/capture/pending";
+import { openAnnotation } from "../../features/capture/annotationStore";
+import { addToShelf } from "../../features/shelf/ShelfView";
 import { elapsedAt, formatElapsed } from "../../features/capture/clock";
-import { openFile } from "../../platform/services";
+import { capture, openFile } from "../../platform/services";
 import { openOn } from "../nav";
 import { content, pulse } from "../../design/motion";
 import { useNowPlaying } from "../../platform/media";
@@ -52,15 +55,31 @@ const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
 };
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
-/** The capture saved in the last SAVED.showMs (also one taken while the notch was open, for what is left of its time). */
+export const SCREENSHOT_DECISION_MS = 15_000;
+
+/** The capture saved in the last SAVED.showMs (or 15s decision countdown for screenshots). */
 function useSaved(): Saved | null {
   const last = saved.use();
   const [shown, setShown] = useState<Saved | null>(null);
   useEffect(() => {
-    const left = last ? SAVED.showMs - (Date.now() - last.at) : 0;
+    const isShot = last?.kind === "shot";
+    const duration = isShot ? SCREENSHOT_DECISION_MS : SAVED.showMs;
+    const left = last ? duration - (Date.now() - last.at) : 0;
     if (!last || left <= 0) return setShown(null);
     setShown(last);
-    const id = window.setTimeout(() => setShown(null), left);
+    const id = window.setTimeout(() => {
+      // Auto-move ignored screenshot to 24-hour staging shelf
+      if (last.kind === "shot") {
+        addPendingShot({
+          path: last.path,
+          thumb: last.thumb,
+          width: last.width ?? 0,
+          height: last.height ?? 0,
+        });
+      }
+      setShown(null);
+      saved.set(null);
+    }, left);
     return () => window.clearTimeout(id);
   }, [last]);
   return shown;
@@ -195,28 +214,103 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
       </span>
     );
   } else if (kind === "saved" && shot) {
-    const label = shot.cut ? t("Aufnahme vorzeitig beendet") : shot.kind === "shot" ? t("Bildschirmfoto gespeichert") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
-    const Icon = shot.kind === "audio" ? Waveform : shot.kind === "shot" ? ImageSquare : FilmStrip;
-    ({ width, height, key, body } = noticeCard(
-      {
-        key: `saved:${shot.at}`,
-        image: shot.thumb ? <img src={shot.thumb} alt="" draggable={false} className="shrink-0 rounded-[6px] object-cover" style={{ width: THUMB_W, height: THUMB_H }} /> : undefined,
-        imageWidth: shot.thumb ? THUMB_W : undefined,
-        icon: <Icon size={16} weight="fill" />,
-        hue: shot.cut ? "orange" : "cyan",
-        title: label,
-        text: shot.path.split(/[\\/]/).pop(),
-        // The card opens the tool that took it, its button the file itself.
-        onOpen: () => openOn(shot.kind === "audio" ? "recorder" : "capture"),
-        actionsWidth: REC_BUTTON,
-        actions: (
-          <NoticeButton label={t("Öffnen")} onClick={() => void openFile(shot.path)}>
-            <ArrowSquareOut size={12} weight="bold" />
-          </NoticeButton>
-        ),
-      },
-      max,
-    ));
+    if (shot.kind === "shot") {
+      const dimensionText = shot.width && shot.height ? `${shot.width} × ${shot.height}` : shot.path.split(/[\\/]/).pop() ?? "";
+      const actionsW = 4 * REC_BUTTON + 12;
+      ({ width, height, key, body } = noticeCard(
+        {
+          key: `saved:${shot.at}`,
+          image: shot.thumb ? (
+            <img
+              src={shot.thumb}
+              alt=""
+              draggable={false}
+              className="shrink-0 rounded-[6px] object-cover border border-separator/40"
+              style={{ width: THUMB_W, height: THUMB_H }}
+            />
+          ) : undefined,
+          imageWidth: shot.thumb ? THUMB_W : undefined,
+          icon: <ImageSquare size={16} weight="fill" />,
+          hue: "cyan",
+          title: t("Bildschirmfoto"),
+          text: dimensionText,
+          countdownSec: 15,
+          onOpen: () => openOn("capture"),
+          actionsWidth: actionsW,
+          actions: (
+            <div className="flex items-center gap-1">
+              <NoticeButton
+                label={t("Bearbeiten")}
+                onClick={() => {
+                  openAnnotation({
+                    path: shot.path,
+                    name: shot.path.split(/[\\/]/).pop() ?? "Screenshot.png",
+                    thumb: shot.thumb,
+                    width: shot.width,
+                    height: shot.height,
+                  });
+                  openOn("capture");
+                  saved.set(null);
+                }}
+              >
+                <PencilSimple size={12} weight="bold" />
+              </NoticeButton>
+              <NoticeButton
+                label={t("Kopieren")}
+                onClick={() => {
+                  void navigator.clipboard.writeText(shot.path);
+                }}
+              >
+                <Copy size={12} weight="bold" />
+              </NoticeButton>
+              <NoticeButton
+                label={t("Jetzt löschen")}
+                onClick={() => {
+                  void capture.remove(shot.path);
+                  saved.set(null);
+                  libraryEpoch.set((n) => n + 1);
+                }}
+              >
+                <Trash size={12} weight="bold" className="text-red" />
+              </NoticeButton>
+              <NoticeButton
+                label={t("Behalten")}
+                onClick={() => {
+                  if (settings.get().capture.shelf) addToShelf([shot.path]);
+                  saved.set(null);
+                }}
+              >
+                <Check size={12} weight="bold" className="text-green" />
+              </NoticeButton>
+            </div>
+          ),
+        },
+        max,
+      ));
+    } else {
+      const label = shot.cut ? t("Aufnahme vorzeitig beendet") : shot.kind === "audio" ? t("Tonaufnahme gespeichert") : t("Aufnahme gespeichert");
+      const Icon = shot.kind === "audio" ? Waveform : FilmStrip;
+      ({ width, height, key, body } = noticeCard(
+        {
+          key: `saved:${shot.at}`,
+          image: shot.thumb ? <img src={shot.thumb} alt="" draggable={false} className="shrink-0 rounded-[6px] object-cover" style={{ width: THUMB_W, height: THUMB_H }} /> : undefined,
+          imageWidth: shot.thumb ? THUMB_W : undefined,
+          icon: <Icon size={16} weight="fill" />,
+          hue: shot.cut ? "orange" : "cyan",
+          title: label,
+          text: shot.path.split(/[\\/]/).pop(),
+          // The card opens the tool that took it, its button the file itself.
+          onOpen: () => openOn(shot.kind === "audio" ? "recorder" : "capture"),
+          actionsWidth: REC_BUTTON,
+          actions: (
+            <NoticeButton label={t("Öffnen")} onClick={() => void openFile(shot.path)}>
+              <ArrowSquareOut size={12} weight="bold" />
+            </NoticeButton>
+          ),
+        },
+        max,
+      ));
+    }
   } else if (kind === "download" && download) {
     ({ width, height, key, body } = downloadNotice(download, max));
   } else if (kind === "timer") {

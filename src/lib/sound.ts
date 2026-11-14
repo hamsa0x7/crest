@@ -2,6 +2,7 @@
  * Alarm sounds via WebAudio, no audio files needed. Classic alarm patterns:
  * each pattern is a short phrase repeated up to the chosen duration.
  */
+
 export type AlarmSound = "chime" | "bell" | "digital" | "radar" | "marimba" | "soft";
 /** Seconds; 0 = once, -1 = until stopped (max. 2 minutes). */
 export type AlarmDuration = 0 | 5 | 15 | 30 | -1;
@@ -294,4 +295,178 @@ export function alarmRinging(): boolean {
 
 export function stopAlarm() {
   stopCurrent?.();
+}
+
+export interface AcousticsConfig {
+  enabled: boolean;
+  volume: number;
+  mechanicalClicks: boolean;
+  springWhoosh: boolean;
+  chimes: boolean;
+}
+
+let acousticsGetter: (() => AcousticsConfig) | null = null;
+export function setAcousticsProvider(fn: () => AcousticsConfig) {
+  acousticsGetter = fn;
+}
+
+function getAcoustics(): AcousticsConfig {
+  if (acousticsGetter) return acousticsGetter();
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem("notch:settings") : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.acoustics) return parsed.acoustics;
+    }
+  } catch {
+    // ignore
+  }
+  return { enabled: true, volume: 0.6, mechanicalClicks: true, springWhoosh: true, chimes: true };
+}
+
+/** Crisp mechanical tactile switch click on tab navigation. */
+export function playMechanicalClick(vol?: number) {
+  try {
+    const s = getAcoustics();
+    if (s && (!s.enabled || !s.mechanicalClicks)) return;
+    const v = vol ?? s?.volume ?? 0.5;
+    if (v <= 0) return;
+    ctx ??= new AudioContext();
+    const c = ctx;
+    void c.resume();
+    const out = c.createGain();
+    out.gain.value = v * 0.7;
+    out.connect(c.destination);
+    const start = c.currentTime + 0.005;
+    const notes: Note[] = [
+      { freq: 2800, noise: "bandpass", q: 3.0, at: 0, decay: 0.018, attack: 0.001, gain: 0.8 },
+      { freq: 140, to: 75, glide: 0.02, at: 0, decay: 0.035, attack: 0.001, gain: 0.5 },
+    ];
+    notes.forEach((n) => voice(c, out, n, start + n.at));
+    window.setTimeout(() => {
+      out.disconnect();
+      settle();
+    }, 100);
+  } catch {
+    // Ignore audio context errors
+  }
+}
+
+/** Soft spring whoosh on panel expand and collapse. */
+export function playSpringWhoosh(dir: "expand" | "collapse", vol?: number) {
+  try {
+    const s = getAcoustics();
+    if (s && (!s.enabled || !s.springWhoosh)) return;
+    const v = vol ?? s?.volume ?? 0.5;
+    if (v <= 0) return;
+    ctx ??= new AudioContext();
+    const c = ctx;
+    void c.resume();
+    const out = c.createGain();
+    out.gain.value = v * 0.45;
+    out.connect(c.destination);
+    const start = c.currentTime + 0.005;
+    const n: Note = dir === "expand"
+      ? { freq: 220, to: 520, glide: 0.11, noise: "bandpass", q: 1.2, at: 0, decay: 0.12, attack: 0.015, gain: 0.5 }
+      : { freq: 480, to: 180, glide: 0.10, noise: "bandpass", q: 1.2, at: 0, decay: 0.11, attack: 0.008, gain: 0.45 };
+    voice(c, out, n, start);
+    window.setTimeout(() => {
+      out.disconnect();
+      settle();
+    }, 160);
+  } catch {
+    // Ignore
+  }
+}
+
+/** Distinct multi-harmonic chime for timer completion. */
+export function playTimerChime(vol?: number) {
+  try {
+    const s = getAcoustics();
+    if (s && (!s.enabled || !s.chimes)) return;
+    const v = vol ?? s?.volume ?? 0.5;
+    if (v <= 0) return;
+    ctx ??= new AudioContext();
+    const c = ctx;
+    void c.resume();
+    const out = c.createGain();
+    out.gain.value = v * 0.8;
+    out.connect(c.destination);
+    const start = c.currentTime + 0.01;
+    const notes: Note[] = [
+      { freq: 659.25, at: 0, decay: 0.6, partials: [[2, 0.25]], gain: 0.7 },
+      { freq: 830.61, at: 0.10, decay: 0.7, partials: [[2, 0.25]], gain: 0.75 },
+      { freq: 987.77, at: 0.20, decay: 0.8, partials: [[2, 0.25]], gain: 0.8 },
+      { freq: 1318.51, at: 0.32, decay: 1.2, partials: [[2, 0.2]], gain: 0.9 },
+    ];
+    notes.forEach((n) => voice(c, out, n, start + n.at));
+    window.setTimeout(() => {
+      out.disconnect();
+      settle();
+    }, 1600);
+  } catch {
+    // Ignore
+  }
+}
+
+/** Chimes for Pomodoro phase transitions (focus -> break or break -> focus). */
+export function playPomodoroTransition(toBreak: boolean, vol?: number) {
+  try {
+    const s = getAcoustics();
+    if (s && (!s.enabled || !s.chimes)) return;
+    const v = vol ?? s?.volume ?? 0.5;
+    if (v <= 0) return;
+    ctx ??= new AudioContext();
+    const c = ctx;
+    void c.resume();
+    const out = c.createGain();
+    out.gain.value = v * 0.75;
+    out.connect(c.destination);
+    const start = c.currentTime + 0.01;
+    const notes: Note[] = toBreak
+      ? [
+          { freq: 698.46, at: 0, decay: 0.5, partials: [[2, 0.2]], gain: 0.7 },
+          { freq: 587.33, at: 0.12, decay: 0.6, partials: [[2, 0.2]], gain: 0.75 },
+          { freq: 440.00, at: 0.24, decay: 1.0, partials: [[2, 0.2]], gain: 0.8 },
+        ]
+      : [
+          { freq: 783.99, at: 0, decay: 0.3, partials: [[2, 0.2]], gain: 0.75 },
+          { freq: 1046.50, at: 0.12, decay: 0.8, partials: [[2, 0.2]], gain: 0.85 },
+        ];
+    notes.forEach((n) => voice(c, out, n, start + n.at));
+    window.setTimeout(() => {
+      out.disconnect();
+      settle();
+    }, 1300);
+  } catch {
+    // Ignore
+  }
+}
+
+/** Soft warning chime when battery is low or critical. */
+export function playLowBatteryChime(vol?: number) {
+  try {
+    const s = getAcoustics();
+    if (s && (!s.enabled || !s.chimes)) return;
+    const v = vol ?? s?.volume ?? 0.5;
+    if (v <= 0) return;
+    ctx ??= new AudioContext();
+    const c = ctx;
+    void c.resume();
+    const out = c.createGain();
+    out.gain.value = v * 0.7;
+    out.connect(c.destination);
+    const start = c.currentTime + 0.01;
+    const notes: Note[] = [
+      { freq: 493.88, at: 0, decay: 0.22, type: "triangle", gain: 0.8 },
+      { freq: 369.99, at: 0.18, decay: 0.45, type: "triangle", gain: 0.85 },
+    ];
+    notes.forEach((n) => voice(c, out, n, start + n.at));
+    window.setTimeout(() => {
+      out.disconnect();
+      settle();
+    }, 700);
+  } catch {
+    // Ignore
+  }
 }

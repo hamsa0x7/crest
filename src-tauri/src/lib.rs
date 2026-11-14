@@ -532,6 +532,10 @@ pub fn run() {
             #[cfg(windows)]
             capture::capture_delete,
             #[cfg(windows)]
+            capture::capture_read_image,
+            #[cfg(windows)]
+            capture::capture_save_image,
+            #[cfg(windows)]
             capture::find::find_scan,
             #[cfg(windows)]
             capture::find::find_highlight,

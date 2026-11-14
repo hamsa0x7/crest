@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
-import { playAlarm, stopAlarm } from "../../lib/sound";
+import { playAlarm, playPomodoroTransition, playTimerChime, stopAlarm } from "../../lib/sound";
 import { settings } from "../../settings/store";
 import { focusSoundFor, setFocusSound } from "./focusSound";
 
@@ -58,6 +58,7 @@ export const timerActions = {
     timer.set((s) => {
       if (!s.finished) return s;
       const mode: TimerMode = s.mode === "focus" ? "break" : "focus";
+      playPomodoroTransition(mode === "break");
       const duration = s.custom?.[mode] ?? (mode === "break" ? presets.break[0] : presets.focus[1]);
       return { ...s, mode, duration, remaining: duration, endsAt: null, finished: false };
     });
@@ -103,6 +104,7 @@ function checkEnd() {
     if (Date.now() - s.endsAt > STALE_MS) return;
     const { sound, volume, duration: ring } = settings.get().alarm;
     playAlarm(sound, volume, ring);
+    playTimerChime();
     ringing.set(true);
     window.clearTimeout(ringTimeout);
     // Same length as in playAlarm ("until stopped" = at most 2 min).

@@ -774,6 +774,50 @@ pub fn capture_delete(path: String, app: AppHandle) -> Result<(), String> {
     }
 }
 
+/// Reads an image from disk as a PNG base64 data URL for the on-screen annotation canvas.
+#[tauri::command(async)]
+pub fn capture_read_image(path: String) -> Result<String, String> {
+    use base64::Engine;
+    let p = Path::new(&path);
+    let ext_ok = p.extension().is_some_and(|x| ["png", "jpg", "jpeg"].iter().any(|e| x.eq_ignore_ascii_case(e)));
+    if !ext_ok || !p.is_file() {
+        return Err("not-found".into());
+    }
+    let bytes = std::fs::read(p).map_err(|e| e.to_string())?;
+    Ok(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Saves an edited/annotated image (PNG data URL) back to disk and updates the clipboard.
+#[tauri::command(async)]
+pub fn capture_save_image(path: String, data_url: String) -> Result<String, String> {
+    use base64::Engine;
+    let b64 = data_url.split_once(',').map(|(_, b)| b).unwrap_or(&data_url);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| e.to_string())?;
+    let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?.to_rgba8();
+
+    let p = Path::new(&path);
+    let file = std::io::BufWriter::new(std::fs::File::create(p).map_err(|e| e.to_string())?);
+    let encoder = image::codecs::png::PngEncoder::new_with_quality(
+        file,
+        image::codecs::png::CompressionType::Fast,
+        image::codecs::png::FilterType::Adaptive,
+    );
+    img.write_with_encoder(encoder).map_err(|e| e.to_string())?;
+
+    let _ = arboard::Clipboard::new().and_then(|mut c| {
+        c.set_image(arboard::ImageData {
+            width: img.width() as usize,
+            height: img.height() as usize,
+            bytes: img.as_raw().into(),
+        })
+    });
+
+    let thumb = crate::clipboard::thumbnail(&img).unwrap_or_default();
+    Ok(thumb)
+}
+
 #[cfg(test)]
 mod affinity_tests {
     use super::*;
