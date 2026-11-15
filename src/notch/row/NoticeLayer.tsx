@@ -36,14 +36,17 @@ import { fontEpoch, measureText } from "./measure";
 import { Marquee } from "./Marquee";
 import { NOTICE_BUTTON as REC_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { Ring } from "./parts/Rings";
-import { asks, popping } from "../../features/notices/store";
+import { asks, popping, dismissPop, answerAsk } from "../../features/notices/store";
 import { askNotice } from "../../features/notices/AskNotice";
 import { noticePop } from "../../features/notices/NoticePop";
 import { presentingNow, usePresenting } from "../../features/privacy/store";
 import { detectReset, newResetTracker, resetAlertAllowed } from "../../features/usage/reset";
-import { finishedDownload } from "../../features/downloads/store";
+import { finishedDownload, dismissDownload } from "../../features/downloads/store";
 import { downloadNotice } from "../../features/downloads/DownloadNotice";
+import { opened, dismissWhatsNew } from "../../features/whatsnew/store";
 import { noticeCard } from "./NoticeCard";
+import { GestureNotice } from "./GestureNotice";
+import { triggerSuccessDroplet } from "../ferrofluid";
 
 const ICON = 17, GAP = 6, QUOTA_RING = 14, NAME_MAX = 76, REC_DOT = 8, THUMB_W = 56, THUMB_H = 32, LEVEL_BAR = 56, ROW_H = 30;
 /** The card's way in, after the shape has started growing; the overshoot is an entrance only, it leaves with a plain fade. */
@@ -56,6 +59,39 @@ const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
 const TONE = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" } as const;
 
 export const SCREENSHOT_DECISION_MS = 15_000;
+
+function dismissNoticeKind(kind: string) {
+  if (kind === "saved") {
+    const last = saved.get();
+    if (last?.kind === "shot") {
+      addPendingShot({
+        path: last.path,
+        thumb: last.thumb,
+        width: last.width ?? 0,
+        height: last.height ?? 0,
+      });
+    }
+    saved.set(null);
+  } else if (kind === "download") {
+    dismissDownload();
+  } else if (kind === "notice") {
+    dismissPop();
+  } else if (kind === "status") {
+    statusAlert.set(null);
+  } else if (kind === "timer") {
+    timerActions.dismiss();
+  } else if (kind === "water") {
+    waterDue.set(false);
+  } else if (kind === "breaks") {
+    breakShown.set(null);
+  } else if (kind === "whatsnew") {
+    const news = opened.get();
+    if (news) dismissWhatsNew(news);
+  } else if (kind === "ask") {
+    const a = asks.get()[0];
+    if (a) answerAsk(a.id, null);
+  }
+}
 
 /** The capture saved in the last SAVED.showMs (or 15s decision countdown for screenshots). */
 function useSaved(): Saved | null {
@@ -277,6 +313,7 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
                 label={t("Behalten")}
                 onClick={() => {
                   if (settings.get().capture.shelf) addToShelf([shot.path]);
+                  triggerSuccessDroplet();
                   saved.set(null);
                 }}
               >
@@ -419,7 +456,13 @@ export function NoticeLayer({ max, scale, onSize, urgentOnly }: { max: number; s
             animate={card ? { opacity: 1, transform: "scale(1)", transition: CARD_IN } : { opacity: 1, transition: content.enter }}
             exit={{ opacity: 0, transition: content.exit }}
           >
-            {body}
+            {kind === "recording" ? (
+              body
+            ) : (
+              <GestureNotice onDismiss={() => dismissNoticeKind(kind)} className="flex h-full w-full items-center justify-center">
+                {body}
+              </GestureNotice>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

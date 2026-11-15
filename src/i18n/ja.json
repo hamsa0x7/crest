@@ -1918,5 +1918,15 @@
  "Zweite Farbe vom Bildschirm wählen": "2色目を画面から選択",
  "Zweiter Text": "2番目のテキスト",
  "Zwischenablage": "クリップボード",
- "Zwischenablage belegt, nochmal versuchen": "クリップボードが使用中です。もう一度お試しください"
+ "Zwischenablage belegt, nochmal versuchen": "クリップボードが使用中です。もう一度お試しください",
+ "Magnetisches Dehnen": "磁気ストレッチ",
+ "Unterer Rand streckt sich dem herannahenden Mauszeiger entgegen": "カーソルが近づくと下端が有機的に伸びます",
+ "Equalizer-Spitzen": "イコライザースパイク",
+ "Unterer Rand pulsiert im Takt der Musik, passend zum Album gefärbt": "下端がアルバム色で音楽周波数に合わせて波打ちます",
+ "Erfolgs-Tropfen": "成功の滴",
+ "Flüssiger Perlen-Tropfen löst sich bei abgeschlossenen Aktionen": "アクション完了時に滑らかな液滴が滴り落ちます",
+ "Ruhe-Durchhängen": "アイドル時のたわみ",
+ "Kapsel hängt nach 5 Minuten Inaktivität sanft entspannt durch": "5分間の無操作後にカプセルが優しく下にたわみます",
+ "Wetter-Tropfen": "天候ドリップ",
+ "Subtile Wassertropfen und Flocken tropfen vom Rand bei Niederschlag": "降水時に繊細な雨粒や雪片が縁から滴ります"
 }

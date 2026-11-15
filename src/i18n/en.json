@@ -1918,5 +1918,15 @@
  "Zweite Farbe vom Bildschirm wählen": "Pick the second colour from the screen",
  "Zweiter Text": "Secondary text",
  "Zwischenablage": "Clipboard",
- "Zwischenablage belegt, nochmal versuchen": "Clipboard busy, try again"
+ "Zwischenablage belegt, nochmal versuchen": "Clipboard busy, try again",
+ "Magnetisches Dehnen": "Magnetic stretch",
+ "Unterer Rand streckt sich dem herannahenden Mauszeiger entgegen": "Lower rim physically stretches downward toward the approaching cursor",
+ "Equalizer-Spitzen": "Equalizer spikes",
+ "Unterer Rand pulsiert im Takt der Musik, passend zum Album gefärbt": "Lower edge pulses to the rhythm of music frequencies, tinted to match album art",
+ "Erfolgs-Tropfen": "Success droplet",
+ "Flüssiger Perlen-Tropfen löst sich bei abgeschlossenen Aktionen": "Liquid droplet bead pinches off and drops when actions complete",
+ "Ruhe-Durchhängen": "Idle sagging",
+ "Kapsel hängt nach 5 Minuten Inaktivität sanft entspannt durch": "Capsule gently sags downward with relaxed fluid physics after 5 minutes of inactivity",
+ "Wetter-Tropfen": "Weather drips",
+ "Subtile Wassertropfen und Flocken tropfen vom Rand bei Niederschlag": "Subtle animated raindrops and snowflakes drip from the rim during precipitation"
 }

@@ -4,6 +4,7 @@ import { settings } from "../../settings/store";
 import { fullscreen } from "../system/gaming";
 import { presentingNow } from "../privacy/store";
 import { playLowBatteryChime } from "../../lib/sound";
+import { playChime } from "../../lib/chime";
 import { t } from "../../i18n";
 import { STATUS, btAlert, levelAlert, lockAlert, micAlert, netAlert, osdArmed, osdHidden, powerAlert, mergeSeed, type LowBattery, type PowerState, type StatusAlert } from "../../notch/row/status";
 
@@ -53,10 +54,14 @@ export function startStatusWatch() {
       const alert = powerAlert(power, next, low, t);
       if (power && power.ac !== next.ac) {
         chargerEvent.set({ active: true, charging: next.ac, percent: next.percent });
+        if (next.ac) playChime("info");
       }
       power = next;
       powerState.set(next);
-      if (alert && alert.tone !== "normal") playLowBatteryChime();
+      if (alert && alert.tone !== "normal") {
+        playLowBatteryChime();
+        playChime(alert.tone === "critical" ? "error" : "warning");
+      }
       const on = settings.get().closed.statusAlerts.power;
       // A low-battery warning dropped for a fullscreen app is not used up: the next reading gives it again.
       if (!show(alert, on) && on && alert && alert.tone !== "normal") Object.assign(low, before);

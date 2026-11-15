@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { quotaLevel, newQuotaTracker, detectRise, armTrack, observeTrack, topNotice } from "./notices.ts";
+import { quotaLevel, newQuotaTracker, detectRise, armTrack, observeTrack, topNotice, cardTitleWithCount } from "./notices.ts";
 
 const p = (used: number, error: string | null = null) => [{ id: "claude" as const, plan: null, error, updatedAt: 0, windows: [{ kind: "session", usedPercent: used, resetsAt: null, windowSecs: null }] }];
 
@@ -46,4 +46,10 @@ test("priority", () => {
   assert.equal(topNotice({ ...none, water: true, whatsnew: true }), "water");
   assert.equal(topNotice({ ...none, whatsnew: true }), "whatsnew");
   assert.equal(topNotice(none), null);
+});
+
+test("cardTitleWithCount formats title with multiplier badge", () => {
+  assert.equal(cardTitleWithCount("Saved"), "Saved");
+  assert.equal(cardTitleWithCount("Saved", 1), "Saved");
+  assert.equal(cardTitleWithCount("Saved", 3), "Saved ×3");
 });

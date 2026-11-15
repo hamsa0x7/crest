@@ -5,6 +5,8 @@ import { across, uprightCss, type Edge } from "./edge";
 import { GlassLayer, type GlassMode } from "./glass/GlassLayer";
 
 import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset, type RimEffect } from "./rim";
+import { computeFerrofluidPerimeterPath } from "./ferrofluid";
+import { FerrofluidLayer } from "./FerrofluidLayer";
 
 interface Props {
   geometry: NotchGeometry;
@@ -40,6 +42,16 @@ interface Props {
   top?: MotionValue<number>;
   /** The open panel hangs from the edge (not a floating capsule's): the glass keeps the closed notch's colour under its header. */
   hangs?: boolean;
+  /** Ferrofluid liquid physics: organic lower edge stretch. */
+  ferrofluidStretch?: boolean;
+  stretchOffset?: MotionValue<number>;
+  stretchX?: MotionValue<number>;
+  sagOffset?: MotionValue<number>;
+  spikes?: readonly number[];
+  dropletBead?: boolean;
+  weatherDrips?: boolean;
+  isPrecipitating?: boolean;
+  precipType?: "rain" | "snow";
   children?: ReactNode;
 }
 
@@ -80,6 +92,15 @@ export function NotchShape({
   refractiveHighlight = true,
   shaking = false,
   lockFeedback = null,
+  ferrofluidStretch = true,
+  stretchOffset,
+  stretchX,
+  sagOffset,
+  spikes = [],
+  dropletBead = true,
+  weatherDrips = true,
+  isPrecipitating = false,
+  precipType = "rain",
   children,
 }: Props) {
   const fallbackTop = useMotionValue(0);
@@ -93,6 +114,13 @@ export function NotchShape({
   
   const baseShape = elevated ? "var(--color-notch)" : "var(--notch-closed)";
   const shapeColor = getFrostedShapeColor(baseShape, frostedGlass, glassOpacity);
+
+  const fallbackStretchOffset = useMotionValue(0);
+  const fallbackStretchX = useMotionValue(geometry.w / 2);
+  const fallbackSagOffset = useMotionValue(0);
+  const activeStretchOffset = stretchOffset ?? fallbackStretchOffset;
+  const activeStretchX = stretchX ?? fallbackStretchX;
+  const activeSagOffset = sagOffset ?? fallbackSagOffset;
 
   const w = useMotionValue(shouldBirth ? 34 : geometry.w);
   const h = useMotionValue(shouldBirth ? 34 : geometry.h);
@@ -108,8 +136,36 @@ export function NotchShape({
   const wPx = useTransform(w, snap);
   const hPx = useTransform(h, thin ? whole : snap);
   const earDisplay = useTransform(ear, (v) => (v > 0.5 ? "block" : "none"));
-  const rimPathD = useTransform([w, h, r, ear, rt], ([wVal, hVal, rVal, earVal, rtVal]) =>
-    computeNotchPerimeterPath(Number(wVal), Number(hVal), Number(rVal), Number(earVal), Number(rtVal))
+
+  const rimPathD = useTransform(
+    [w, h, r, ear, rt, activeStretchOffset, activeStretchX, activeSagOffset],
+    ([wVal, hVal, rVal, earVal, rtVal, sOffVal, sXVal, sagVal]) => {
+      const sOff = Number(sOffVal);
+      const sX = Number(sXVal);
+      const sag = Number(sagVal);
+      if (!elevated && ferrofluidStretch && (sOff > 0.1 || sag > 0.1 || (spikes && spikes.length > 0))) {
+        return computeFerrofluidPerimeterPath(
+          Number(wVal),
+          Number(hVal),
+          Number(rVal),
+          Number(earVal),
+          Number(rtVal),
+          {
+            stretchOffset: sOff,
+            stretchX: sX,
+            sagOffset: sag,
+            spikes: spikes ?? [],
+          }
+        );
+      }
+      return computeNotchPerimeterPath(
+        Number(wVal),
+        Number(hVal),
+        Number(rVal),
+        Number(earVal),
+        Number(rtVal)
+      );
+    }
   );
 
   const first = useRef(true);
@@ -397,6 +453,40 @@ export function NotchShape({
           {edge === "top" ? children : <Upright edge={edge}>{children}</Upright>}
         </motion.div>
       </motion.div>
+
+      {/* Ferrofluid Liquid SVG Base Path: ensures continuous liquid belly, spikes, and sag fill */}
+      {!elevated && (
+        <motion.svg
+          aria-hidden
+          className="absolute inset-0 pointer-events-none overflow-visible -z-1"
+          style={{ width: "100%", height: "100%" }}
+        >
+          <motion.path d={rimPathD} fill="var(--shape)" />
+          {spikes && spikes.length > 0 && (
+            <motion.path
+              d={rimPathD}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              style={{
+                filter: "drop-shadow(0 0 3px var(--accent))",
+              }}
+            />
+          )}
+        </motion.svg>
+      )}
+
+      {/* Ferrofluid Liquid Droplet Beads & Environmental Precipitation Drips */}
+      <FerrofluidLayer
+        width={geometry.w}
+        height={geometry.h}
+        dropletBeadEnabled={dropletBead}
+        weatherDripsEnabled={weatherDrips}
+        isPrecipitating={isPrecipitating}
+        precipType={precipType}
+        tintColor="var(--accent)"
+      />
     </motion.div>
   );
 }

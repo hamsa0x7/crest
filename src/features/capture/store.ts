@@ -2,6 +2,7 @@ import { createStore } from "../../lib/store";
 import { capture, type CaptureRecState } from "../../platform/services";
 import { isNative } from "../../platform/native";
 import { demo } from "../../dev/showcase-data";
+import { playChime } from "../../lib/chime";
 import type { RecClock } from "./clock";
 
 /*
@@ -30,7 +31,10 @@ export const libraryEpoch = createStore(0);
 function apply(s: CaptureRecState) {
   recording.set({ phase: s.phase, elapsedMs: s.elapsedMs, at: Date.now(), failed: s.failed, audio: s.audio });
   if (s.phase === "idle" && s.path) {
-    if (!s.failed.includes("save")) saved.set({ kind: s.audio ? "audio" : "video", path: s.path, thumb: null, cut: s.failed.some((f) => f === "video" || f === "disk" || f === "partial"), at: Date.now() });
+    if (!s.failed.includes("save")) {
+      saved.set({ kind: s.audio ? "audio" : "video", path: s.path, thumb: null, cut: s.failed.some((f) => f === "video" || f === "disk" || f === "partial"), at: Date.now() });
+      playChime("success");
+    }
     libraryEpoch.set((n) => n + 1);
   }
 }
@@ -53,6 +57,7 @@ export async function takeShot(mode: "all" | "monitor" | "region", monitor: stri
     at: Date.now(),
   });
   libraryEpoch.set((n) => n + 1);
+  playChime("success");
 }
 
 export async function startRecording(source: string, fps: number, mic: boolean, system: boolean, border: boolean) {

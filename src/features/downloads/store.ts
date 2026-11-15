@@ -3,6 +3,8 @@ import { downloadWatch, type DownloadFinished, type DownloadProgress } from "../
 import { settings } from "../../settings/store";
 import { presentingNow } from "../privacy/store";
 import { inQuiet } from "../notices/rules";
+import { triggerSuccessDroplet } from "../../notch/ferrofluid";
+import { playChime } from "../../lib/chime";
 
 /*
  * Downloads in the Downloads folder (downloads.rs): the ones running, for the closed row's Downloads part, and the one just
@@ -28,6 +30,8 @@ function finished(d: DownloadFinished) {
   // The notices' quiet hours and presentation mode keep it quiet: a file name can be private.
   if (!closed.downloadAlerts || presentingNow() || (notices.quiet.on && inQuiet(now.getHours() * 60 + now.getMinutes(), notices.quiet.from, notices.quiet.to))) return;
   finishedDownload.set({ ...d, at: Date.now() });
+  triggerSuccessDroplet();
+  playChime("success");
   window.clearTimeout(hideTimer);
   hideTimer = window.setTimeout(() => finishedDownload.set(null), DOWNLOAD_SHOW_MS);
 }

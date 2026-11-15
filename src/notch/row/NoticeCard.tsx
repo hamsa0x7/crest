@@ -4,6 +4,7 @@ import { HUE_PALETTE } from "../../features/themes/themes";
 import type { Hue } from "../../features/themes/hues";
 import { CAPTION_FONT, ROW_FONT, measureText } from "./measure";
 import { Marquee } from "./Marquee";
+import { cardTitleWithCount } from "./notices";
 
 /*
  * A notice as a card in the closed notch: its icon in a circle tinted with the notice's colour, a title,
@@ -40,6 +41,8 @@ export interface CardSpec {
   actionsWidth?: number;
   /** Active countdown progress bar duration in seconds. */
   countdownSec?: number;
+  /** Multiple duplicate notifications counter badge, e.g. ×2, ×3 (adapted from ding). */
+  count?: number;
   /** A click on the icon or the text. Not stopped, so the notch also opens, unless the handler stops it (it opens an app instead). */
   onOpen?: (e: MouseEvent) => void;
   /** No colour line along the bottom edge: an app's notice, whose icon already says where it comes from (issue #31). */
@@ -65,7 +68,8 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
   const lead = spec.image ? (spec.imageWidth ?? ICON_BOX) : ICON_BOX;
   const actions = spec.actions ? GAP + (spec.actionsWidth ?? 0) : 0;
   // The title is semibold, wider than the row's medium.
-  const titleW = measureText(spec.title, ROW_FONT.replace(/^500/, "600")), textW = spec.text ? measureText(spec.text, CAPTION_FONT) : 0;
+  const measuredTitle = cardTitleWithCount(spec.title, spec.count);
+  const titleW = measureText(measuredTitle, ROW_FONT.replace(/^500/, "600")), textW = spec.text ? measureText(spec.text, CAPTION_FONT) : 0;
   const room = Math.max(TEXT_MIN, Math.min(TEXT_MAX, max - 2 * PAD - lead - GAP - actions));
   const column = Math.min(room, Math.max(titleW, textW));
   const tint = spec.color ?? tintOf(spec.hue);
@@ -82,7 +86,14 @@ export function noticeCard(spec: CardSpec, max: number): { width: number; height
             </span>
           )}
           <span className="flex min-w-0 flex-col justify-center" style={{ width: column }}>
-            <span dir="auto" className="truncate text-footnote font-semibold text-label">{spec.title}</span>
+            <span dir="auto" className="flex items-center gap-1.5 truncate text-footnote font-semibold text-label">
+              <span className="truncate">{spec.title}</span>
+              {spec.count && spec.count > 1 ? (
+                <span className="shrink-0 rounded px-1 text-[10px] font-bold text-label-2 bg-fill-2">
+                  ×{spec.count}
+                </span>
+              ) : null}
+            </span>
             {spec.text && <CardText text={spec.text} textWidth={textW} width={column} read={!!spec.read} />}
           </span>
         </button>

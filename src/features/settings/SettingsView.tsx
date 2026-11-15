@@ -957,6 +957,21 @@ function Display() {
       <Row label={t("Start-Animation")} hint={t("Kurze aufsteigende Blase beim Start der App")}>
         <Switch label={t("Start-Animation")} checked={d.birthAnimation} onChange={(birthAnimation) => updateSettings((cur) => ({ display: { ...cur.display, birthAnimation } }))} />
       </Row>
+      <Row label={t("Magnetisches Dehnen")} hint={t("Unterer Rand streckt sich dem herannahenden Mauszeiger entgegen")}>
+        <Switch label={t("Magnetisches Dehnen")} checked={d.ferrofluidStretch} onChange={(ferrofluidStretch) => updateSettings((cur) => ({ display: { ...cur.display, ferrofluidStretch } }))} />
+      </Row>
+      <Row label={t("Equalizer-Spitzen")} hint={t("Unterer Rand pulsiert im Takt der Musik, passend zum Album gefärbt")}>
+        <Switch label={t("Equalizer-Spitzen")} checked={d.ferrofluidSpikes} onChange={(ferrofluidSpikes) => updateSettings((cur) => ({ display: { ...cur.display, ferrofluidSpikes } }))} />
+      </Row>
+      <Row label={t("Erfolgs-Tropfen")} hint={t("Flüssiger Perlen-Tropfen löst sich bei abgeschlossenen Aktionen")}>
+        <Switch label={t("Erfolgs-Tropfen")} checked={d.dropletBead} onChange={(dropletBead) => updateSettings((cur) => ({ display: { ...cur.display, dropletBead } }))} />
+      </Row>
+      <Row label={t("Ruhe-Durchhängen")} hint={t("Kapsel hängt nach 5 Minuten Inaktivität sanft entspannt durch")}>
+        <Switch label={t("Ruhe-Durchhängen")} checked={d.idleSag} onChange={(idleSag) => updateSettings((cur) => ({ display: { ...cur.display, idleSag } }))} />
+      </Row>
+      <Row label={t("Wetter-Tropfen")} hint={t("Subtile Wassertropfen und Flocken tropfen vom Rand bei Niederschlag")}>
+        <Switch label={t("Wetter-Tropfen")} checked={d.weatherDrips} onChange={(weatherDrips) => updateSettings((cur) => ({ display: { ...cur.display, weatherDrips } }))} />
+      </Row>
       <Row label={t("Hover-Vorschau")} hint={t("Kompakte Steuerelemente für Musik und Timer beim Darüberfahren anzeigen")}>
         <Switch label={t("Hover-Vorschau")} checked={d.hoverPeek} onChange={(hoverPeek) => updateSettings((cur) => ({ display: { ...cur.display, hoverPeek } }))} />
       </Row>

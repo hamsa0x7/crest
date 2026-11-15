@@ -1,6 +1,7 @@
 import { createStore } from "../../lib/store";
 import { capture } from "../../platform/services";
 import { addPending, findExpired, removePending, type PendingShot } from "./pendingPure";
+import { triggerSuccessDroplet } from "../../notch/ferrofluid";
 
 export * from "./pendingPure";
 
@@ -22,6 +23,7 @@ export function addPendingShot(shot: {
 /** 1-click Keep: keeps file permanently, runs onKeep hook (e.g. shelf), and removes from staging. */
 export function keepPendingShot(path: string, onKeep?: (path: string) => void) {
   pendingShots.set((cur) => removePending(cur, path));
+  triggerSuccessDroplet();
   onKeep?.(path);
 }
 

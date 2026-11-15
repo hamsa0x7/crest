@@ -50,7 +50,12 @@ export function describe(code: number, day = true): { icon: Icon; text: string; 
 
 const cache = new Map<string, { at: number; data: Forecast }>();
 /** Survives a restart, unlike `cache`: Open-Meteo answers 503 now and then, and an empty card says less than an older forecast. */
-const lastGood = createStore<SavedForecast<Forecast> | null>(null, { persist: "weather-last" });
+export const lastGood = createStore<SavedForecast<Forecast> | null>(null, { persist: "weather-last" });
+
+/** Returns the current weather WMO code if available. */
+export function getCurrentWeatherCode(): number | null {
+  return lastGood.get()?.data.current.code ?? null;
+}
 
 /** The forecast already read for this place, if any: a view that mounts again starts from it instead of empty. */
 export function peekForecast(lat: number, lon: number): Forecast | null {

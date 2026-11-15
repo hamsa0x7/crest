@@ -43,6 +43,11 @@ export const SAVED = { showMs: 4000 } as const;
 // Transient notices (status, live notice, quota, track) rank above the persistent ones (an event about to start, reminder, water): they would expire unseen, while a reminder comes back after them.
 // A question from crest-notify ask comes right after the timer: a coding agent waits on it.
 // A new version or what it changed waits the longest: it is news, never urgent.
+/** Formats a notice title with an optional duplicate multiplier badge string (e.g. "Saved ×3"), adapted from ding. */
+export function cardTitleWithCount(title: string, count?: number): string {
+  return count && count > 1 ? `${title} ×${count}` : title;
+}
+
 export type NoticeKind = "recording" | "timer" | "ask" | "saved" | "download" | "status" | "notice" | "quota" | "track" | "calendar" | "reminder" | "breaks" | "water" | "whatsnew";
 const ORDER: NoticeKind[] = ["recording", "timer", "ask", "saved", "download", "status", "notice", "quota", "track", "calendar", "reminder", "breaks", "water", "whatsnew"];
 export function topNotice(active: Record<NoticeKind, boolean>): NoticeKind | null { return ORDER.find((k) => active[k]) ?? null; }

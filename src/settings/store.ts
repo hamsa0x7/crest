@@ -100,6 +100,11 @@ export interface Settings {
     notchLocked: boolean;
     lockClickThrough: boolean;
     defaultTab: string;
+    ferrofluidStretch: boolean;
+    ferrofluidSpikes: boolean;
+    dropletBead: boolean;
+    idleSag: boolean;
+    weatherDrips: boolean;
   };
   /** What the closed notch row shows: which parts, in which order, and their options. */
   closed: ClosedSettings;
@@ -229,7 +234,8 @@ const defaults: Settings = {
     tabTuck: false, tuckStyle: "eyes",
     tabStripImmunity: true, immunityHeight: 40,
     wheelActivityCycling: true, pressToPin: false,
-    notchLocked: false, lockClickThrough: false, defaultTab: "" },
+    notchLocked: false, lockClickThrough: false, defaultTab: "",
+    ferrofluidStretch: true, ferrofluidSpikes: true, dropletBead: true, idleSag: true, weatherDrips: true },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -426,6 +432,11 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       notchLocked: typeof s.display?.notchLocked === "boolean" ? s.display.notchLocked : defaults.display.notchLocked,
       lockClickThrough: typeof s.display?.lockClickThrough === "boolean" ? s.display.lockClickThrough : defaults.display.lockClickThrough,
       defaultTab: typeof s.display?.defaultTab === "string" ? s.display.defaultTab : defaults.display.defaultTab,
+      ferrofluidStretch: typeof s.display?.ferrofluidStretch === "boolean" ? s.display.ferrofluidStretch : defaults.display.ferrofluidStretch,
+      ferrofluidSpikes: typeof s.display?.ferrofluidSpikes === "boolean" ? s.display.ferrofluidSpikes : defaults.display.ferrofluidSpikes,
+      dropletBead: typeof s.display?.dropletBead === "boolean" ? s.display.dropletBead : defaults.display.dropletBead,
+      idleSag: typeof s.display?.idleSag === "boolean" ? s.display.idleSag : defaults.display.idleSag,
+      weatherDrips: typeof s.display?.weatherDrips === "boolean" ? s.display.weatherDrips : defaults.display.weatherDrips,
     },
     gaming: { ...defaults.gaming, ...s.gaming },
     discord: { ...defaults.discord, ...s.discord },

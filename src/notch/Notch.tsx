@@ -35,6 +35,9 @@ import { toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
 import { sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
+import { calculateFerrofluidStretch, calculateIdleSag } from "./ferrofluid";
+import { subscribeSpectrum } from "../platform/audio";
+import { lastGood } from "../features/weather/store";
 import { notchLocked, lockFeedback, pulseLockFeedback, toggleLock } from "./lock";
 import { CompanionEyes } from "./CompanionEyes";
 import type { GlassMode } from "./glass/GlassLayer";
@@ -89,6 +92,65 @@ export function Notch() {
   const tuckDwellRef = useRef<number | undefined>(undefined);
   const pressHoldTimer = useRef<number | undefined>(undefined);
   const enterImmunityTimer = useRef<number | undefined>(undefined);
+  const np = useNowPlaying();
+
+  // Ferrofluid Liquid Island physics motion values and timers
+  const stretchOffset = useMotionValue(0);
+  const stretchX = useMotionValue(100);
+  const sagOffset = useMotionValue(0);
+  const lastActiveTime = useRef(Date.now());
+  const [spikes, setSpikes] = useState<readonly number[]>([]);
+
+  // Weather precipitation tracking for environmental drips
+  const weather = lastGood.use();
+  const weatherCode = weather?.data.current.code ?? null;
+  const isRain = weatherCode !== null && ((weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82) || weatherCode >= 95);
+  const isSnow = weatherCode !== null && ((weatherCode >= 71 && weatherCode <= 77) || weatherCode === 85 || weatherCode === 86);
+  const isPrecipitating = isRain || isSnow;
+  const precipType: "rain" | "snow" = isSnow ? "snow" : "rain";
+
+  // Audio frequency equalizer spikes subscription
+  useEffect(() => {
+    if (!displaySettings.ferrofluidSpikes || status === "open" || !np?.isPlaying) {
+      setSpikes([]);
+      return;
+    }
+    return subscribeSpectrum((bands) => {
+      setSpikes(bands);
+    });
+  }, [displaySettings.ferrofluidSpikes, status, np?.isPlaying]);
+
+  // Idle pill sagging (relaxed downward droop after 5 minutes of inactivity)
+  useEffect(() => {
+    const onActivity = () => {
+      lastActiveTime.current = Date.now();
+      if (sagOffset.get() > 0) {
+        animate(sagOffset, 0, { duration: 0.35, ease: "easeOut" });
+      }
+    };
+    window.addEventListener("pointermove", onActivity, { passive: true });
+    window.addEventListener("keydown", onActivity, { passive: true });
+    window.addEventListener("wheel", onActivity, { passive: true });
+    window.addEventListener("click", onActivity, { passive: true });
+
+    const interval = window.setInterval(() => {
+      if (displaySettings.idleSag && status !== "open") {
+        const idleMs = Date.now() - lastActiveTime.current;
+        const sag = calculateIdleSag(idleMs);
+        if (sag > 0 && Math.abs(sag - sagOffset.get()) > 0.1) {
+          animate(sagOffset, sag, { duration: 0.8, ease: "easeInOut" });
+        }
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener("pointermove", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      window.removeEventListener("wheel", onActivity);
+      window.removeEventListener("click", onActivity);
+      window.clearInterval(interval);
+    };
+  }, [displaySettings.idleSag, status, sagOffset]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -154,7 +216,6 @@ export function Notch() {
   useLayoutEffect(() => {
     activeTool.set(tab.id);
   }, [tab.id]);
-  const np = useNowPlaying();
   const live = useLiveActivity();
   const accent = useThemedAccent(np?.accent);
   const closedInk = useClosedInk(np?.accent);
@@ -682,6 +743,18 @@ export function Notch() {
           sticky.onPointerMove(e);
           if (status !== "open") {
             pointed.current = { tool: partTarget(e), at: Date.now() };
+            if (displaySettings.ferrofluidStretch && edge === "top") {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const px = e.clientX - rect.left;
+              const py = e.clientY - rect.top;
+              const stretch = calculateFerrofluidStretch(px, py, shape.w, shape.h);
+              if (stretch.active) {
+                stretchOffset.set(stretch.offset);
+                stretchX.set(stretch.x);
+              } else if (stretchOffset.get() > 0) {
+                animate(stretchOffset, 0, { duration: 0.25, ease: "easeOut" });
+              }
+            }
             if (displaySettings.tabTuck && edge === "top") {
               if (e.clientY <= 14 && !isTucked) {
                 setIsTucked(true);
@@ -700,6 +773,9 @@ export function Notch() {
         onPointerEnter={isNative || hoverOff ? undefined : safeOnPointerEnter}
         onPointerLeave={() => {
           pointed.current = { tool: null, at: 0 };
+          if (stretchOffset.get() > 0) {
+            animate(stretchOffset, 0, { duration: 0.3, ease: "easeOut" });
+          }
           safeOnPointerLeave();
         }}
         onClick={onClick}
@@ -731,6 +807,15 @@ export function Notch() {
           refractiveHighlight={displaySettings.refractiveHighlight}
           shaking={shaking}
           lockFeedback={lockFeedbackVal}
+          ferrofluidStretch={displaySettings.ferrofluidStretch}
+          stretchOffset={stretchOffset}
+          stretchX={stretchX}
+          sagOffset={sagOffset}
+          spikes={spikes}
+          dropletBead={displaySettings.dropletBead}
+          weatherDrips={displaySettings.weatherDrips}
+          isPrecipitating={isPrecipitating}
+          precipType={precipType}
         >
           {isTucked && status !== "open" && displaySettings.tuckStyle === "eyes" ? (
             <div className="absolute inset-0 flex items-center justify-center">
