@@ -43,7 +43,7 @@ import {
 } from "@phosphor-icons/react";
 import type { IconName } from "./model";
 
-/** The icons a plugin or a crest-notify part may name; nothing is ever loaded from the plugin for the dock. */
+/** The icons a plugin or a cupcake-notify part may name; nothing is ever loaded from the plugin for the dock. */
 export const PLUGIN_ICONS: Record<IconName, Icon> = {
   puzzle: PuzzlePiece,
   star: Star,

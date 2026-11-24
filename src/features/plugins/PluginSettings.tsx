@@ -12,9 +12,9 @@ import { MarketplaceView } from "./MarketplaceView";
 /** Install errors from Rust (plugins.rs), some with the file name after a colon. */
 const errors: Record<string, string> = {
   "not-found": "Ordner oder Datei nicht gefunden",
-  "no-manifest": "Keine crest-plugin.json gefunden",
-  "manifest-json": "crest-plugin.json ist ungültig",
-  "manifest-size": "crest-plugin.json ist zu groß",
+  "no-manifest": "Keine cupcake-plugin.json gefunden",
+  "manifest-json": "cupcake-plugin.json ist ungültig",
+  "manifest-size": "cupcake-plugin.json ist zu groß",
   id: "Ungültige Plugin-ID",
   name: "Ungültiger Name",
   version: "Ungültige Version (erwartet 1.2.3)",
@@ -116,7 +116,7 @@ export function PluginSettings() {
             })}
             <Row
               label={list.length ? t("Manuell hinzufügen") : t("Noch kein Plugin")}
-              hint={state.error ? <span className="text-orange">{errorText(state.error)}</span> : t("Ein Ordner oder eine .zip mit crest-plugin.json")}
+              hint={state.error ? <span className="text-orange">{errorText(state.error)}</span> : t("Ein Ordner oder eine .zip mit cupcake-plugin.json")}
             >
               <div className="flex items-center gap-1.5">
                 <Button icon={FolderOpen} disabled={state.phase !== "idle"} onClick={() => void pickPlugin(false)}>{t("Ordner …")}</Button>

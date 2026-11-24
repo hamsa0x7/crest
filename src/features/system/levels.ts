@@ -4,7 +4,7 @@
 /** 0 normal, 1 elevated, 2 critical. */
 export type Level = 0 | 1 | 2;
 
-/** A share in percent: elevated from 70, critical from 90 (Crest's thresholds since 0.1). */
+/** A share in percent: elevated from 70, critical from 90 (Cupcake's thresholds since 0.1). */
 export const ofShare = (percent: number): Level => (percent >= 90 ? 2 : percent >= 70 ? 1 : 0);
 
 /**

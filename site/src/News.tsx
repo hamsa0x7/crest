@@ -29,7 +29,7 @@ export function News({ release }: { release: string }) {
   return (
     <section id="new" className="sec news" aria-labelledby="new-title">
       <div className="news-head">
-        <Rise><h2 id="new-title">New in Crest {release}</h2></Rise>
+        <Rise><h2 id="new-title">New in Cupcake {release}</h2></Rise>
         <Rise i={1} className="news-more">
           <a className="textlink" href="/whats-new/">Every change, version by version <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
         </Rise>

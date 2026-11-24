@@ -34,7 +34,7 @@ const LOGOS: { name: string; file: string; href: string; dark?: boolean }[] = [
 ];
 
 const FACTS: [string, React.ReactNode][] = [
-  ["Name", "Crest. On the Microsoft Store it is called Crest Island."],
+  ["Name", "Cupcake. On the Microsoft Store it is called Cupcake Island."],
   ["Made by", "Andrea Loroni, an independent developer."],
   ["Price", "Free, with no ads, no paid tier and no account."],
   ["Licence", <>Open source under the GPL-3.0, <a href={REPO}>code on GitHub</a>.</>],
@@ -45,13 +45,13 @@ const FACTS: [string, React.ReactNode][] = [
 
 function Press() {
   return (
-    <Page color="#ff9a4d" title="Press kit" lead="The logo, screenshots and facts about Crest, free to use when you write about it.">
+    <Page color="#ff9a4d" title="Press kit" lead="The logo, screenshots and facts about Cupcake, free to use when you write about it.">
       <section className="sec prose" aria-labelledby="about-title">
-        <h2 id="about-title">About Crest</h2>
+        <h2 id="about-title">About Cupcake</h2>
         <p className="lead">
-          Crest is a free, open source Dynamic Island for Windows and macOS. It sits at the top of the screen as a small notch and opens into a panel with music and synced lyrics, a timer, to-dos, notes, the clipboard history, a converter, screenshots and recordings, hardware readings, an AI chat and more than twenty other tools. Scripts can post notices to it, and plugins add tools of their own. Everything stays on the computer: no account, no server, no tracking.
+          Cupcake is a free, open source Dynamic Island for Windows and macOS. It sits at the top of the screen as a small notch and opens into a panel with music and synced lyrics, a timer, to-dos, notes, the clipboard history, a converter, screenshots and recordings, hardware readings, an AI chat and more than twenty other tools. Scripts can post notices to it, and plugins add tools of their own. Everything stays on the computer: no account, no server, no tracking.
         </p>
-        <p>Short version: Crest puts a Dynamic Island on your Windows or Mac screen, with more than thirty tools and no account.</p>
+        <p>Short version: Cupcake puts a Dynamic Island on your Windows or Mac screen, with more than thirty tools and no account.</p>
         <dl className="press-facts">
           {FACTS.map(([k, v]) => (
             <div key={k}>

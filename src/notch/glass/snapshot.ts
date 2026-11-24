@@ -66,7 +66,7 @@ export function dropSnapshot() {
 
 /**
  * A buffer that came in; the bridge releases it right after. Never write into it: a write into the read-only shared buffer crashes
- * WebView2's renderer, all of Crest's interface with it. The bytes are BGRA and the shader reads them so (.bgr).
+ * WebView2's renderer, all of Cupcake's interface with it. The bytes are BGRA and the shader reads them so (.bgr).
  */
 function receive(meta: unknown, data: ArrayBuffer) {
   // The live glass's frames (live.ts) come through the same bridge; one listener, as the bridge releases each buffer after it.

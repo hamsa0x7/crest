@@ -10,11 +10,11 @@ import type { WhatsNew } from "./model";
 import { dismissWhatsNew, opened } from "./store";
 
 /*
- *   New in Crest 0.3.2
+ *   New in Cupcake 0.3.2
  *   0.3.2                    2 Nov 2026
  *   · A month in the Calendar …
  *   ─────────────────────────────────────
- *   Crest is free … support it.   [♥ Support on GitHub]
+ *   Cupcake is free … support it.   [♥ Support on GitHub]
  */
 export function WhatsNewView() {
   const u = update.use();
@@ -36,16 +36,16 @@ export function WhatsNewView() {
   return (
     <div className="flex h-full flex-col px-4 pt-1 pb-3">
       <h2 className="px-3 pb-1 text-title font-semibold text-label">
-        {available ? t("Crest {v} ist verfügbar", { v: version ?? "" }) : t("Neu in Crest {v}", { v: version ?? "" })}
+        {available ? t("Cupcake {v} ist verfügbar", { v: version ?? "" }) : t("Neu in Cupcake {v}", { v: version ?? "" })}
       </h2>
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:none]" style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 20px), transparent)" }}>
         <ChangelogList entries={entries} />
       </div>
       <div className="mx-3 flex items-center gap-3 border-t border-separator pt-3">
-        <p className="min-w-0 flex-1 text-caption text-label-3">{t("Crest ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.")}</p>
+        <p className="min-w-0 flex-1 text-caption text-label-3">{t("Cupcake ist kostenlos, ohne Werbung, und wird von einer Person entwickelt. Wenn es dir gefällt, kannst du es unterstützen.")}</p>
         {u.store && (
           <Button icon={Star} onClick={openStoreReview}>
-            {t("Crest bewerten")}
+            {t("Cupcake bewerten")}
           </Button>
         )}
         <Button icon={Heart} primary={!available} onClick={openSponsors}>

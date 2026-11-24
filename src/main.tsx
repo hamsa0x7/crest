@@ -2,6 +2,7 @@ import { Component, type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import "./styles/global.css";
+import "./extensions";
 import { Notch } from "./notch/Notch";
 import { DesktopMock } from "./dev/DesktopMock";
 import { isMac, isNative } from "./platform/native";
@@ -104,7 +105,7 @@ settings.subscribe(syncClipboardMode);
 
 // The tray menu is Rust's; its texts follow the language from here.
 language.subscribe(() =>
-  setTrayTexts({ open: t("Crest öffnen"), settings: t("Einstellungen …"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Crest beenden") }),
+  setTrayTexts({ open: t("Cupcake öffnen"), settings: t("Einstellungen …"), autostart: isMac ? t("Bei der Anmeldung öffnen") : t("Mit Windows starten"), quit: t("Cupcake beenden") }),
 );
 const languageReady = startLanguage(settings);
 
@@ -129,7 +130,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     return { error };
   }
   componentDidCatch(error: Error, info: unknown) {
-    console.error("Crest ErrorBoundary caught unexpected error:", error, info);
+    console.error("Cupcake ErrorBoundary caught unexpected error:", error, info);
   }
   render() {
     if (this.state.error) {

@@ -1,4 +1,4 @@
-// Offline translation of lyrics, the pure part: which language a song is in, which models take it to Crest's language,
+// Offline translation of lyrics, the pure part: which language a song is in, which models take it to Cupcake's language,
 // and the answer as LRC for the lyrics cache. The engine runs in public/translate/worker.js (offlineEngine.ts).
 import type { LyricLine } from "./lrc.ts";
 
@@ -8,12 +8,12 @@ export const OFFLINE_SOURCES = ["en", "ja", "ko", "zh", "es", "fr", "pt", "de", 
 /** Languages songs can be translated into: each has a model from English. */
 export const OFFLINE_TARGETS = ["en", "it", "es", "fr", "de", "pt", "ru", "ja", "ko", "zh"] as const;
 
-/** Crest's interface language as a model code: "pt-BR" is "pt", "zh-CN" is "zh". */
+/** Cupcake's interface language as a model code: "pt-BR" is "pt", "zh-CN" is "zh". */
 export function modelCode(lang: string): string {
   return lang.split("-")[0].toLowerCase();
 }
 
-/** The language to translate into: the one picked in Settings, or Crest's own ("" or one no longer offered). */
+/** The language to translate into: the one picked in Settings, or Cupcake's own ("" or one no longer offered). */
 export function targetOf(picked: string | undefined, lang: string): string {
   return picked && (OFFLINE_TARGETS as readonly string[]).includes(picked) ? picked : modelCode(lang);
 }

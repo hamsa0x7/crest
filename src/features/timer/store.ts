@@ -37,7 +37,7 @@ export const timer = createStore<TimerState>(initial, { persist: "timer" });
 /** Is the alarm ringing right now? Not persisted, nothing rings after a restart. */
 export const ringing = createStore(false);
 
-/** Focus sound muted from the Timer tool until Crest restarts; the setting stays as it is. */
+/** Focus sound muted from the Timer tool until Cupcake restarts; the setting stays as it is. */
 export const focusMuted = createStore(false);
 
 export function remainingOf(s: TimerState, now = Date.now()): number {
@@ -100,7 +100,7 @@ function checkEnd() {
   const s = timer.get();
   if (s.endsAt !== null && remainingOf(s) <= 0) {
     timer.set((t) => ({ ...t, remaining: 0, endsAt: null, finished: true }));
-    // Ended while Crest was closed or the PC slept: finished, but no alarm at the next login (as with reminders).
+    // Ended while Cupcake was closed or the PC slept: finished, but no alarm at the next login (as with reminders).
     if (Date.now() - s.endsAt > STALE_MS) return;
     const { sound, volume, duration: ring } = settings.get().alarm;
     playAlarm(sound, volume, ring);
@@ -136,7 +136,7 @@ if (!isTimerWindow) {
   timer.subscribe(() => {
     if (!timer.get().finished && ringing.get()) timerActions.silence();
   });
-  // A timer still running from before Crest started stays silent until it is started again.
+  // A timer still running from before Cupcake started stays silent until it is started again.
   const bootEndsAt = timer.get().endsAt;
   const syncFocusSound = () => {
     const { focusSound, focusVolume } = settings.get().timer;

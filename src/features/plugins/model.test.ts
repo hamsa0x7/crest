@@ -5,7 +5,7 @@ import { ICON_NAMES, NOTICE_MAX, NOTICE_WINDOW_MS, allowNotice, clampSize, parse
 
 const msg = (o: Record<string, unknown>) => parseRequest({ crest: 1, id: 7, ...o });
 
-test("not a Crest message is ignored", () => {
+test("not a Cupcake message is ignored", () => {
   for (const bad of [null, "x", 1, [], { crest: 2, id: 1, type: "hello" }, { id: 1, type: "hello" }, { crest: 1, type: "hello" }, { crest: 1, id: -1, type: "hello" },
     { crest: 1, id: 1.5, type: "hello" }, { crest: 1, id: "", type: "hello" }, { crest: 1, id: "x".repeat(65), type: "hello" }, new Map()]) {
     assert.deepEqual(parseRequest(bad), { kind: "ignore" }, JSON.stringify(bad));
@@ -26,6 +26,7 @@ test("unknown types and fields are refused", () => {
 
 test("fields are checked", () => {
   assert.equal(msg({ type: "hello" }).kind, "ok");
+  assert.equal(parseRequest({ cupcake: 1, id: "a-1", type: "theme" }).kind, "ok");
   assert.equal(parseRequest({ crest: 1, id: "a-1", type: "theme" }).kind, "ok");
   assert.equal(msg({ type: "storage.get", key: "count" }).kind, "ok");
   for (const key of ["", 1, null, "k".repeat(129)]) assert.equal(msg({ type: "storage.get", key }).kind, "error", String(key));

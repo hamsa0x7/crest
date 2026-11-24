@@ -276,12 +276,12 @@ mod tests {
 
     #[test]
     fn own_entries_are_skipped() {
-        let own = Own { exe: Some(r"c:#program files#crest#crest.exe".into()), family: Some("andrealo20.crest_abc123".into()) };
-        assert!(own.is(r"C:#Program Files#Crest#crest.exe", true));
-        assert!(own.is("AndreaLo20.Crest_abc123", false));
+        let own = Own { exe: Some(r"c:#program files#cupcake#cupcake.exe".into()), family: Some("cupcake.app_abc123".into()) };
+        assert!(own.is(r"C:#Program Files#Cupcake#cupcake.exe", true));
+        assert!(own.is("Cupcake.App_abc123", false));
         // The exe path only counts under NonPackaged, the family only beside it.
-        assert!(!own.is(r"C:#Program Files#Crest#crest.exe", false));
-        assert!(!own.is("AndreaLo20.Crest_abc123", true));
+        assert!(!own.is(r"C:#Program Files#Cupcake#cupcake.exe", false));
+        assert!(!own.is("Cupcake.App_abc123", true));
         assert!(!own.is(r"C:#Program Files#Zoom#bin#Zoom.exe", true));
         assert!(!own.is("Microsoft.WindowsCamera_8wekyb3d8bbwe", false));
         assert!(!Own { exe: None, family: None }.is("", false));

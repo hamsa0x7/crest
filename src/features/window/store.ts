@@ -13,7 +13,7 @@ export function effectiveIdleStyle(idle: Settings["display"]["idleStyle"], behav
   return behavior === "line" ? "line" : idle;
 }
 
-/** Each shortcut's state for the settings; "duplicate" = an earlier Crest shortcut has the combination. */
+/** Each shortcut's state for the settings; "duplicate" = an earlier Cupcake shortcut has the combination. */
 export const hotkeyStatus = createStore<Record<HotkeyKind, HotkeyState | "duplicate">>({ open: "active", hide: "unset", resize: "unset", find: "unset", mic: "unset" });
 /** The same for the tools' own shortcuts, by tool id; a tool that is off has none registered and no entry. */
 export const toolHotkeyStatus = createStore<Record<string, HotkeyState | "duplicate">>({});
@@ -33,13 +33,13 @@ export function pauseHotkeys(on: boolean) {
   applyHotkeys();
 }
 
-/** The launcher's Alt+N keys while they are switched on and the tool is on (src/features/launcher/store.ts); a Crest shortcut on one of them yields. */
+/** The launcher's Alt+N keys while they are switched on and the tool is on (src/features/launcher/store.ts); a Cupcake shortcut on one of them yields. */
 export function takenByLauncher(s: Settings = settings.get()): string[] {
   const on = s.launcher.hotkeys && s.tools.some((x) => x.id === "launcher" && x.enabled);
   return launcherKeys(on ? (s.launcher.favorites?.length ?? 0) : 0);
 }
 
-/** Crest's shortcuts as they can be registered: Find on screen reads the screens with Windows' OCR and has no Mac version yet. */
+/** Cupcake's shortcuts as they can be registered: Find on screen reads the screens with Windows' OCR and has no Mac version yet. */
 export function usableHotkeys(s: Settings = settings.get()): Record<HotkeyKind, string> {
   return isMac ? { ...s.behavior.hotkeys, find: "" } : s.behavior.hotkeys;
 }

@@ -20,7 +20,7 @@ import { addToShelf } from "../shelf/ShelfView";
 /*
  * Capture: screenshots (all screens, one monitor, or a region) and screen recordings
  * (a monitor or a window, 30 or 60 fps, microphone and system audio), with the saved
- * files below. Crest hides itself from the capture, so the open notch is never in it.
+ * files below. Cupcake hides itself from the capture, so the open notch is never in it.
  */
 
 type Patch = Partial<Settings["capture"]>;
@@ -146,7 +146,7 @@ export function errorText(code: string, fallback: string): string {
     "no-monitor": t("Bildschirm nicht gefunden"),
     "no-folder": t("Ordner nicht verfügbar"),
     "save-failed": t("Datei konnte nicht gespeichert werden"),
-    "not-capture": t("Keine Aufnahme von Crest"),
+    "not-capture": t("Keine Aufnahme von Cupcake"),
     "delete-failed": t("Löschen fehlgeschlagen"),
     "no-media": t("Für Aufnahmen fehlt das Media Feature Pack von Windows"),
     "no-mic": t("Mikrofon nicht verfügbar"),

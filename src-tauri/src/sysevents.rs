@@ -383,12 +383,12 @@ fn run(app: AppHandle) {
 unsafe fn window() -> Option<HWND> {
     unsafe {
         let instance = GetModuleHandleW(None).ok()?;
-        let class = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: instance.into(), lpszClassName: w!("CrestSysEvents"), ..Default::default() };
+        let class = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: instance.into(), lpszClassName: w!("CupcakeSysEvents"), ..Default::default() };
         if RegisterClassW(&class) == 0 {
             eprintln!("sysevents: window class failed: {}", windows::core::Error::from_thread());
             return None;
         }
-        CreateWindowExW(WINDOW_EX_STYLE::default(), w!("CrestSysEvents"), w!(""), WINDOW_STYLE::default(), 0, 0, 0, 0, Some(HWND_MESSAGE), None, Some(instance.into()), None)
+        CreateWindowExW(WINDOW_EX_STYLE::default(), w!("CupcakeSysEvents"), w!(""), WINDOW_STYLE::default(), 0, 0, 0, 0, Some(HWND_MESSAGE), None, Some(instance.into()), None)
             .inspect_err(|e| eprintln!("sysevents: window failed: {e}"))
             .ok()
     }

@@ -41,7 +41,7 @@ export const SAVED = { showMs: 4000 } as const;
 
 // A running recording outranks everything: its stop button must stay reachable. A capture the user just took comes right after the timer, a finished download after it.
 // Transient notices (status, live notice, quota, track) rank above the persistent ones (an event about to start, reminder, water): they would expire unseen, while a reminder comes back after them.
-// A question from crest-notify ask comes right after the timer: a coding agent waits on it.
+// A question from cupcake-notify ask comes right after the timer: a coding agent waits on it.
 // A new version or what it changed waits the longest: it is news, never urgent.
 /** Formats a notice title with an optional duplicate multiplier badge string (e.g. "Saved ×3"), adapted from ding. */
 export function cardTitleWithCount(title: string, count?: number): string {

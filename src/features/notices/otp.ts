@@ -107,7 +107,7 @@ export function findOtp(text: string): string | null {
   return best?.digits ?? null;
 }
 
-/** The code in a notice's title and text. Not in a `crest-notify run` result, whose text Crest wrote itself. */
+/** The code in a notice's title and text. Not in a `crest-notify run` result, whose text Cupcake wrote itself. */
 export function noticeCode(n: Pick<Notice, "title" | "body" | "exitCode">): string | null {
   return n.exitCode === undefined || n.exitCode === null ? findOtp(`${n.title}\n${n.body}`) : null;
 }

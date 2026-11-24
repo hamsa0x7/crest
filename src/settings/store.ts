@@ -124,7 +124,7 @@ export interface Settings {
   /**
    * Presentation mode: hides clipboard previews, balances and the vault while sharing
    * the screen. `manual` = switched on by hand, `auto` = on while a recording is detected.
-   * `hideFromCapture`: Crest's windows stay out of other apps' screen sharing and recordings (src-tauri sharing.rs), off by default.
+   * `hideFromCapture`: Cupcake's windows stay out of other apps' screen sharing and recordings (src-tauri sharing.rs), off by default.
    */
   presentation: { manual: boolean; auto: boolean; hideFromCapture: boolean };
   /** Check for a new version once a day, anonymously (installs only on click). */
@@ -158,9 +158,9 @@ export interface Settings {
     coverBackground: boolean;
     /** The closed notch's lyric line translated instead of as sung, where the song has a translation. */
     closedTranslation: boolean;
-    /** Lyrics translated on this computer into Crest's language, with downloaded models (offline.ts). */
+    /** Lyrics translated on this computer into Cupcake's language, with downloaded models (offline.ts). */
     offlineTranslation: boolean;
-    /** The language to translate into ("" = Crest's own, offline.ts `targetOf`). */
+    /** The language to translate into ("" = Cupcake's own, offline.ts `targetOf`). */
     offlineTarget: string;
     eqStyle: "bars" | "spectrum" | "wave";
     progressStyle: "line" | "wavy";
@@ -178,7 +178,7 @@ export interface Settings {
   github: { user: string };
   /** Calendar: ICS links and CalDAV accounts (the link or app password is stored with the secrets), the notice before an event, the next-event part's horizon. */
   calendar: CalendarSettings;
-  /** Live notices: Windows notifications and crest-notify in the closed notch, with per-app rules and quiet hours. */
+  /** Live notices: Windows notifications and cupcake-notify in the closed notch, with per-app rules and quiet hours. */
   notices: NoticeSettings;
   /** Window behaviour: full-screen and app rules, shortcuts, panel sizes and scale, close delay, mouse (src/features/window). */
   behavior: WindowSettings;

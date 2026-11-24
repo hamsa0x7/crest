@@ -20,7 +20,7 @@ import { hasPair, offlineStatus, translateOffline } from "./offlineEngine";
 
 const API = "https://lrclib.net/api";
 /** LRCLIB asks clients to name themselves; browsers may not set User-Agent. */
-const CLIENT = "Crest (https://github.com/andrealo20/crest)";
+const CLIENT = "Cupcake (https://github.com/hamsa0x7/cupcake)";
 
 const cache = createLyricsCache(
   (() => {
@@ -51,7 +51,7 @@ async function ask(path: "get" | "search", params: Record<string, string>): Prom
     // fetch reports a refused preflight as a TypeError, like being offline; one try without the header tells them apart.
     if (!(e instanceof TypeError) || !identify) throw e;
     r = await send(false);
-    // One lost connection must not stop Crest from introducing itself to LRCLIB.
+    // One lost connection must not stop Cupcake from introducing itself to LRCLIB.
     if (++headerless >= 2) identify = false;
   }
   if (r.status === 404) return null;
@@ -211,7 +211,7 @@ const CJK = /[ぁ-ゖァ-ヺ㐀-䶿一-鿿가-힣]/;
 const translating = new Map<string, Promise<string | null>>();
 
 /**
- * The lines translated on this computer into Crest's language while `on`, when the song's language has its models
+ * The lines translated on this computer into Cupcake's language while `on`, when the song's language has its models
  * downloaded (Settings, Music). The translation replaces the source's own, which is mostly in Chinese. Each song is
  * translated once: the answer is kept in the lyrics cache, and a run started is finished even if the lyrics close.
  */

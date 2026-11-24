@@ -93,7 +93,7 @@ export function noticePop(n: Notice, max: number) {
   );
 }
 
-/** A brand's own colour for a question's accent line (AskNotice), when the app is one Crest knows. */
+/** A brand's own colour for a question's accent line (AskNotice), when the app is one Cupcake knows. */
 export function brandAccent(appName: string): string | undefined {
   const brand = brandFor(appName);
   return brand ? brandColor[brand] : undefined;

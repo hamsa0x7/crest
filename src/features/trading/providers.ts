@@ -3,7 +3,7 @@ import type { SecretName } from "../../platform/services";
 
 /*
  * Portfolio providers for the UI. Labels and help texts are German keys (translated with t()
- * where shown). Every help text says which read-only rights to give the key; Crest never
+ * where shown). Every help text says which read-only rights to give the key; Cupcake never
  * calls an order, transfer or withdrawal endpoint.
  *
  * Not offered: Degiro, Trade Republic, Scalable Capital (no official API). Coinbase signs with

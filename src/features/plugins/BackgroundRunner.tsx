@@ -24,10 +24,10 @@ function HeadlessPluginFrame({ manifest }: { manifest: PluginManifest }) {
       if (!el.contentWindow || e.source !== el.contentWindow) return;
       const parsed = parseRequest(e.data);
       if (parsed.kind === "ignore") return;
-      if (parsed.kind === "error") return post({ crest: API, id: parsed.id, ok: false, error: parsed.error });
+      if (parsed.kind === "error") return post({ cupcake: API, crest: API, id: parsed.id, ok: false, error: parsed.error });
       handle(parsed.req).then(
-        (result) => post({ crest: API, id: parsed.id, ok: true, result: result ?? null }),
-        (error) => post({ crest: API, id: parsed.id, ok: false, error: String(error).slice(0, 64) }),
+        (result) => post({ cupcake: API, crest: API, id: parsed.id, ok: true, result: result ?? null }),
+        (error) => post({ cupcake: API, crest: API, id: parsed.id, ok: false, error: String(error).slice(0, 64) }),
       );
     };
     window.addEventListener("message", onMessage);

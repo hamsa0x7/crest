@@ -33,8 +33,9 @@ const SUBMITTED: u32 = 3053;
 const CANCELED: u32 = 3054;
 /// Toasts were cleared (by the user in the notification centre, or by their app); the entry does not say which.
 const CLEARED: u32 = 3055;
-/// Notifications Crest itself might raise (the identifier in tauri.conf.json).
-const OWN_APP: &str = "io.github.andrealo20.crest";
+/// Notifications Cupcake itself might raise (the identifier in tauri.conf.json).
+const OWN_APP: &str = "io.github.hamsa0x7.cupcake";
+const LEGACY_OWN_APP: &str = "io.github.andrealo20.crest";
 const ICON_PX: f32 = 48.0;
 
 pub struct NoticesState {
@@ -500,7 +501,7 @@ fn read_toast(
     use windows::UI::Notifications::KnownNotificationBindings;
     let info = n.AppInfo().ok()?;
     let app_id = info.AppUserModelId().or_else(|_| info.Id()).ok()?.to_string();
-    if app_id.is_empty() || app_id.eq_ignore_ascii_case(OWN_APP) {
+    if app_id.is_empty() || app_id.eq_ignore_ascii_case(OWN_APP) || app_id.eq_ignore_ascii_case(LEGACY_OWN_APP) {
         return None;
     }
     if expected.is_some_and(|e| !e.eq_ignore_ascii_case(&app_id)) {

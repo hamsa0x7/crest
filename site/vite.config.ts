@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The website on crestisland.app (Cloudflare Pages). `npm run site:build` builds it into dist-site/ and then the app itself, in
+// The website on cupcake.app (Cloudflare Pages). `npm run site:build` builds it into dist-site/ and then the app itself, in
 // demo mode, into dist-site/demo/ (see src/dev/demo.ts). One HTML file per page; public/_headers sets the security headers.
 const page = (path: string) => resolve(import.meta.dirname, path);
 

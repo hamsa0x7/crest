@@ -103,7 +103,7 @@ export function MusicSettings() {
           <Switch label={t("Übersetzung")} checked={music.lyricTranslation} onChange={(lyricTranslation) => setMusic({ lyricTranslation })} />
         </Row>
         {music.lyricTranslation && (
-          <Row label={t("Offline übersetzen")} hint={t("Übersetzt Songs auf diesem Gerät in die Sprache von Crest, mit den Modellen von Mozilla, die auch Firefox nutzt. Nichts verlässt den PC.")}>
+          <Row label={t("Offline übersetzen")} hint={t("Übersetzt Songs auf diesem Gerät in die Sprache von Cupcake, mit den Modellen von Mozilla, die auch Firefox nutzt. Nichts verlässt den PC.")}>
             <Switch label={t("Offline übersetzen")} checked={music.offlineTranslation} onChange={(offlineTranslation) => setMusic({ offlineTranslation })} />
           </Row>
         )}
@@ -130,7 +130,7 @@ export function MusicSettings() {
 
 /**
  * The languages songs can be translated from: each downloads its model to English and, once, the one from English to
- * Crest's language (src-tauri/src/translate.rs). Removing a language keeps the shared one.
+ * Cupcake's language (src-tauri/src/translate.rs). Removing a language keeps the shared one.
  */
 function OfflineLanguages() {
   const status = offlineStatus.use();
@@ -150,7 +150,7 @@ function OfflineLanguages() {
       <Row label={t("Übersetzen in")} hint={t("Die Sprachen unten werden in diese übersetzt")}>
         <Select
           value={(OFFLINE_TARGETS as readonly string[]).includes(picked) ? picked : ""}
-          options={[{ value: "", label: t("Sprache von Crest ({name})", { name: nameOf(targetOf("", lang())) }) }, ...OFFLINE_TARGETS.map((code) => ({ value: code, label: nameOf(code) }))]}
+          options={[{ value: "", label: t("Sprache von Cupcake ({name})", { name: nameOf(targetOf("", lang())) }) }, ...OFFLINE_TARGETS.map((code) => ({ value: code, label: nameOf(code) }))]}
           onChange={(offlineTarget) => setMusic({ offlineTarget })}
         />
       </Row>

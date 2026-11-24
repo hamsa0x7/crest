@@ -235,7 +235,7 @@ export const CHAPTERS: Chapter[] = [
     hue: "lime",
     title: "The closed notch",
     text:
-      "Shut, Crest is a notch, a capsule or a thin line, on any screen edge. The row shows what you pick, centred: the cover, a running timer, the song title or the lyric line, AI quota rings, CPU, RAM and GPU, network, power, battery, temperature, the clock, today's GitHub count and your next event. When the parts do not fit, the row turns like a carousel, and a click on a part opens its tool.",
+      "Shut, Cupcake is a notch, a capsule or a thin line, on any screen edge. The row shows what you pick, centred: the cover, a running timer, the song title or the lyric line, AI quota rings, CPU, RAM and GPU, network, power, battery, temperature, the clock, today's GitHub count and your next event. When the parts do not fit, the row turns like a carousel, and a click on a part opens its tool.",
     controls: ["styles", "edges"],
     start: "close",
     note: "The capsule always stays on the top edge. Click or tap the notch to open it again.",
@@ -288,7 +288,7 @@ export const CHAPTERS: Chapter[] = [
     hue: "cyan",
     title: "Capture, record, look",
     text:
-      "Screenshots of every screen, one screen or a region. Recordings of a screen or a window at 30 or 60 fps with system audio and the microphone. A sound-only Recorder that keeps every voice of a call. A mirror to check the light before a meeting, and Find on screen, which reads the text on all your screens with Windows' own recognition and lets you search it. Crest keeps itself out of its own captures.",
+      "Screenshots of every screen, one screen or a region. Recordings of a screen or a window at 30 or 60 fps with system audio and the microphone. A sound-only Recorder that keeps every voice of a call. A mirror to check the light before a meeting, and Find on screen, which reads the text on all your screens with Windows' own recognition and lets you search it. Cupcake keeps itself out of its own captures.",
     tools: ["capture", "recorder", "camera", "find"],
     start: "capture",
     note: "The demo shows the panels. Your screen and microphone are never touched here. The Camera tool asks your browser for the camera only when you open it, and the picture stays on your device.",
@@ -299,7 +299,7 @@ export const CHAPTERS: Chapter[] = [
     hue: "violet",
     title: "Ask and AI usage",
     text:
-      "Ask is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort, using your own key, or with a model on this computer (LM Studio, Ollama) and no key at all. AI usage shows your subscription limits and balances in one place, plus the tokens and cost of your local coding agents today and over a week, with a page per model. A reading that is out of date is dimmed, and an expired sign-in renews from Crest's terminal in one click.",
+      "Ask is a chat with Claude, ChatGPT, OpenRouter or any OpenAI-compatible endpoint, with streaming and adjustable reasoning effort, using your own key, or with a model on this computer (LM Studio, Ollama) and no key at all. AI usage shows your subscription limits and balances in one place, plus the tokens and cost of your local coding agents today and over a week, with a page per model. A reading that is out of date is dimmed, and an expired sign-in renews from Cupcake's terminal in one click.",
     next: "New in 1.1: a local server needs no made-up key any more, and the request leaves without an Authorization header.",
     tools: ["ask", "usage"],
     start: "ask",
@@ -350,7 +350,7 @@ export const CHAPTERS: Chapter[] = [
     hue: "indigo",
     title: "Your language, pets and settings",
     text:
-      "Crest speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group. Eight cartoon pets can live in a nest beside the notch.",
+      "Cupcake speaks eleven languages, Arabic read right to left, and switches at once. A short first-run setup picks a preset (Music, Productivity, AI or your own), the closed look and the edge. Settings has a search field (Ctrl + F) that finds a setting by name, description or group. Eight cartoon pets can live in a nest beside the notch.",
     next: "New in 1.1: the panel scales from 80 to 200 percent, every tool can have a shortcut of its own, and a backup in Documents brings everything back.",
     controls: ["scale", "langs", "pets", "pages"],
     start: "settings",
@@ -376,7 +376,7 @@ allow`;
 
 export const PLUGIN_JSON = `{
   "id": "hello-crest",
-  "name": "Hello Crest",
+  "name": "Hello Cupcake",
   "version": "1.0.0",
   "icon": "rocket",
   "entry": "index.html",
@@ -389,10 +389,10 @@ export const PLUGIN_JSON = `{
 }`;
 
 export const FAQ: { tab: string; q: string; a: string }[] = [
-  { tab: "Price", q: "Is Crest free?", a: "Yes. No ads, no paid tier, no account. It is open source under the GPL-3.0 licence, and the code of every release, Store builds included, is in the repository." },
+  { tab: "Price", q: "Is Cupcake free?", a: "Yes. No ads, no paid tier, no account. It is open source under the GPL-3.0 licence, and the code of every release, Store builds included, is in the repository." },
   { tab: "Demo", q: "Is the demo the real app?", a: "It is the real interface, built for the web and filled with sample data. Anything that needs your PC (hardware readings, your files, Windows notifications) is simulated here, so the demo shows how it looks and moves, not your own data. It is built from the newest code, so now and then it shows a change before the next release has it." },
   { tab: "Systems", q: "What does it run on?", a: "Windows 11 and Windows 10, on x64 and on ARM, and macOS 12 or later on Apple silicon and Intel as a preview. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder and Camera are Windows-only for now and do not show on a Mac." },
-  { tab: "Network", q: "What does it send over the network?", a: "Nothing goes to the developer. Crest only goes online for the services you turn on, such as the weather, currency rates, lyrics or your AI provider, and straight from your PC to them. The full table is in the privacy policy." },
+  { tab: "Network", q: "What does it send over the network?", a: "Nothing goes to the developer. Cupcake only goes online for the services you turn on, such as the weather, currency rates, lyrics or your AI provider, and straight from your PC to them. The full table is in the privacy policy." },
   { tab: "Store", q: "Microsoft Store or GitHub?", a: "The Store build is signed by Microsoft and updated by the Store. The installer and the portable zip on GitHub are not code-signed yet, so SmartScreen may warn on first launch: choose More info, then Run anyway." },
-  { tab: "Plugins", q: "Can I add my own tools?", a: "Yes. A plugin is a folder of HTML, CSS and JavaScript with a crest-plugin.json. Crest lists what it asks for before you install it, and it runs sandboxed with only the network addresses and storage it declares." },
+  { tab: "Plugins", q: "Can I add my own tools?", a: "Yes. A plugin is a folder of HTML, CSS and JavaScript with a crest-plugin.json. Cupcake lists what it asks for before you install it, and it runs sandboxed with only the network addresses and storage it declares." },
 ];

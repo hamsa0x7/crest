@@ -1,6 +1,6 @@
 // The Report a problem form's rules. They are the Worker's too (feedback-worker/src/handle.js): change them in both places.
 
-/** The Turnstile widget "Crest feedback" of crestisland.app and www (Cloudflare, Turnstile). A site key is public. */
+/** The Turnstile widget "Cupcake feedback" of cupcake.app and www (Cloudflare, Turnstile). A site key is public. */
 export const TURNSTILE_SITE_KEY = "0x4AAAAAAF7gYx83Bf-bZGy5";
 export const ENDPOINT = "/api/feedback";
 

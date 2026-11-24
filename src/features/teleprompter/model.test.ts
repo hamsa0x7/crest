@@ -15,7 +15,7 @@ test("words are counted in Latin, mixed CJK and Hangul text", () => {
   assert.equal(countWords("こんにちは世界"), 4);
   assert.equal(countWords("カタカナー"), 3);
   assert.equal(countWords("Hello 世界你好 world"), 4);
-  assert.equal(countWords("使用 Crest 开始"), 3);
+  assert.equal(countWords("使用 Cupcake 开始"), 3);
   // Korean is spaced like Latin.
   assert.equal(countWords("안녕하세요 세계"), 2);
   // Emoji and punctuation are not words.

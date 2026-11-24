@@ -9,7 +9,7 @@ test("plays only while a focus timer started in this run is running", () => {
   assert.equal(focusSoundFor(running, "rain", true, null), "off", "muted");
   assert.equal(focusSoundFor({ mode: "break", endsAt: 5000 }, "rain", false, null), "off", "break");
   assert.equal(focusSoundFor({ mode: "focus", endsAt: null }, "rain", false, null), "off", "paused, reset or finished");
-  // Still running from before Crest started: silent until paused and started again.
+  // Still running from before Cupcake started: silent until paused and started again.
   assert.equal(focusSoundFor(running, "rain", false, 5000), "off");
   assert.equal(focusSoundFor({ mode: "focus", endsAt: 9000 }, "rain", false, 5000), "rain");
 });

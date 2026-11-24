@@ -153,7 +153,7 @@ function Notice({ state, failed }: { state: AccountState[]; failed: string[] }) 
   const errors = state.filter((a) => a.error);
   const pending = state.filter((a) => a.loading && !a.summary);
   let text: string | null = null;
-  if (warn) text = t("Der {name}-Schlüssel darf mehr als lesen. Crest liest nur, trotzdem besser einen Nur-Lese-Schlüssel erstellen.", { name: providerName(warn.id) });
+  if (warn) text = t("Der {name}-Schlüssel darf mehr als lesen. Cupcake liest nur, trotzdem besser einen Nur-Lese-Schlüssel erstellen.", { name: providerName(warn.id) });
   else if (errors.length) text = t("Nicht erreichbar: {names}. Nicht mitgezählt.", { names: errors.map((a) => t(providerName(a.id))).join(", ") });
   else if (noLedger) text = t("Dem {name}-Schlüssel fehlt „Query Ledger Entries“: Einstand unbekannt.", { name: providerName(noLedger.id) });
   else if (pending.length) text = t("Wird noch geladen: {names}.", { names: pending.map((a) => t(providerName(a.id))).join(", ") });

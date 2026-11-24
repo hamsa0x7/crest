@@ -174,7 +174,7 @@ function useTrackCaption(on: boolean): string | null {
 /**
  * Covers the closed row with the most important notice: a running recording (time, pause and stop, until it ends),
  * a finished timer (until dismissed by a click), a screenshot or recording just saved, a status alert
- * (charger, network, headphones, the volume and brightness HUD), a live notice from Windows or crest-notify (features/notices), a quota that crossed a level,
+ * (charger, network, headphones, the volume and brightness HUD), a live notice from Windows or cupcake-notify (features/notices), a quota that crossed a level,
  * a new track while the title part is off, an event about to start, a due to-do, the water reminder or a new version.
  * Reports its content size while one shows, null otherwise; the shape takes that width, and a card's height. Mounted with the row, and on the idle line
  * while a finished timer, a recording, a status alert, an app's notice or a due to-do opens it into the notch (`urgentOnly`: the others wait).

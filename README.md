@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo/crest-icon.svg" alt="Crest logo" width="112" height="112" />
+  <img src="icons8-cupcake-100.png" alt="Cupcake logo" width="100" height="100" />
 </p>
 
-<h1 align="center">Crest</h1>
+<h1 align="center">Cupcake</h1>
 
 <p align="center">
   <b>A Dynamic Island for the top of your screen, on Windows and macOS.</b>
@@ -10,15 +10,15 @@
 
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full"><img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="Get it from Microsoft"></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-store.svg" width="161" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><img src="docs/media/badges/platforms-store.svg" width="161" height="44" alt="Platforms: Windows, Windows on Arm, macOS"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
-  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
-  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=flat&color=FFD700&logo=github&logoColor=white" alt="GitHub stars" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><img src="https://img.shields.io/github/v/release/hamsa0x7/cupcake?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="Latest release" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases"><img src="https://img.shields.io/github/downloads/hamsa0x7/cupcake/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="Total downloads" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/stargazers"><img src="https://img.shields.io/github/stars/hamsa0x7/cupcake?style=flat&color=FFD700&logo=github&logoColor=white" alt="GitHub stars" /></a>
   <a href="src/i18n"><img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-D9480F?style=flat&logo=googletranslate&logoColor=white" alt="Languages: English, Simplified Chinese, Spanish, Hindi, Arabic, French, Portuguese, Russian, Japanese, German, Italian" /></a>
-  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=flat&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+  <a href="https://github.com/hamsa0x7"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=flat&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
 </p>
 
 <p align="center">
@@ -28,17 +28,17 @@
 <p align="center">
   <a href="https://crestisland.app/"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/andrealo20/crest/releases/latest"><b>Download</b></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
   <a href="#features"><b>Features</b></a>
   &nbsp;·&nbsp;
   <a href="#your-data-stays-on-your-pc"><b>Privacy</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>Suggest an idea</b></a>
+  <a href="https://github.com/hamsa0x7/cupcake/issues/new/choose"><b>Suggest an idea</b></a>
 </p>
 
 <p align="center">
-  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Crest in your browser" /></a>
+  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/try%20it-in%20your%20browser-FFC75F?style=for-the-badge&labelColor=0F1015" alt="Try Cupcake in your browser" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
@@ -51,7 +51,7 @@ The video above shows them in under two minutes, and [the demo on the project pa
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
 
-Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back.
+Closed, Cupcake is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back.
 
 <p align="center">
   <img src="docs/media/features/notice-code.png" alt="A notice from a bank app in the closed notch with a one-time code and a Copy code button" width="560" /><br />
@@ -70,9 +70,9 @@ Closed, Crest is a single row: the song, a running timer, your AI limits, CPU, R
 - **Themes at sunrise and sunset**: day and night can change with the sun at the place set for the Weather, worked out on your computer.
 - **The date beside the clock** in the closed notch, and a click on a notice there opens its app right away.
 - **Overview** has play/pause and next beside the song, and synced lyrics stay through short pauses.
-- **Fixes** for a browser tooltip that stayed on screen while Crest was open, and for the privacy dot during Snipping Tool recordings.
+- **Fixes** for a browser tooltip that stayed on screen while Cupcake was open, and for the privacy dot during Snipping Tool recordings.
 
-The [1.2.0 release](https://github.com/andrealo20/crest/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
+The [1.2.0 release](https://github.com/hamsa0x7/cupcake/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
@@ -139,7 +139,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 - **Windows notifications** in the notch, with a history page, and a **Copy code** button when one holds a one-time code. Windows' own banners can be turned off, so each notification shows once.
 - **Vault** for passwords and 2FA codes, behind a PIN or Windows Hello, never in the clipboard history.
-- **Presentation mode** hides the clipboard, balances, the vault and your captures while you share the screen, and **Hide Crest from screen sharing** keeps every Crest window out of Teams, Zoom, Discord and OBS.
+- **Presentation mode** hides the clipboard, balances, the vault and your captures while you share the screen, and **Hide Cupcake from screen sharing** keeps every Cupcake window out of Teams, Zoom, Discord and OBS.
 
 ### Make it yours
 
@@ -153,9 +153,9 @@ What changed in each version is in the [release notes](docs/releases).
 ## Install
 
 - **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
-- **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
-- **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
-- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera and Plugins are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
+- **Installer:** download `Cupcake_x.y.z_x64-setup.exe` (or `Cupcake_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/hamsa0x7/cupcake/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
+- **Portable:** unzip `Cupcake-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Cupcake.exe`. Nothing is installed.
+- **Mac (preview):** download `Cupcake_x.y.z_aarch64.dmg` for Apple silicon or `Cupcake_x.y.z_x64.dmg` for Intel and drag Cupcake to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera and Plugins are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
 
 Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
 
@@ -163,17 +163,17 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
-No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview, the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Cupcake goes online by itself only for the weather in Overview, and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
 
 ## Support the project
 
-Crest is free, with no ads and no paid tier. If it is useful to you, [sponsor it on GitHub Sponsors](https://github.com/sponsors/andrealo20), star the repository or [suggest an idea](https://github.com/andrealo20/crest/issues/new/choose).
+Cupcake is free, with no ads and no paid tier. If it is useful to you, [sponsor it on GitHub Sponsors](https://github.com/hamsa0x7), star the repository or [suggest an idea](https://github.com/hamsa0x7/cupcake/issues/new/choose).
 
 Building from source and contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Credits and licences
 
-Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real, forked from version 1.6.0 on 31 October 2026. The commit history lists every change since then.
+Cupcake is a fork of Crest (by Andrea Loroni), which itself modified [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) by Linux5Real. The commit history lists every change since then.
 
 - The Antigravity quota reader comes from an upstream pull request by [Fraustiz](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/11).
 - The LRCLIB lookup (exact match, search fallback by length, cleanup of video titles) follows an upstream pull request by mhmmdazizy ([L4-Notchbar PR #13](https://github.com/Linux5Real/L4-Windows-NotchBar/pull/13)).
@@ -183,27 +183,27 @@ Crest is a modified version of [L4-Notchbar](https://github.com/Linux5Real/L4-Wi
 - The glass's refraction and rim light are adapted from WinIsland (GPL-3.0, license text in [licenses/WinIsland-LICENSE](licenses/WinIsland-LICENSE)).
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
-- Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Crest.
+- Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Cupcake.
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
 - The QR code that sends Shelf files to a phone comes from [qrcodegen](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT, [licenses/qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt)).
 - Weather data is by [Open-Meteo.com](https://open-meteo.com/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the installers, the Store package and the portable zip carry the licence texts in `LICENSE` and `licenses/`.
-- The design follows Apple's Dynamic Island and the macOS app OmniNotch. Crest is not affiliated with Apple or OmniNotch.
-- Crest is an independent app by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft.
+- The design follows Apple's Dynamic Island and the macOS app OmniNotch. Cupcake is not affiliated with Apple or OmniNotch.
+- Cupcake is an independent project by hamsa0x7. It is not made, sponsored or endorsed by Microsoft.
 
 ## License
 
 [GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices.
 
-Crest is a fork of L4-Notchbar 1.6.0. The source code of every release, including the Microsoft Store builds, is in this repository: each release has a version tag that points to the exact code it was built from.
+Cupcake is open-source software under GPL-3.0. The source code of every release is in this repository: each release has a version tag that points to the exact code it was built from.
 
 ## Star history
 
-<a href="https://www.star-history.com/#andrealo20/crest&Date">
+<a href="https://www.star-history.com/#hamsa0x7/cupcake&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
-    <img alt="Star history of Crest" src="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date" />
+    <img alt="Star history of Cupcake" src="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date" />
   </picture>
 </a>

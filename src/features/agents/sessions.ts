@@ -129,7 +129,7 @@ export function resumeCommand(sessionId: string): string {
 
 // ---------- How long it has been waiting ----------
 
-// The JSON says nothing about when a session began to wait, so it is counted from when Crest first saw it waiting.
+// The JSON says nothing about when a session began to wait, so it is counted from when Cupcake first saw it waiting.
 
 /** Two sightings further apart than this are not one wait: the notch was closed in between, the session may have worked meanwhile. */
 export const WAIT_GAP_MS = 20_000;
@@ -147,7 +147,7 @@ export function trackWaits(prev: Waits, sessions: readonly AgentSession[], now: 
   return next;
 }
 
-/** How long Crest has seen the session waiting, in ms (0: not waiting, or only just seen). */
+/** How long Cupcake has seen the session waiting, in ms (0: not waiting, or only just seen). */
 export function waitedMs(waits: Waits, key: string, now: number): number {
   const w = waits.get(key);
   return w ? Math.max(0, now - w.since) : 0;

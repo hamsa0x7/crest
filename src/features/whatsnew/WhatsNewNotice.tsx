@@ -6,7 +6,7 @@ import { t } from "../../i18n";
 import type { WhatsNew } from "./model";
 import { dismissWhatsNew, opened } from "./store";
 
-/** "Crest 0.3.2" with "What's new" or "Update available" as a card, and dismiss. A click on the text opens the page. */
+/** "Cupcake 0.3.2" with "What's new" or "Update available" as a card, and dismiss. A click on the text opens the page. */
 export function whatsNewNotice(news: NonNullable<WhatsNew>, max: number) {
   const available = news.kind === "available";
   const Icon = available ? ArrowCircleUp : Gift;
@@ -15,7 +15,7 @@ export function whatsNewNotice(news: NonNullable<WhatsNew>, max: number) {
       key: `whatsnew:${news.kind}:${news.version}`,
       icon: <Icon size={16} weight="fill" />,
       hue: "violet",
-      title: `Crest ${news.version}`,
+      title: `Cupcake ${news.version}`,
       text: available ? t("Update verfügbar") : t("Neuerungen"),
       onOpen: () => {
         opened.set(news);

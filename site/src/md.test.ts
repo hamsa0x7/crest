@@ -24,7 +24,7 @@ test("a table with a header row", () => {
 
 test("PRIVACY.md renders with no Markdown left over", () => {
   const html = markdown(readFileSync(new URL("../../PRIVACY.md", import.meta.url), "utf8"));
-  assert.match(html, /<h1>Crest privacy policy<\/h1>/);
+  assert.match(html, /<h1>Cupcake privacy policy<\/h1>/);
   assert.match(html, /<table>/);
   assert.doesNotMatch(html.replace(/<code>[^<]*<\/code>/g, ""), /\*\*|^#|\]\(/m);
 });

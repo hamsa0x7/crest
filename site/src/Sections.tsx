@@ -4,11 +4,11 @@ import { ArrowUpRight, GithubLogo } from "./icons";
 import { FAQ, HUE, LOGO, NOTIFY_ASK, NOTIFY_CODE, NOTIFY_PART, PLUGIN_JSON } from "./data";
 import { RELEASE } from "./release";
 
-export const REPO = "https://github.com/andrealo20/crest";
-export const RELEASES = "https://github.com/andrealo20/crest/releases/latest";
+export const REPO = "https://github.com/hamsa0x7/cupcake";
+export const RELEASES = "https://github.com/hamsa0x7/cupcake/releases/latest";
 export const STORE = "https://apps.microsoft.com/detail/9N2KXJ2924KS";
-export const SITE = "https://crestisland.app";
-export const SUPPORT = "support@crestisland.app";
+export const SITE = "https://cupcake.app";
+export const SUPPORT = "support@cupcake.app";
 
 /** A part of a section that rises into place once, `i` steps after its neighbours. */
 export function Rise({ children, i = 0, className }: { children: React.ReactNode; i?: number; className?: string }) {
@@ -26,7 +26,7 @@ const COLORED: Record<string, string> = {
   "1,4": LOGO.purple, "2,4": LOGO.purple, "3,4": LOGO.purple,
 };
 
-/** The Crest icon (assets/logo/crest-icon.svg): a C of rounded squares on a dark tile, which builds itself square by square. */
+/** The Cupcake icon (assets/logo/crest-icon.svg): a C of rounded squares on a dark tile, which builds itself square by square. */
 export function Mark({ size = 40, animate = true }: { size?: number; animate?: boolean }) {
   const cells: [number, number][] = [];
   for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) cells.push([c, r]);
@@ -47,16 +47,16 @@ export function Mark({ size = 40, animate = true }: { size?: number; animate?: b
 export function Nav() {
   return (
     <header className="nav">
-      <a className="brand" href="/" aria-label="Crest, home">
+      <a className="brand" href="/" aria-label="Cupcake, home">
         <Mark size={40} />
-        <span>Crest</span>
+        <span>Cupcake</span>
       </a>
       <nav aria-label="Main">
         <a className="nav-link nav-new" href="/whats-new/">What's new</a>
         <a className="nav-link nav-plugins" href="/#plugins">Plugins</a>
         <a className="nav-link nav-privacy" href="/privacy/">Privacy</a>
         <a className="btn btn-small btn-light nav-try" href="/try/">Try it</a>
-        <a className="btn btn-small" href="/#install">Get Crest</a>
+        <a className="btn btn-small" href="/#install">Get Cupcake</a>
       </nav>
     </header>
   );
@@ -70,7 +70,7 @@ export function Make() {
         <Rise><h2 id="notify-title">Scripts can talk to your notch</h2></Rise>
         <Rise i={1}>
           <p className="lead">
-            <code>crest-notify</code> is a small command line program that installs next to Crest. A build, a script or a coding agent uses it to show a notice, put a part of its own in the closed row, or ask you a question and get your answer back.
+            <code>crest-notify</code> is a small command line program that installs next to Cupcake. A build, a script or a coding agent uses it to show a notice, put a part of its own in the closed row, or ask you a question and get your answer back.
           </p>
         </Rise>
         <Rise className="codes" i={2}>
@@ -96,7 +96,7 @@ export function Make() {
           <pre tabIndex={0} aria-label="A crest-plugin.json file"><code>{PLUGIN_JSON}</code></pre>
         </Rise>
         <Rise i={3}>
-          <p className="body">Before anything is installed, Crest lists what the plugin asks for: the addresses it may fetch from, its own storage, and notices in the closed notch. It cannot read your files, keys, vault, clipboard or settings. Its page runs in a sandboxed frame with no network of its own, so Crest fetches for it, over https, from the hosts it declared.</p>
+          <p className="body">Before anything is installed, Cupcake lists what the plugin asks for: the addresses it may fetch from, its own storage, and notices in the closed notch. It cannot read your files, keys, vault, clipboard or settings. Its page runs in a sandboxed frame with no network of its own, so Cupcake fetches for it, over https, from the hosts it declared.</p>
         </Rise>
         <Rise i={4}>
           <a className="textlink" href={`${REPO}/blob/main/docs/plugins.md`}>Read the plugin guide <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
@@ -107,7 +107,7 @@ export function Make() {
 }
 
 const FACTS: [string, string][] = [
-  ["Accounts", "None. Crest has no server of its own and nothing is sent to the developer."],
+  ["Accounts", "None. Cupcake has no server of its own and nothing is sent to the developer."],
   ["Tracking", "No analytics, no telemetry, no tracking."],
   ["Your keys", "In the Windows Credential Manager (the Keychain on a Mac), never in a plain file."],
   ["The vault", "Encrypted with Windows DPAPI under your account, and sealed again with a key from your PC's security chip when Windows Hello is on."],
@@ -165,7 +165,7 @@ export function Privacy() {
               ? `files fetched by this page and its demo so far, every one from ${location.host}. Nothing else was contacted.`
               : `files fetched so far, including from ${seen.others.join(", ")}.`}
           </p>
-          <a className="textlink" href="/privacy/">What Crest itself sends over the network, and when <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
+          <a className="textlink" href="/privacy/">What Cupcake itself sends over the network, and when <ArrowUpRight size={18} weight="bold" aria-hidden="true" /></a>
         </Rise>
       </div>
       <dl className="facts">
@@ -188,9 +188,9 @@ const zigzag = (n: number) => {
 };
 
 const WAYS: { name: string; text: string; cta: string; href: string }[] = [
-  { name: "Microsoft Store", text: "Crest Island, signed by Microsoft and kept up to date by the Store.", cta: "Open the Store page", href: STORE },
+  { name: "Microsoft Store", text: "Cupcake Island, signed by Microsoft and kept up to date by the Store.", cta: "Open the Store page", href: STORE },
   { name: "Installer", text: "Crest_x.y.z_x64-setup.exe, or the arm64 one on a Windows on ARM PC. Installs for your user only, no admin rights. Not code-signed yet, so SmartScreen may warn: More info, then Run anyway.", cta: "Latest release", href: RELEASES },
-  { name: "Portable zip", text: "Crest-x.y.z-Portable-x64.zip. Unzip it anywhere you can write to and run Crest.exe. Nothing is installed and the data stays in a folder next to it.", cta: "Latest release", href: RELEASES },
+  { name: "Portable zip", text: "Cupcake-x.y.z-Portable-x64.zip. Unzip it anywhere you can write to and run Cupcake.exe. Nothing is installed and the data stays in a folder next to it.", cta: "Latest release", href: RELEASES },
   { name: "Mac, preview", text: "A .dmg for Apple silicon or Intel, macOS 12 or later. Not notarized yet, so allow it once in System Settings, Privacy & Security, Open Anyway. Some tools are Windows-only for now.", cta: "Latest release", href: RELEASES },
 ];
 
@@ -199,7 +199,7 @@ export function Install() {
     <section id="install" className="sec install" aria-labelledby="install-title">
       <div className="split">
         <div className="copy">
-          <Rise><h2 id="install-title" className="giant">Get Crest</h2></Rise>
+          <Rise><h2 id="install-title" className="giant">Get Cupcake</h2></Rise>
           <Rise i={1}>
             <p className="lead">Free and open source, for Windows 11 and 10 on x64 and ARM, and for macOS as a preview. Every release lists a SHA-256 checksum for each download.</p>
           </Rise>
@@ -207,7 +207,7 @@ export function Install() {
             <a className="badge" href={STORE}><img src="/img/get-it-from-microsoft-dark.svg" width={161} height={44} alt="Get it from Microsoft" /></a>
           </Rise>
           <Rise i={3}>
-            <p className="body">Crest uses WebView2, and the installer fetches it if it is missing. Settings and data stay in your user profile, or in a folder next to the portable copy. Every API key stays in the Credential Manager of that PC.</p>
+            <p className="body">Cupcake uses WebView2, and the installer fetches it if it is missing. Settings and data stay in your user profile, or in a folder next to the portable copy. Every API key stays in the Credential Manager of that PC.</p>
           </Rise>
         </div>
         <Rise className="sheet-wrap" i={1}>
@@ -266,7 +266,7 @@ export function Footer() {
           <a href={REPO}><GithubLogo size={30} weight="fill" aria-hidden="true" /> Source on GitHub</a>
           <a href={`${REPO}/issues/new/choose`}>Suggest an idea</a>
           <a href="/feedback/">Report a problem</a>
-          <a href="https://github.com/sponsors/andrealo20">Sponsor the project</a>
+          <a href="https://github.com/hamsa0x7">Sponsor the project</a>
         </div>
         <div className="small-links">
           <a href={`${REPO}/blob/main/docs/features.md`}>Every feature, in detail</a>
@@ -281,9 +281,9 @@ export function Footer() {
         </div>
       </div>
       <p className="legal">
-        Crest is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Apple. Text set in Inter and icons by Phosphor, both bundled with this page.
+        Cupcake is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Apple. Text set in Inter and icons by Phosphor, both bundled with this page.
       </p>
-      <p className="wordmark" aria-hidden="true">Crest</p>
+      <p className="wordmark" aria-hidden="true">Cupcake</p>
     </footer>
   );
 }

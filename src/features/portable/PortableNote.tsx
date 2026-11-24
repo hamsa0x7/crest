@@ -13,7 +13,7 @@ export function PortableNote() {
       label={t("Portable Kopie")}
       hint={
         info.writable
-          ? t("Daten liegen im Ordner data neben Crest.exe")
+          ? t("Daten liegen im Ordner data neben Cupcake.exe")
           : t("Der Ordner ist schreibgeschützt: Daten liegen im Benutzerprofil, Updates öffnen die Downloadseite")
       }
     />

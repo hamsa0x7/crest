@@ -28,7 +28,7 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
   },
   {
     title: "Themes at sunrise and sunset",
-    text: "Day and night can change with the sun at the place set for the Weather. Crest works the two times out on your computer, with no request to any service.",
+    text: "Day and night can change with the sun at the place set for the Weather. Cupcake works the two times out on your computer, with no request to any service.",
     chapter: "yours",
     hue: "#ffb511",
     demo: false,
@@ -62,8 +62,8 @@ export const HIGHLIGHTS: { title: string; text: string; chapter: string; hue: st
 ];
 
 export const FIXES = [
-  "A favourite's tooltip in Edge or Chrome no longer stays on screen while Crest is open.",
+  "A favourite's tooltip in Edge or Chrome no longer stays on screen while Cupcake is open.",
   "The red privacy dot lights while Snipping Tool records the screen.",
   "With the capsule as the closed look, notices open as the capsule, also when a window rule turns it into the line.",
-  "Crest looks for updates every 4 hours instead of once a day.",
+  "Cupcake looks for updates every 4 hours instead of once a day.",
 ];

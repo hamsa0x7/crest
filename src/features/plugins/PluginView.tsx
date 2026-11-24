@@ -8,7 +8,7 @@ import { lang } from "../../i18n";
 import { API, allowNotice, clampSize, pageUrl, parseRequest, permitted, plainText, toolId, type PluginManifest, type PluginRequest } from "./model";
 import { setPluginPill, clearPluginPill } from "./store";
 
-/** The theme tokens a page gets: Crest's colour variables by their short name, and the font. */
+/** The theme tokens a page gets: Cupcake's colour variables by their short name, and the font. */
 const TOKENS = ["accent", "label", "label-2", "label-3", "label-4", "fill-1", "fill-2", "fill-3", "separator", "elevated", "notch", "link", "green", "orange", "red", "yellow"];
 
 function themeTokens(): Record<string, string> {
@@ -75,7 +75,7 @@ export function handler(m: PluginManifest) {
 }
 
 /**
- * A plugin's page in a sandboxed frame: scripts run, but with an opaque origin, so it reaches nothing of Crest's
+ * A plugin's page in a sandboxed frame: scripts run, but with an opaque origin, so it reaches nothing of Cupcake's
  * (no storage, no cookies, no Tauri bridge). Messages count only when they come from this frame's window; each is
  * checked (model.ts) before anything runs. The page loads fresh each time the tool opens.
  */
@@ -96,15 +96,15 @@ export function PluginView({ manifest }: { manifest: PluginManifest }) {
       if (!el.contentWindow || e.source !== el.contentWindow) return;
       const parsed = parseRequest(e.data);
       if (parsed.kind === "ignore") return;
-      if (parsed.kind === "error") return post({ crest: API, id: parsed.id, ok: false, error: parsed.error });
+      if (parsed.kind === "error") return post({ cupcake: API, crest: API, id: parsed.id, ok: false, error: parsed.error });
       handle(parsed.req).then(
-        (result) => post({ crest: API, id: parsed.id, ok: true, result: result ?? null }),
-        (error) => post({ crest: API, id: parsed.id, ok: false, error: String(error).slice(0, 64) }),
+        (result) => post({ cupcake: API, crest: API, id: parsed.id, ok: true, result: result ?? null }),
+        (error) => post({ cupcake: API, crest: API, id: parsed.id, ok: false, error: String(error).slice(0, 64) }),
       );
     };
     window.addEventListener("message", onMessage);
     // The theme's variables are set in the same tick as the store; read them a frame later.
-    const offTheme = activeTheme.subscribe(() => requestAnimationFrame(() => post({ crest: API, event: "theme", data: themeTokens() })));
+    const offTheme = activeTheme.subscribe(() => requestAnimationFrame(() => post({ cupcake: API, crest: API, event: "theme", data: themeTokens() })));
     const tool = toolId(manifest.id);
     return () => {
       window.removeEventListener("message", onMessage);

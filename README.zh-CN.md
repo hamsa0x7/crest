@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo/crest-icon.svg" alt="Crest 图标" width="112" height="112" />
+  <img src="icons8-cupcake-100.png" alt="Cupcake 图标" width="100" height="100" />
 </p>
 
-<h1 align="center">Crest</h1>
+<h1 align="center">Cupcake</h1>
 
 <p align="center">
   <b>屏幕顶部的灵动岛，支持 Windows 和 macOS。</b>
@@ -10,15 +10,15 @@
 
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9N2KXJ2924KS?referrer=appbadge&mode=full"><img src="docs/media/store/get-it-from-microsoft-dark.svg" width="161" height="44" alt="从 Microsoft 获取"></a>
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="docs/media/badges/platforms-store.svg" width="161" height="44" alt="平台：Windows、Windows on Arm、macOS"></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><img src="docs/media/badges/platforms-store.svg" width="161" height="44" alt="平台：Windows、Windows on Arm、macOS"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/andrealo20/crest/releases/latest"><img src="https://img.shields.io/github/v/release/andrealo20/crest?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="最新版本" /></a>
-  <a href="https://github.com/andrealo20/crest/releases"><img src="https://img.shields.io/github/downloads/andrealo20/crest/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
-  <a href="https://github.com/andrealo20/crest/stargazers"><img src="https://img.shields.io/github/stars/andrealo20/crest?style=flat&color=FFD700&logo=github&logoColor=white" alt="GitHub 星标" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><img src="https://img.shields.io/github/v/release/hamsa0x7/cupcake?style=flat&label=release&color=7B61FF&logo=github&logoColor=white" alt="最新版本" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases"><img src="https://img.shields.io/github/downloads/hamsa0x7/cupcake/total?style=flat&label=downloads&color=2EA44F&logo=github&logoColor=white" alt="总下载量" /></a>
+  <a href="https://github.com/hamsa0x7/cupcake/stargazers"><img src="https://img.shields.io/github/stars/hamsa0x7/cupcake?style=flat&color=FFD700&logo=github&logoColor=white" alt="GitHub 星标" /></a>
   <a href="src/i18n"><img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20ZH%20%C2%B7%20ES%20%C2%B7%20HI%20%C2%B7%20AR%20%C2%B7%20FR%20%C2%B7%20PT%20%C2%B7%20RU%20%C2%B7%20JA%20%C2%B7%20DE%20%C2%B7%20IT-D9480F?style=flat&logo=googletranslate&logoColor=white" alt="语言：英语、简体中文、西班牙语、印地语、阿拉伯语、法语、葡萄牙语、俄语、日语、德语、意大利语" /></a>
-  <a href="https://github.com/sponsors/andrealo20"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=flat&logo=githubsponsors&logoColor=white" alt="在 GitHub 上赞助" /></a>
+  <a href="https://github.com/hamsa0x7"><img src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-E0559E?style=flat&logo=githubsponsors&logoColor=white" alt="在 GitHub 上赞助" /></a>
 </p>
 
 <p align="center">
@@ -28,30 +28,30 @@
 <p align="center">
   <a href="https://crestisland.app/"><b>网站</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/andrealo20/crest/releases/latest"><b>下载</b></a>
+  <a href="https://github.com/hamsa0x7/cupcake/releases/latest"><b>下载</b></a>
   &nbsp;·&nbsp;
   <a href="#功能"><b>功能</b></a>
   &nbsp;·&nbsp;
   <a href="#数据只留在你的电脑上"><b>隐私</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/andrealo20/crest/issues/new/choose"><b>提建议</b></a>
+  <a href="https://github.com/hamsa0x7/cupcake/issues/new/choose"><b>提建议</b></a>
 </p>
 
 <p align="center">
-  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Crest" /></a>
+  <a href="https://crestisland.app/"><img src="https://img.shields.io/badge/%E5%9C%A8%E6%B5%8F%E8%A7%88%E5%99%A8%E4%B8%AD-%E8%AF%95%E7%94%A8-FFC75F?style=for-the-badge&labelColor=0F1015" alt="在浏览器中试用 Cupcake" /></a>
 </p>
 
 https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 ## 这是什么
 
-Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
+Cupcake 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **Ctrl + Alt + Space** 即可展开，里面放着你每天都要用的工具：大约三十个，每个都可以随意开关。免费、开源，无需账号，也不用付费。
 
 上面的视频用不到两分钟展示了它们，[项目主页上的演示](https://crestisland.app/)让你在安装之前就能在浏览器里试用每一个工具。
 
 <p align="center"><img src="docs/media/features/closed-capsule.png" alt="屏幕顶部收起的胶囊：正在播放的歌曲封面、专注计时器、AI 额度环、CPU、内存和 GPU 负载、时钟和天气" width="760" /></p>
 
-收起时，Crest 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。
+收起时，Cupcake 只是一行：歌曲、正在运行的计时器、你的 AI 额度、CPU、内存和 GPU、网络、电池、时钟、天气、下一个会议。有事发生时，它会变成一张卡片停留几秒，然后恢复原样。
 
 <p align="center">
   <img src="docs/media/features/notice-code.png" alt="收起的刘海里来自银行应用的通知，带有一次性验证码和“复制验证码”按钮" width="560" /><br />
@@ -72,7 +72,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 - **概览**中的歌曲旁新增播放/暂停和下一首按钮，同步歌词在短暂停顿时保持显示。
 - **修复**：Crest 打开时浏览器的提示框一直留在屏幕上，以及截图工具录屏时隐私圆点不亮。
 
-[1.2.0 版本](https://github.com/andrealo20/crest/releases/tag/v1.2.0)页面提供下载和完整的发布说明（英文），并列出每项改动对应的 issue。
+[1.2.0 版本](https://github.com/hamsa0x7/cupcake/releases/tag/v1.2.0)页面提供下载和完整的发布说明（英文），并列出每项改动对应的 issue。
 
 ## 功能
 
@@ -139,7 +139,7 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 - **Windows 通知**显示在刘海里，带历史页面；通知里有一次性验证码时会出现**复制验证码**按钮。可以关闭 Windows 自己的横幅，让每条通知只出现一次。
 - **保险库**保存密码和两步验证码，用 PIN 或 Windows Hello 保护，从不进入剪贴板历史。
-- **演示模式**在你共享屏幕时隐藏剪贴板、余额、保险库和你的截图录屏；**在屏幕共享中隐藏 Crest** 让 Teams、Zoom、Discord 和 OBS 都看不到任何 Crest 窗口。
+- **演示模式**在你共享屏幕时隐藏剪贴板、余额、保险库和你的截图录屏；**在屏幕共享中隐藏 Cupcake** 让 Teams、Zoom、Discord 和 OBS 都看不到任何 Cupcake 窗口。
 
 ### 个性化
 
@@ -153,9 +153,9 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 ## 安装
 
 - **Microsoft Store：** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS)，由 Microsoft 签名，并由应用商店自动更新。
-- **安装程序：** 从[最新版本](https://github.com/andrealo20/crest/releases/latest)下载 `Crest_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Crest_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
-- **便携版：** 把 `Crest-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Crest.exe`。不会安装任何东西。
-- **Mac（预览版）：** Apple 芯片请下载 `Crest_x.y.z_aarch64.dmg`，Intel 请下载 `Crest_x.y.z_x64.dmg`，然后把 Crest 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。文件架、硬件、Discord、保险库、终端、启动器、通知、录制、录音机和摄像头目前只支持 Windows，在 Mac 上不会显示，“在屏幕上查找”也没有快捷键。
+- **安装程序：** 从[最新版本](https://github.com/hamsa0x7/cupcake/releases/latest)下载 `Cupcake_x.y.z_x64-setup.exe`（Windows on ARM 电脑请下载 `Cupcake_x.y.z_arm64-setup.exe`）并运行。它只为当前用户安装。安装程序暂未进行代码签名，首次运行时 SmartScreen 可能会提示：点击 **更多信息 → 仍要运行**。
+- **便携版：** 把 `Cupcake-x.y.z-Portable-x64.zip`（或 `-Portable-arm64.zip`）解压到任意可写的位置，运行 `Cupcake.exe`。不会安装任何东西。
+- **Mac（预览版）：** Apple 芯片请下载 `Cupcake_x.y.z_aarch64.dmg`，Intel 请下载 `Cupcake_x.y.z_x64.dmg`，然后把 Cupcake 拖到“应用程序”文件夹。应用暂未经过公证，首次打开时 macOS 会拒绝运行：请打开 **系统设置 → 隐私与安全性 → 仍要打开**。文件架、硬件、Discord、保险库、终端、启动器、通知、录制、录音机和摄像头目前只支持 Windows，在 Mac 上不会显示，“在屏幕上查找”也没有快捷键。
 
 每个版本都附带 `SHA256SUMS` 文件，列出每个下载文件的 SHA-256，可以用 `sha256sum -c SHA256SUMS --ignore-missing` 或 `Get-FileHash` 校验。
 
@@ -163,32 +163,28 @@ Crest 是 Windows 或 Mac 屏幕边缘的一个刘海，悬停、点击或按 **
 
 ## 数据只留在你的电脑上
 
-不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里（Mac 上是钥匙串），Crest 只为你开启的服务联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
+不需要账户，没有统计分析，没有跟踪。设置和数据保存在你的电脑上，密钥存放在 Windows 凭据管理器里（Mac 上是钥匙串），Cupcake 只为你开启的服务联网。哪些内容会经过网络、什么时候：[PRIVACY.md](PRIVACY.md)（英文）。
 
 ## 支持这个项目
 
-Crest 免费，没有广告，也没有付费版本。如果它对你有用，可以[在 GitHub Sponsors 上赞助](https://github.com/sponsors/andrealo20)、给仓库加星，或者[提个建议](https://github.com/andrealo20/crest/issues/new/choose)。
+Cupcake 免费，没有广告，也没有付费版本。如果它对你有用，可以[在 GitHub Sponsors 上赞助](https://github.com/hamsa0x7)、给仓库加星，或者[提个建议](https://github.com/hamsa0x7/cupcake/issues/new/choose)。
 
 从源码构建和参与贡献：[CONTRIBUTING.md](CONTRIBUTING.md)（英文）。
 
 ## 致谢和许可
 
-Crest 是 Linux5Real 的 [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 的修改版本，于 2026 年 10 月 31 日从 1.6.0 版本分叉。之后的每一处改动都记录在提交历史里。第三方代码和资源的完整来源与许可证列在[英文 README](README.md#credits-and-licences) 中。
-
-Crest 是 Andrea Loroni 的独立应用，与 Apple、OmniNotch 和 Microsoft 均无关联，也未获其赞助或认可。
+Cupcake 是 Linux5Real 的 [L4-Notchbar](https://github.com/Linux5Real/L4-Windows-NotchBar) 的修改版本，第三方代码和资源的完整来源与许可证列在[英文 README](README.md#credits-and-licences) 中。
 
 ## 许可证
 
 [GPL-3.0](LICENSE)。你可以使用、研究、修改和分享这个项目，包括商业用途，但你分发的任何版本都必须以相同的许可证保持开源，并保留版权声明。
 
-Crest 是 L4-Notchbar 1.6.0 的分叉。每个版本（包括 Microsoft Store 版本）的源代码都在这个仓库里：每个版本都有一个版本标签，指向构建它的确切代码。
-
 ## Star 历史
 
-<a href="https://www.star-history.com/#andrealo20/crest&Date">
+<a href="https://www.star-history.com/#hamsa0x7/cupcake&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
-    <img alt="Star history of Crest" src="https://api.star-history.com/svg?repos=andrealo20/crest&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date" />
+    <img alt="Star history of Cupcake" src="https://api.star-history.com/svg?repos=hamsa0x7/cupcake&type=Date" />
   </picture>
 </a>

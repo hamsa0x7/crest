@@ -63,7 +63,7 @@ export function OverviewView() {
     void systemControls.setOutput(id).catch(() => {}).finally(loadOutputs);
   };
 
-  // The notch's monitor brightness: the row shows only where Crest can set it, read every few seconds (keys, other apps).
+  // The notch's monitor brightness: the row shows only where Cupcake can set it, read every few seconds (keys, other apps).
   const [bright, setBright] = useState<number | null>(null);
   const brightBusy = useRef(false);
   // Until when a reading would undo the slider: writes still going out, or just landed.

@@ -33,7 +33,7 @@ interface ClipboardSource {
   text(id: number): Promise<string | null>;
   subscribe(listener: () => void): () => void;
   copy(id: number): Promise<void>;
-  /** Copies, then pastes into the app that had the keyboard before the notch opened. False: there was none (or a Mac has not allowed Crest to press keys), so it is only copied. */
+  /** Copies, then pastes into the app that had the keyboard before the notch opened. False: there was none (or a Mac has not allowed Cupcake to press keys), so it is only copied. */
   paste(id: number): Promise<boolean>;
   remove(id: number): void;
   clear(): void;
@@ -84,7 +84,7 @@ function createMock(): ClipboardSource {
     { id: 10, kind: "text", text: "1700000000", thumbnail: null, folders: 0, copiedAt: now - 9_100_000 },
     { id: 11, kind: "text", text: "SGVsbG8gV29ybGQsIHRoaXMgaXMgQmFzZTY0Lg==", thumbnail: null, folders: 0, copiedAt: now - 9_200_000 },
     { id: 12, kind: "text", text: "550e8400-e29b-41d4-a716-446655440000", thumbnail: null, folders: 0, copiedAt: now - 9_300_000 },
-    { id: 13, kind: "text", text: '{"name":"crest","tools":["clipboard","timer"],"id":9007199254740993}', thumbnail: null, folders: 0, copiedAt: now - 9_400_000 },
+    { id: 13, kind: "text", text: '{"name":"cupcake","tools":["clipboard","timer"],"id":9007199254740993}', thumbnail: null, folders: 0, copiedAt: now - 9_400_000 },
     { id: 14, kind: "text", text: "#ff8800", thumbnail: null, folders: 0, copiedAt: now - 9_500_000 },
     { id: 15, kind: "link", text: "https://example.com/page?utm_source=news&utm_medium=email&id=7", thumbnail: null, folders: 0, copiedAt: now - 9_600_000 },
   ];

@@ -75,11 +75,11 @@ function Feedback() {
           <p className="lead" role="status">Thanks, your report reached the developer. If you left an address, the answer comes from {SUPPORT}.</p>
         ) : (
           <form ref={form} className="report" onSubmit={submit} noValidate>
-            {field("message", "What happened?", <textarea id="message" name="message" rows={8} maxLength={5000} required aria-invalid={!!errors.message} aria-describedby={described("message", true)} />, "What you did, what you expected and what Crest did instead. Copy diagnostics, in Settings, General, Updates, gives the version, the system and your settings with no personal data, ready to paste here.")}
+            {field("message", "What happened?", <textarea id="message" name="message" rows={8} maxLength={5000} required aria-invalid={!!errors.message} aria-describedby={described("message", true)} />, "What you did, what you expected and what Cupcake did instead. Copy diagnostics, in Settings, General, Updates, gives the version, the system and your settings with no personal data, ready to paste here.")}
             {field("email", "Your email, for an answer (optional)", <input id="email" name="email" type="email" autoComplete="email" maxLength={254} aria-invalid={!!errors.email} aria-describedby={described("email")} />)}
-            {field("attachments", "Screenshots or logs (optional)", <input id="attachments" name="attachments" type="file" multiple accept=".log,.txt,.png,.jpg" aria-invalid={!!errors.attachments} aria-describedby={described("attachments", true)} />, "Up to 10 files, 3 MB in all: .png, .jpg, .txt or .log. The crash log is crash.log in the logs folder of Crest's data folder.")}
+            {field("attachments", "Screenshots or logs (optional)", <input id="attachments" name="attachments" type="file" multiple accept=".log,.txt,.png,.jpg" aria-invalid={!!errors.attachments} aria-describedby={described("attachments", true)} />, "Up to 10 files, 3 MB in all: .png, .jpg, .txt or .log. The crash log is crash.log in the logs folder of Cupcake's data folder.")}
             <div className="field-row">
-              {field("version", "Crest version (optional)", <input id="version" name="version" maxLength={32} placeholder="1.1.0" aria-invalid={!!errors.version} aria-describedby={described("version", true)} />, "Settings, General, Updates.")}
+              {field("version", "Cupcake version (optional)", <input id="version" name="version" maxLength={32} placeholder="1.1.0" aria-invalid={!!errors.version} aria-describedby={described("version", true)} />, "Settings, General, Updates.")}
               {field("system", "System (optional)", <input id="system" name="system" maxLength={32} placeholder="Windows 11 24H2" aria-invalid={!!errors.system} aria-describedby={described("system")} />)}
             </div>
             <div ref={widget} className="turnstile" />

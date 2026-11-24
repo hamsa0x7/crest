@@ -1,3 +1,5 @@
+import { isExtensionEnabled } from "../extensions/registry.ts";
+
 /*
  * Synthesized acoustic mallet chime engine, adapted from ding (MIT, Yusuf Cengiz).
  * Generates organic soft mallet tones via Web Audio API without needing external audio files.
@@ -52,6 +54,7 @@ function strikeMallet(c: AudioContext, out: AudioNode, freq: number, at: number,
  * Completely safe to call anywhere: silences gracefully if AudioContext is missing, locked, or throws.
  */
 export function playChime(type: ChimeType, volume = 0.5): void {
+  if (!isExtensionEnabled("acoustic-feedback")) return;
   const cue = CUES[type];
   if (!cue || typeof AudioContext === "undefined") return;
   try {

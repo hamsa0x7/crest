@@ -96,7 +96,7 @@ export function combinations(kind: HotkeyKind, text: string): string[] {
 /** The launcher's Alt+1.. keys for `count` favourites (at most six), in the saved spelling. */
 export const launcherKeys = (count: number): string[] => Array.from({ length: Math.min(6, Math.max(0, count)) }, (_, i) => `Alt+Digit${i + 1}`);
 
-/** Who can hold a combination: the launcher's Alt+N keys, one of Crest's shortcuts, or a tool's own (`tool:<id>`). */
+/** Who can hold a combination: the launcher's Alt+N keys, one of Cupcake's shortcuts, or a tool's own (`tool:<id>`). */
 export type Holder = HotkeyKind | "launcher" | `tool:${string}`;
 
 /** In order, each entry's earlier holder of one of its combinations, or null. An entry that yields holds nothing. */
@@ -111,7 +111,7 @@ function claim(entries: { id: Holder; combos: string[] }[]): Map<Holder, Holder 
   return out;
 }
 
-/** The launcher's keys first, then Crest's shortcuts in their fixed order. */
+/** The launcher's keys first, then Cupcake's shortcuts in their fixed order. */
 const ownEntries = (h: Record<HotkeyKind, string>, launcher: string[]) => [
   { id: "launcher" as Holder, combos: launcher },
   ...HOTKEY_KINDS.map((kind) => ({ id: kind as Holder, combos: combinations(kind, h[kind]) })),
@@ -127,7 +127,7 @@ export function conflicts(h: Record<HotkeyKind, string>, launcher: string[] = []
 }
 
 /**
- * The same for the tools' own shortcuts, `[tool id, shortcut]` in dock order. They come after Crest's, so they never take a
+ * The same for the tools' own shortcuts, `[tool id, shortcut]` in dock order. They come after Cupcake's, so they never take a
  * combination from one of those; between two tools the earlier one keeps it. Each follows the open shortcut's rules.
  */
 export function toolConflicts(h: Record<HotkeyKind, string>, tools: [string, string][], launcher: string[] = []): Record<string, Holder | null> {

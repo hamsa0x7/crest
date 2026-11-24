@@ -7,6 +7,7 @@ import { GlassLayer, type GlassMode } from "./glass/GlassLayer";
 import { getFrostedShapeColor, getRimStops, computeNotchPerimeterPath, type RimPreset, type RimEffect } from "./rim";
 import { computeFerrofluidPerimeterPath } from "./ferrofluid";
 import { FerrofluidLayer } from "./FerrofluidLayer";
+import { isExtensionEnabled } from "../extensions";
 
 interface Props {
   geometry: NotchGeometry;
@@ -478,15 +479,17 @@ export function NotchShape({
       )}
 
       {/* Ferrofluid Liquid Droplet Beads & Environmental Precipitation Drips */}
-      <FerrofluidLayer
-        width={geometry.w}
-        height={geometry.h}
-        dropletBeadEnabled={dropletBead}
-        weatherDripsEnabled={weatherDrips}
-        isPrecipitating={isPrecipitating}
-        precipType={precipType}
-        tintColor="var(--accent)"
-      />
+      {isExtensionEnabled("ferrofluid") && (
+        <FerrofluidLayer
+          width={geometry.w}
+          height={geometry.h}
+          dropletBeadEnabled={dropletBead}
+          weatherDripsEnabled={weatherDrips}
+          isPrecipitating={isPrecipitating}
+          precipType={precipType}
+          tintColor="var(--accent)"
+        />
+      )}
     </motion.div>
   );
 }

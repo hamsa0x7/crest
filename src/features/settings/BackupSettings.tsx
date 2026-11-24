@@ -8,8 +8,8 @@ import { Button, Group, Row } from "../../ui/controls";
 import { locale, t } from "../../i18n";
 
 const readErrors: Record<BackupError, string> = {
-  "not-backup": "Diese Datei ist kein Backup von Crest",
-  newer: "Dieses Backup stammt aus einer neueren Version von Crest; aktualisiere Crest zuerst",
+  "not-backup": "Diese Datei ist kein Backup von Cupcake",
+  newer: "Dieses Backup stammt aus einer neueren Version von Cupcake; aktualisiere Cupcake zuerst",
   empty: "In diesem Backup sind keine Daten",
 };
 const fileErrors: Record<string, string> = {
@@ -26,14 +26,14 @@ function when(iso: string): string | null {
   return iso && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(locale(), { dateStyle: "medium", timeStyle: "short" }).format(d) : null;
 }
 
-/** Everything Crest saved right now, as the file's text. */
+/** Everything Cupcake saved right now, as the file's text. */
 async function currentData(): Promise<string> {
   return JSON.stringify(collectBackup(localStorage, await updater.current()), null, 2);
 }
 
 /**
- * Settings, General: a backup of Crest's data into Documents/Crest/Backups, and a restore from one. A restore first saves the
- * data it replaces as a backup of its own, then restarts Crest, which applies it before anything reads the data (src/lib/backup.ts).
+ * Settings, General: a backup of Cupcake's data into Documents/Cupcake/Backups, and a restore from one. A restore first saves the
+ * data it replaces as a backup of its own, then restarts Cupcake, which applies it before anything reads the data (src/lib/backup.ts).
  */
 export function BackupSettings() {
   const [busy, setBusy] = useState(false);
@@ -94,7 +94,7 @@ export function BackupSettings() {
       // The restore waits; it happens at the next start, whenever that is.
       setPending(null);
       setBusy(false);
-      setRestoreError(t("Starte Crest neu, um die Wiederherstellung abzuschließen"));
+      setRestoreError(t("Starte Cupcake neu, um die Wiederherstellung abzuschließen"));
     }
   };
 
@@ -118,7 +118,7 @@ export function BackupSettings() {
           saveError ? (
             <span className="text-orange">{saveError}</span>
           ) : (
-            (savedHint ?? t("Einstellungen, Notizen, To-dos und die Daten der Tools als Datei in Dokumente › Crest › Backups. Schlüssel und Passwörter sind nicht dabei"))
+            (savedHint ?? t("Einstellungen, Notizen, To-dos und die Daten der Tools als Datei in Dokumente › Cupcake › Backups. Schlüssel und Passwörter sind nicht dabei"))
           )
         }
       >
@@ -132,7 +132,7 @@ export function BackupSettings() {
       {pending ? (
         <Row
           label={pendingDate ? t("Backup vom {date} wiederherstellen?", { date: pendingDate }) : t("Dieses Backup wiederherstellen?")}
-          hint={t("Ersetzt alle Daten von Crest. Die jetzigen werden vorher als Backup gesichert, dann startet Crest neu")}
+          hint={t("Ersetzt alle Daten von Cupcake. Die jetzigen werden vorher als Backup gesichert, dann startet Cupcake neu")}
         >
           <div className="flex shrink-0 items-center gap-1.5">
             <Button disabled={busy} onClick={() => setPending(null)}>
@@ -146,7 +146,7 @@ export function BackupSettings() {
       ) : (
         <Row
           label={t("Aus einem Backup wiederherstellen")}
-          hint={restoreError ? <span className="text-orange">{restoreError}</span> : (restoredHint ?? t("Ersetzt alle Daten von Crest durch die des Backups und startet Crest neu"))}
+          hint={restoreError ? <span className="text-orange">{restoreError}</span> : (restoredHint ?? t("Ersetzt alle Daten von Cupcake durch die des Backups und startet Cupcake neu"))}
         >
           <Button disabled={busy} onClick={() => void choose()}>
             {t("Datei wählen …")}

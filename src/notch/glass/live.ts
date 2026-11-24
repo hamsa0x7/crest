@@ -185,8 +185,8 @@ export function startGlassLive() {
       liveSupport.set({ supported: true, reason: null });
     });
   } else {
-    // Rust answers "failed" when it could not tell this time (WinRT failing as Crest starts): asked again a few times, or the
-    // switch would be gone until Crest restarts with the setting saved on.
+    // Rust answers "failed" when it could not tell this time (WinRT failing as Cupcake starts): asked again a few times, or the
+    // switch would be gone until Cupcake restarts with the setting saved on.
     const ask = (left: number) =>
       void glassLive.supported().then(
         (s) => {

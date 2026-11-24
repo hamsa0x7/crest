@@ -5,7 +5,7 @@
 //   2. battery: what the battery supplies while the machine runs on it, which is everything the machine draws. Measured.
 //   3. parts: the CPU package (RAPL), memory where it has a meter, and NVIDIA boards (NVML). A sum of what can be read,
 //      without display, drives, fans and the power supply's losses, so it is always marked as an estimate. CPU and GPU
-//      figures from HWiNFO or LibreHardwareMonitor, while one runs, replace Crest's own.
+//      figures from HWiNFO or LibreHardwareMonitor, while one runs, replace Cupcake's own.
 //   4. none: no reading, and the tool hides the row.
 
 export type PowerSource = "meter" | "battery" | "parts";

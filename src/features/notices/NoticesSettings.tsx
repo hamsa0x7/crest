@@ -30,7 +30,7 @@ export function NoticesSettings() {
   const store = update.use().store;
   const fileError = soundFileError.use();
   const apps = Object.entries(n.apps).sort((a, b) => a[1].localeCompare(b[1]));
-  // Access may have changed in Windows Settings while Crest ran.
+  // Access may have changed in Windows Settings while Cupcake ran.
   useEffect(refreshStatus, []);
 
   const windowsHint =
@@ -39,7 +39,7 @@ export function NoticesSettings() {
     : status.access === "denied" ? t("In Windows abgelehnt: Einstellungen › Datenschutz und Sicherheit › Benachrichtigungen")
     : status.access === "unavailable" ? t("Auf diesem Windows nicht verfügbar")
     : n.enabled && n.windows ? t(modeText[status.mode] ?? status.mode)
-    : t("Liest Titel und Text der Mitteilungen anderer Apps, entfernt sie nur, wenn du sie in Crest löschst");
+    : t("Liest Titel und Text der Mitteilungen anderer Apps, entfernt sie nur, wenn du sie in Cupcake löschst");
 
   return (
     <>
@@ -57,17 +57,17 @@ export function NoticesSettings() {
             </Row>
             {/* The Store build cannot change Windows' settings (banners.rs). */}
             {n.windows && !store && (
-              <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Crest und bleiben in der Mitteilungszentrale von Windows")}>
+              <Row label={t("Windows-Banner ausblenden")} hint={t("Mitteilungen erscheinen nur in Cupcake und bleiben in der Mitteilungszentrale von Windows")}>
                 <Switch label={t("Windows-Banner ausblenden")} checked={n.hideBanners} onChange={(hideBanners) => patch(() => ({ hideBanners }))} />
               </Row>
             )}
-            {/* Crest's own sound with the card (issue #31); the Store build cannot mute Windows' (banners.rs). */}
+            {/* Cupcake's own sound with the card (issue #31); the Store build cannot mute Windows' (banners.rs). */}
             <Row
               label={t("Ton")}
               hint={
                 store
                   ? t("Spielt, wenn eine Mitteilung in der Notch erscheint. Den Windows-Ton schaltest du in den Windows-Einstellungen unter Benachrichtigungen aus.")
-                  : t("Spielt, wenn eine Mitteilung in der Notch erscheint. Für diese Apps bleibt der Windows-Ton aus, solange Crest läuft.")
+                  : t("Spielt, wenn eine Mitteilung in der Notch erscheint. Für diese Apps bleibt der Windows-Ton aus, solange Cupcake läuft.")
               }
             >
               <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ export function NoticesSettings() {
               <Row
                 label={t("Tondatei")}
                 hint={
-                  fileError === "format" ? t("Diese Datei kann Crest nicht abspielen: MP3, WAV, OGG, M4A oder FLAC")
+                  fileError === "format" ? t("Diese Datei kann Cupcake nicht abspielen: MP3, WAV, OGG, M4A oder FLAC")
                   : fileError === "size" ? t("Die Datei ist größer als 5 MB")
                   : fileError ? t("Die Datei konnte nicht kopiert werden")
                   : n.soundFile || t("Keine Datei gewählt")
@@ -103,13 +103,13 @@ export function NoticesSettings() {
                 <Button onClick={() => void pickSoundFile()}>{t("Datei wählen …")}</Button>
               </Row>
             )}
-            <Row label="crest-notify" hint={
+            <Row label="cupcake-notify" hint={
                 !n.cli ? t("Für Skripte und Agent-Hooks")
                 : status.pipe ? t("Bereit · für Skripte und Agent-Hooks")
                 : status.pipeFailed ? t("Kanal konnte nicht geöffnet werden · belegt ein anderes Programm den Namen?")
                 : t("Startet …")
               }>
-              <Switch label="crest-notify" checked={n.cli} onChange={(cli) => patch(() => ({ cli }))} />
+              <Switch label="cupcake-notify" checked={n.cli} onChange={(cli) => patch(() => ({ cli }))} />
             </Row>
             <Row label={t("Kopier-Knopf für Einmalcodes")} hint={t("Erscheint, wenn eine Mitteilung einen Code enthält. Die Kopie bleibt aus dem Verlauf der Zwischenablage und wird nach 30 s geleert.")}>
               <Switch label={t("Kopier-Knopf für Einmalcodes")} checked={n.copyCodes} onChange={(copyCodes) => patch(() => ({ copyCodes }))} />

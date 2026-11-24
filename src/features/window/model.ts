@@ -85,7 +85,7 @@ export function ruleKey(rule: Pick<AppRule, "name" | "path">): string {
   return path ? `path:${path}` : `name:${rule.name.trim().replace(/\.exe$/i, "").toLowerCase()}`;
 }
 
-/** A new rule keeps the style everywhere: the usual reason to add an app is that it should leave Crest alone. */
+/** A new rule keeps the style everywhere: the usual reason to add an app is that it should leave Cupcake alone. */
 export function newRule(name: string, path = ""): AppRule {
   return { name: name.trim().replace(/\.exe$/i, ""), path: path.trim(), maximized: "normal", borderless: "normal", exclusive: "normal" };
 }

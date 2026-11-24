@@ -45,7 +45,7 @@ const REASON: Record<string, string> = {
 const KIND: Record<string, string> = { interactive: "Interaktiv", background: "Hintergrund" };
 
 const agentsError: Record<AgentsError, { title: string; hint?: string }> = {
-  "not-found": { title: "Claude Code wurde auf diesem PC nicht gefunden", hint: "Installiere Claude Code oder starte Crest neu, falls es gerade erst installiert wurde" },
+  "not-found": { title: "Claude Code wurde auf diesem PC nicht gefunden", hint: "Installiere Claude Code oder starte Cupcake neu, falls es gerade erst installiert wurde" },
   "too-old": { title: "Dafür braucht es ein neueres Claude Code", hint: "Aktualisieren geht mit: claude update" },
   invalid: { title: "Claude Code hat ungültiges JSON geliefert" },
   timeout: { title: "Claude Code hat nicht rechtzeitig geantwortet" },
@@ -176,7 +176,7 @@ function Row({ s, now, wait, copied, onCopy }: { s: AgentSession; now: number; w
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-body font-medium text-label">{s.title || t("Sitzung")}</div>
-        <div className="flex min-w-0 items-center text-caption text-label-3" title={[s.cwd, waitText && t("Ab dem Moment gezählt, in dem Crest die Sitzung zum ersten Mal wartend sah")].filter(Boolean).join("\n")}>
+        <div className="flex min-w-0 items-center text-caption text-label-3" title={[s.cwd, waitText && t("Ab dem Moment gezählt, in dem Cupcake die Sitzung zum ersten Mal wartend sah")].filter(Boolean).join("\n")}>
           {details && <span className={`shrink-0 ${s.phase === "waiting" ? "text-label-2" : ""}`}>{details}</span>}
           {details && s.cwd && <span className="shrink-0 px-1">·</span>}
           {s.cwd && (

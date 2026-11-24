@@ -133,7 +133,7 @@ export function photo(w: number, h: number): string {
 /** Ages in ms (relative to page load). */
 export const showcaseClips = [
   { id: 1, kind: "image" as const, text: "4032 × 3024", thumbnail: photo(4032, 3024), folders: 0, age: 8_000 },
-  { id: 2, kind: "link" as const, text: "https://github.com/andrealo20/crest", thumbnail: null, folders: 0, age: 130_000 },
+  { id: 2, kind: "link" as const, text: "https://github.com/hamsa0x7/cupcake", thumbnail: null, folders: 0, age: 130_000 },
   // A token the decode chip opens: header, payload and an expiry far ahead.
   { id: 8, kind: "text" as const, text: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQyIiwibmFtZSI6IkFsZXggUml2ZXJhIiwicm9sZSI6ImFkbWluIiwiZXhwIjoyMDAwMDAwMDAwfQ.c2lnbmF0dXJl", thumbnail: null, folders: 0, age: 240_000 },
   { id: 3, kind: "text" as const, text: "export const open = spring(0.42, 0.24);", thumbnail: null, folders: 0, age: 380_000 },

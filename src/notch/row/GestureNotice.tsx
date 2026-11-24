@@ -1,5 +1,6 @@
 import { useRef, useState, type CSSProperties, type ReactNode, type PointerEvent } from "react";
 import { dampenDrag, evaluateFlick } from "./gestureDismiss";
+import { isExtensionEnabled } from "../../extensions";
 
 export interface GestureNoticeProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ export function GestureNotice({ children, onDismiss, className, style }: Gesture
   const startRef = useRef<{ x: number; y: number; time: number; active: boolean } | null>(null);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isExtensionEnabled("notices-pro")) return;
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("button, input, a, [role='button'], textarea")) return;
     startRef.current = { x: e.clientX, y: e.clientY, time: e.timeStamp, active: true };

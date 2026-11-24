@@ -40,7 +40,7 @@ test("grouped digits give the plain code", () => {
   ]);
 });
 
-test("the languages of Crest", () => {
+test("the languages of Cupcake", () => {
   found([
     ["Il tuo codice di verifica è 482913", "482913"],
     ["Codice monouso: 91827364", "91827364"],
@@ -88,7 +88,7 @@ test("the keyword may stand in the title and the digits in the text", () => {
   assert.equal(noticeCode({ title: "Acme", body: "Hello there" }), null);
 });
 
-test("a crest-notify run result is never searched", () => {
+test("a cupcake-notify run result is never searched", () => {
   assert.equal(noticeCode({ title: "code 482913", body: "code 482913", exitCode: 0 }), null);
   assert.equal(noticeCode({ title: "code 482913", body: "", exitCode: 1 }), null);
 });

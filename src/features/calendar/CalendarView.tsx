@@ -74,7 +74,7 @@ export function CalendarView() {
         <Empty
           icon={CalendarBlank}
           title={t("Kein Kalender verbunden")}
-          text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Crest liest nur.")}
+          text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Cupcake liest nur.")}
           action={<Button onClick={() => navigate("settings", "calendar")}>{t("Kalender hinzufügen")}</Button>}
         />
       </>

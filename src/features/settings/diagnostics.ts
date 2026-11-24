@@ -39,7 +39,7 @@ export function diagnosticsText(d: Diagnostics): string {
     return c ? [`${where} ${c}`] : [];
   });
   const lines = [
-    "Crest diagnostics",
+    "Cupcake diagnostics",
     `App: ${d.version} (${d.build}, ${d.arch})`,
     `OS: ${d.os ?? "unknown"}, build ${d.osBuild ?? "unknown"}, PC ${d.machine ?? "unknown"}`,
     `Monitors: ${d.scales.length} (${d.scales.map(percent).join(", ") || "none"})`,

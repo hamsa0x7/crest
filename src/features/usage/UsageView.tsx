@@ -54,7 +54,7 @@ export const usageError: Record<string, string> = {
 };
 
 /**
- * What a "not found" card needs, per tool: Crest reads the command line tools' sign-in, and people often have only the
+ * What a "not found" card needs, per tool: Cupcake reads the command line tools' sign-in, and people often have only the
  * desktop app (issue #9). Antigravity's app is read while it runs, so opening it is enough.
  */
 const notFoundHint: Partial<Record<UsageId, string>> = {
@@ -89,7 +89,7 @@ const TOKEN_TOOL: Partial<Record<UsageId, "claude" | "codex">> = { claude: "clau
 export function UsageView() {
   useUsageViewer();
   const s = settings.use();
-  // Crest's terminal: Windows only, and only while the tool is in the tool bar.
+  // Cupcake's terminal: Windows only, and only while the tool is in the tool bar.
   const terminalShown = isNative && !isMac && s.tools.some((x) => x.id === "terminal" && x.enabled);
   const ids = shownIds(s.aiUsage.order, s.usage);
   const { providers, loading, updatedAt } = usage.use();
@@ -210,7 +210,7 @@ export function UsageView() {
                       <span>{status}</span>
                     </div>
                   )}
-                  {/* Starting claude once renews its sign-in, which Crest then reads (Windows: Crest's terminal is Windows only). */}
+                  {/* Starting claude once renews its sign-in, which Cupcake then reads (Windows: Cupcake's terminal is Windows only). */}
                   {p.error === "claude-expired" && terminalShown && (
                     <button
                       className="mb-1 block text-link hover:underline"

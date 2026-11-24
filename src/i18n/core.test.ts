@@ -89,7 +89,7 @@ test("en.json has every Rust error text the patterns know", () => {
     ["Fehler 500: x", "Error 500: x"],
     ["Keine Verbindung: x", "No connection: x"],
     ["Kein Modell eingetragen", "No model set"],
-    ["Von Windows ausgeschaltet. Crest im Task-Manager unter Autostart-Apps einschalten", "Turned off in Windows. Switch Crest on in Task Manager under Startup apps"],
+    ["Von Windows ausgeschaltet. Cupcake im Task-Manager unter Autostart-Apps einschalten", "Turned off in Windows. Switch Cupcake on in Task Manager under Startup apps"],
   ]) assert.equal(backendText(msg, tEn), want);
 });
 

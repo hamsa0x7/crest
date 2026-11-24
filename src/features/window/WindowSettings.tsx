@@ -50,7 +50,7 @@ function Rules() {
       {!isMac && (
         <>
           {CONTEXTS.map((c) => (
-            <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Crest hier sichtbar") : t(contextHint[c])}>
+            <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Cupcake hier sichtbar") : t(contextHint[c])}>
               <Segmented
                 id={`rule-${c}`}
                 size="sm"
@@ -65,7 +65,7 @@ function Rules() {
           </Row>
         </>
       )}
-      <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Crest liegt")}>
+      <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Cupcake liegt")}>
         <Button icon={ArrowLineUp} onClick={windowShell.raise}>
           {t("Jetzt")}
         </Button>
@@ -191,10 +191,10 @@ function AppRules() {
   );
 }
 
-const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Crest aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen", mic: "Mikrofon stummschalten" };
+const hotkeyLabel: Record<HotkeyKind, string> = { open: "Öffnen und schließen", hide: "Cupcake aus- und einblenden", resize: "Größe ändern", find: "Auf dem Bildschirm suchen", mic: "Mikrofon stummschalten" };
 const hotkeyHint: Record<HotkeyKind, string> = {
   open: "Öffnet und schließt die Notch von überall",
-  hide: "Blendet Crest aus, bis du es wieder drückst",
+  hide: "Blendet Cupcake aus, bis du es wieder drückst",
   resize: isMac
     ? "Mit Option, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools"
     : "Mit Alt, einer weiteren Taste und den Pfeiltasten: ←/→ Breite, ↑/↓ Höhe des offenen Tools",
@@ -449,7 +449,7 @@ function Panel() {
           ]}
         />
       </Row>
-      <Row label={t("Skalierung")} hint={t("Zeichnet Crest größer, wie eine höhere Windows-Skalierung nur für Crest")}>
+      <Row label={t("Skalierung")} hint={t("Zeichnet Cupcake größer, wie eine höhere Windows-Skalierung nur für Cupcake")}>
         {/* Steps instead of a slider: the scale redraws the whole page, so a dragged thumb would move under the pointer. */}
         <div id="panel-scale" className="flex shrink-0 items-center gap-2">
           <Button disabled={b.scale === PANEL_SCALES[0]} onClick={() => updateBehavior({ scale: stepScale(b.scale, -1) })}>

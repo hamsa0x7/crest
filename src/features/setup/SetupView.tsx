@@ -43,7 +43,7 @@ export function SetupView() {
             {state.step === 0 && <PresetStep preset={state.preset} original={state.original} onPick={(preset) => set({ preset })} />}
             {state.step === 1 && (
               <>
-                <Lead>{t("Wie Crest geschlossen aussieht und an welchem Rand.")}</Lead>
+                <Lead>{t("Wie Cupcake geschlossen aussieht und an welchem Rand.")}</Lead>
                 <Group>
                   <ClosedStyle />
                   <EdgeSettings />
@@ -102,7 +102,7 @@ function PresetStep({ preset, original, onPick }: { preset: PresetId; original: 
 
   return (
     <>
-      <Lead>{t("Was soll Crest zeigen? Alles lässt sich später in den Einstellungen ändern.")}</Lead>
+      <Lead>{t("Was soll Cupcake zeigen? Alles lässt sich später in den Einstellungen ändern.")}</Lead>
       <StyleCards
         label={t("Voreinstellung")}
         columns={4}

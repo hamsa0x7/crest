@@ -89,10 +89,8 @@ pub mod usage;
 mod vault;
 mod mic;
 mod sharing;
-mod youtube;
-mod pip;
-mod lyrics_window;
-mod ytdlp;
+pub mod custom_commands;
+pub use custom_commands::{lyrics_window, pip, youtube, ytdlp};
 
 // The Mac's own versions of what the shared modules call into (src/macos/); the other Windows modules have no Mac
 // counterpart yet and their tools are hidden there.
@@ -146,11 +144,12 @@ pub(crate) fn own_page(url: &tauri::Url) -> bool {
 /// local window call every app command (the capabilities only cover plugins and core), so a bug in one of them would
 /// otherwise reach the vault or the terminal.
 fn command_allowed(window: &str, command: &str) -> bool {
+    if custom_commands::is_custom_window_allowed(window, command) {
+        return true;
+    }
     match window {
         "notch" => true,
         "timer" => command == "timer_window_close",
-        "pip" => matches!(command, "close_pip" | "pip_snap" | "pip_resize" | "media_control" | "media_get"),
-        "lyrics" => matches!(command, "lyrics_window_close" | "media_control" | "media_get"),
         w if w.starts_with("mirror-") => command == "mirror_picture",
         _ => false,
     }
@@ -784,13 +783,13 @@ fn native_machine() -> Option<&'static str> {
 /// Opens the GitHub Sponsors page in the default browser. The address is fixed here, so the interface cannot open anything else.
 #[tauri::command]
 fn open_sponsors() -> Result<(), String> {
-    open_url("https://github.com/sponsors/andrealo20")
+    open_url("https://github.com/hamsa0x7")
 }
 
 /// The bug report form on GitHub, with this version already filled in (issue forms take field ids as query parameters).
 #[tauri::command]
 fn open_bug_report() -> Result<(), String> {
-    let url = concat!("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml&version=", env!("CARGO_PKG_VERSION"));
+    let url = concat!("https://github.com/hamsa0x7/cupcake/issues/new?version=", env!("CARGO_PKG_VERSION"));
     open_url(url)
 }
 

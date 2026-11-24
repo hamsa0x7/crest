@@ -7,7 +7,7 @@ export interface RawPort {
   /** Executable name; empty when the system does not tell. */
   name: string;
   path: string | null;
-  /** Rust decided: the user's own program, not the system, not Crest. */
+  /** Rust decided: the user's own program, not the system, not Cupcake. */
   canEnd: boolean;
 }
 

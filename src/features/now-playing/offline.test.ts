@@ -9,7 +9,7 @@ test("models go through English unless one side is English", () => {
   assert.deepEqual(pairsFor("it", "it"), []);
   assert.equal(modelCode("pt-BR"), "pt");
   assert.equal(modelCode("zh-CN"), "zh");
-  // The picked language, else Crest's own.
+  // The picked language, else Cupcake's own.
   assert.equal(targetOf("ja", "it"), "ja");
   assert.equal(targetOf("", "pt-BR"), "pt");
   assert.equal(targetOf("xx", "it"), "it");

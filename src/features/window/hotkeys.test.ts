@@ -61,7 +61,7 @@ test("conflicts: the later shortcut yields to the earlier one", () => {
   assert.deepEqual(launcherKeys(9), ["Alt+Digit1", "Alt+Digit2", "Alt+Digit3", "Alt+Digit4", "Alt+Digit5", "Alt+Digit6"]);
 });
 
-test("tool shortcuts yield to Crest's own, the launcher's and an earlier tool's", () => {
+test("tool shortcuts yield to Cupcake's own, the launcher's and an earlier tool's", () => {
   const own = { open: "Ctrl+Alt+Space", hide: "", resize: "Ctrl+Alt+Arrows", find: "Ctrl+Alt+Shift+KeyF", mic: "" };
   assert.deepEqual(
     toolConflicts(own, [
@@ -75,7 +75,7 @@ test("tool shortcuts yield to Crest's own, the launcher's and an earlier tool's"
   );
   // A tool follows the open shortcut's rules: a letter alone is no shortcut, so it collides with nothing.
   assert.deepEqual(toolConflicts(own, [["clipboard", "KeyV"], ["shelf", "KeyV"]]), { clipboard: null, shelf: null });
-  // Crest's own shortcuts never yield to a tool's.
+  // Cupcake's own shortcuts never yield to a tool's.
   assert.deepEqual(conflicts({ ...own, hide: "Ctrl+Alt+KeyV" }), { open: null, hide: null, resize: null, find: null, mic: null });
   assert.deepEqual(toolConflicts({ ...own, hide: "Ctrl+Alt+KeyV" }, [["clipboard", "Ctrl+Alt+KeyV"]]), { clipboard: "hide" });
   // A tool whose shortcut yielded holds nothing, so a later tool with another clash points at the real holder.

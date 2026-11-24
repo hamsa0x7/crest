@@ -65,7 +65,7 @@ const BT_ICONS: [RegExp, StatusAlert["icon"]][] = [
   [/gam|joystick/, "gamepad"], [/phone/, "phone"], [/watch|wearable/, "watch"],
 ];
 
-/** The icon for a device by its categories; one Crest does not know shows the Bluetooth mark. */
+/** The icon for a device by its categories; one Cupcake does not know shows the Bluetooth mark. */
 export function btIcon(categories: readonly string[]): StatusAlert["icon"] {
   const c = categories.join(" ").toLowerCase();
   return BT_ICONS.find(([re]) => re.test(c))?.[1] ?? "bluetooth";
@@ -79,7 +79,7 @@ export function btAlert(event: BluetoothEvent, tr: Tr): StatusAlert | null {
   return { kind: "bt", icon: btIcon(event.categories), text, tone: "normal", ...(event.connected ? {} : { off: true }) };
 }
 
-/** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Crest's own changes and the start. */
+/** A volume or brightness reading from sysevents.rs and brightness.rs, which already drop repeats, Cupcake's own changes and the start. */
 export interface LevelEvent { kind: "volume" | "brightness"; level: number; muted: boolean }
 
 /** The HUD: the icon follows the level (half way splits low and high), the bar shows it, the text says the percent or that it is muted. */
@@ -108,10 +108,10 @@ export function micAlert(e: MicEvent, tr: Tr): StatusAlert {
 
 type OsdAlerts = { volume: boolean; brightness: boolean; hideOsd: boolean };
 
-/** Whether the option to hide the Windows indicator is in force: Crest's HUD stands in for both volume and brightness (Windows draws them in one flyout). */
+/** Whether the option to hide the Windows indicator is in force: Cupcake's HUD stands in for both volume and brightness (Windows draws them in one flyout). */
 export const osdArmed = (alerts: OsdAlerts): boolean => alerts.hideOsd && alerts.volume && alerts.brightness;
 
-/** Whether the Windows indicator is hidden now: the option is in force and Crest's HUD can show, so not over a fullscreen app, where status alerts are dropped. */
+/** Whether the Windows indicator is hidden now: the option is in force and Cupcake's HUD can show, so not over a fullscreen app, where status alerts are dropped. */
 export function osdHidden(alerts: OsdAlerts, fullscreen: boolean): boolean {
   return osdArmed(alerts) && !fullscreen;
 }

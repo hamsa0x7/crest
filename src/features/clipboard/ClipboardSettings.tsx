@@ -18,7 +18,7 @@ export function ClipboardSettings() {
         label={t("Direkt einfügen")}
         hint={
           isMac
-            ? t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war. Dafür braucht Crest die Freigabe unter Datenschutz & Sicherheit → Bedienungshilfen.")
+            ? t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war. Dafür braucht Cupcake die Freigabe unter Datenschutz & Sicherheit → Bedienungshilfen.")
             : t("Ein Klick auf einen Eintrag kopiert ihn und fügt ihn in die App ein, die vor dem Öffnen der Notch vorne war, wie Win + V.")
         }
       >

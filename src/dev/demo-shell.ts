@@ -14,12 +14,12 @@ const FS: Record<string, string[]> = {
   [`${HOME}\\Documents`]: ["Budget-2027.xlsx", "Q3-Report.pdf", "notes.txt"],
   [`${HOME}\\Downloads`]: ["hero-banner.png", "installer.exe"],
   [`${HOME}\\Pictures`]: ["Screenshots", "dusk.png"],
-  [`${HOME}\\projects`]: ["crest"],
-  [`${HOME}\\projects\\crest`]: ["README.md", "package.json", "src"],
+  [`${HOME}\\projects`]: ["cupcake"],
+  [`${HOME}\\projects\\cupcake`]: ["README.md", "package.json", "src"],
 };
 const FILES: Record<string, string> = {
-  [`${HOME}\\Documents\\notes.txt`]: "Ship the demo.\nTry crest-notify from this prompt.",
-  [`${HOME}\\projects\\crest\\README.md`]: "# Crest\nA notch for your PC.",
+  [`${HOME}\\Documents\\notes.txt`]: "Ship the demo.\nTry cupcake-notify from this prompt.",
+  [`${HOME}\\projects\\cupcake\\README.md`]: "# Cupcake\nA notch for your PC.",
 };
 
 const C = { green: "\x1b[32m", cyan: "\x1b[36m", yellow: "\x1b[33m", red: "\x1b[31m", dim: "\x1b[90m", off: "\x1b[0m" };
@@ -28,10 +28,10 @@ const HELP = [
   `${C.cyan}Demo shell.${C.off} Nothing runs here; these commands work:`,
   "  help                      this list",
   "  ls, cd <dir>, pwd, cat <file>, echo <text>, date, whoami, clear",
-  `  ${C.green}crest-notify${C.off} <title> [-b body]       a notice in the closed notch`,
-  `  ${C.green}crest-notify part${C.off} <id> <text> [-p 40] a part in the closed row (--clear to remove)`,
-  `  ${C.green}crest-notify ask${C.off} --title T --body B   a question; the answer is printed here`,
-  `  ${C.green}crest-notify run${C.off} -- <command>         a pretend run with its result as a notice`,
+  `  ${C.green}cupcake-notify${C.off} <title> [-b body]       a notice in the closed notch`,
+  `  ${C.green}cupcake-notify part${C.off} <id> <text> [-p 40] a part in the closed row (--clear to remove)`,
+  `  ${C.green}cupcake-notify ask${C.off} --title T --body B   a question; the answer is printed here`,
+  `  ${C.green}cupcake-notify run${C.off} -- <command>         a pretend run with its result as a notice`,
   "Close the notch with Esc to see the results in the row.",
 ];
 
@@ -110,6 +110,7 @@ export function createShell(out: (m: TerminalMessage) => void) {
       case "exit":
         alive = false;
         return out({ exit: 0 });
+      case "cupcake-notify":
       case "crest-notify":
         return notify(w.slice(1));
       default:
@@ -120,7 +121,7 @@ export function createShell(out: (m: TerminalMessage) => void) {
   async function notify(w: string[]) {
     if (w[0] === "part") {
       const id = w[1];
-      if (!id) return print(`${C.red}usage: crest-notify part <id> <text> [-p 0-100] [-i icon] [-o tool]${C.off}`);
+      if (!id) return print(`${C.red}usage: cupcake-notify part <id> <text> [-p 0-100] [-i icon] [-o tool]${C.off}`);
       if (w.includes("--clear")) return mockPart({ id, clear: true });
       const progress = flag(w, "-p");
       return mockPart({ id, text: w[2]?.startsWith("-") ? null : w[2], icon: flag(w, "-i") ?? "build", progress: progress === undefined ? null : Number(progress), open: flag(w, "-o") ?? null });
@@ -141,17 +142,17 @@ export function createShell(out: (m: TerminalMessage) => void) {
       await new Promise((r) => setTimeout(r, 1800));
       busy = false;
       print(`${C.green}done in 1.8 s, exit code 0${C.off}`);
-      return void mockNotice({ appName: flag(w, "-s") ?? "crest-notify", title: `${cmd} finished`, body: "Exit code 0", exitCode: 0, durationMs: 1800, command: cmd });
+      return void mockNotice({ appName: flag(w, "-s") ?? "cupcake-notify", title: `${cmd} finished`, body: "Exit code 0", exitCode: 0, durationMs: 1800, command: cmd });
     }
     const title = w[0];
-    if (!title || title.startsWith("-")) return print(`${C.red}usage: crest-notify <title> [-b body] [-s source] [-p progress]${C.off}`);
+    if (!title || title.startsWith("-")) return print(`${C.red}usage: cupcake-notify <title> [-b body] [-s source] [-p progress]${C.off}`);
     const progress = flag(w, "-p");
-    mockNotice({ title, body: flag(w, "-b") ?? "", appName: flag(w, "-s") ?? "crest-notify", replace: flag(w, "-r") ?? null, progress: progress === undefined ? null : Number(progress) });
+    mockNotice({ title, body: flag(w, "-b") ?? "", appName: flag(w, "-s") ?? "cupcake-notify", replace: flag(w, "-r") ?? null, progress: progress === undefined ? null : Number(progress) });
   }
 
   return {
     start() {
-      print(`${C.cyan}Crest demo shell${C.off}. Type ${C.yellow}help${C.off}, or try:`, `${C.green}crest-notify "Build finished" -b "Tests passed"${C.off}`, "");
+      print(`${C.cyan}Cupcake demo shell${C.off}. Type ${C.yellow}help${C.off}, or try:`, `${C.green}cupcake-notify "Build finished" -b "Tests passed"${C.off}`, "");
       prompt();
     },
     write(data: string) {

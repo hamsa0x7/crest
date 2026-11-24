@@ -120,7 +120,7 @@ export function PipApp() {
         {/* Top Header */}
         <div data-tauri-drag-region className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <Marquee text={np?.title || (isCustom ? t("YouTube Video") : t("Crest Video"))} textWidth={180} width={180} paused={!playing} />
+            <Marquee text={np?.title || (isCustom ? t("YouTube Video") : t("Cupcake Video"))} textWidth={180} width={180} paused={!playing} />
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button

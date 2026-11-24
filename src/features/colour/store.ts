@@ -24,7 +24,7 @@ interface EyeDropperApi {
 const eyeDropper = () => (window as unknown as { EyeDropper?: EyeDropperApi }).EyeDropper;
 
 /**
- * Natively Crest's own eyedropper (Windows) or AppKit's colour sampler (Mac). The browser demo uses the browser's, which only
+ * Natively Cupcake's own eyedropper (Windows) or AppKit's colour sampler (Mac). The browser demo uses the browser's, which only
  * Chromium has; WebView2's drifted away from the pointer on a monitor with another scale, so the app no longer uses it.
  */
 export const canPickFromScreen = () => isNative || typeof eyeDropper() === "function";

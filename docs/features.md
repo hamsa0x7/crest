@@ -394,7 +394,7 @@ Then switch on the Calendar tool. The notice and the **Next event** part's horiz
 
 **Installer.**
 
-1. Download `Crest_x.y.z_x64-setup.exe` (on a Windows on ARM PC, `Crest_x.y.z_arm64-setup.exe`) from the [latest release](https://github.com/andrealo20/crest/releases/latest).
+1. Download `Cupcake_x.y.z_x64-setup.exe` (on a Windows on ARM PC, `Cupcake_x.y.z_arm64-setup.exe`) from the [latest release](https://github.com/hamsa0x7/cupcake/releases/latest).
 2. Run it. No Node, Rust or admin rights needed; it installs for your user only.
 3. The notch appears at the top of your screen and starts with Windows from then on.
 

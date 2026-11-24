@@ -102,7 +102,7 @@ test("fills, separator and label-4 follow the corrected foreground", () => {
   for (const name of ["--color-fill-1", "--color-fill-3", "--color-separator", "--color-label-4"]) assert.equal(parseColor(r.vars[name])!.r, fg.r, name);
 });
 
-test("Dark keeps Crest's idle accent and its own link colour", () => {
+test("Dark keeps Cupcake's idle accent and its own link colour", () => {
   const v = resolveTheme(dark).vars;
   assert.equal(v["--theme-accent"], "#0a84ff");
   assert.equal(v["--color-link"], "#419cff");
@@ -166,7 +166,7 @@ test("theme file validation", () => {
   assert.deepEqual(keys({ name: "x" }), ["„colors“ fehlt oder ist kein Objekt"]);
   assert.deepEqual(keys({ name: "x", colors: { foregound: "#fff" } }), ["Unbekannte Farbe „{key}“"]);
   assert.deepEqual(keys({ name: "x", colors: { accent: "blue" } }), ["„{key}“ ist keine Farbe: {value}"]);
-  assert.deepEqual(keys({ format: 2, name: "x", colors: {} }), ["Format {n} ist neuer als diese Version von Crest"]);
+  assert.deepEqual(keys({ format: 2, name: "x", colors: {} }), ["Format {n} ist neuer als diese Version von Cupcake"]);
   assert.deepEqual(keys({ colors: {} }), ["Name oder ID fehlt"]);
   assert.deepEqual(keys({ name: "x", colors: {}, closedNotch: "white" }), ["„closedNotch“ muss „black“ oder „background“ sein"]);
   assert.equal(validateTheme({ name: "x", colors: {}, closedNotch: "background" }).theme?.closedNotch, "background");

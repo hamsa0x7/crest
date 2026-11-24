@@ -3,7 +3,7 @@ import { isMac } from "../../platform/native";
 import { keepAwake } from "../../platform/services";
 import { awakeStart, type Awake } from "./awake";
 
-/** Keep awake; never saved, so Crest always starts with it off. */
+/** Keep awake; never saved, so Cupcake always starts with it off. */
 export const awake = createStore<Awake>(null);
 
 let ends: number | undefined;

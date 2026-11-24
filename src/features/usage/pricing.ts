@@ -1,5 +1,5 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/Pricing.cs (Normalize, Find, Estimate, Effective).
-// Cost of logged tokens from a built-in list-price table, with prices set by hand winning. BrimDeck fetches a remote catalog; Crest keeps a
+// Cost of logged tokens from a built-in list-price table, with prices set by hand winning. BrimDeck fetches a remote catalog; Cupcake keeps a
 // fixed table so nothing leaves the PC, and a model missing from it stays unpriced until the user sets a price.
 
 /** USD per million tokens. Missing cache prices follow the usual rule: read 0.1x, write 1.25x, one-hour write 2x the input price. */

@@ -18,7 +18,7 @@ const shot = (name: string, w: number, h: number, alt: string): Shot => ({ src: 
 /** The scroll story: each step opens the notch on one tool and turns the page its colour. */
 /** `plain`: a picture of the closed notch with what sits beside it, shown as it is instead of inside an open notch. */
 const STEPS: { tool: string; chapter: string; title: string; text: string; shot: Shot; plain?: true }[] = [
-  { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Crest open on Now Playing, with the cover, the progress bar and the controls") },
+  { tool: "media", chapter: "music", title: "Your music, with the words", text: "Any player with a Windows media session, a live equalizer, a mixer for every app and synced lyrics that light up word by word.", shot: shot("media", 520, 232, "Cupcake open on Now Playing, with the cover, the progress bar and the controls") },
   { tool: "overview", chapter: "overview", title: "The day at a glance", text: "The time, the weather, the song, focus, keep awake, volume and the brightness of this screen, in one panel.", shot: shot("overview", 520, 356, "Overview with the time, the weather and quick controls") },
   { tool: "weather", chapter: "overview", title: "The weather, hour by hour", text: "Current conditions, an hourly strip and seven days from Open-Meteo, with no key and no account.", shot: shot("weather", 640, 330, "The Weather tool with the hours ahead and seven days") },
   { tool: "timer", chapter: "focus", title: "Focus, then a break", text: "A focus timer with break presets, rain or noise behind it and a countdown that stays in the closed notch.", shot: shot("timer", 520, 192, "The Timer counting down a focus session") },
@@ -47,7 +47,7 @@ function useFit(ref: React.RefObject<HTMLElement | null>, max: number) {
 }
 
 /**
- * The real notch: Crest's own interface, the build of the demo, on a transparent page. It opens on hover and closes when the
+ * The real notch: Cupcake's own interface, the build of the demo, on a transparent page. It opens on hover and closes when the
  * mouse leaves, as on the PC (a tap on a phone, and a tap outside closes it). Closed, the frame is only as tall as the notch and
  * no wider than the room between the logo and the buttons, so the page around it stays clickable; it grows while the notch is open.
  */
@@ -99,7 +99,7 @@ function LiveNotch() {
       ref={frame}
       className={`live-notch${big ? " is-open" : ""}`}
       src={`${DEMO_ORIGIN}?demo&bare&hover`}
-      title="Crest, the real app: point at the notch to open it"
+      title="Cupcake, the real app: point at the notch to open it"
       style={style}
       allow="clipboard-write"
     />
@@ -118,13 +118,13 @@ function StickyBar() {
   }, []);
   return (
     <motion.div className="sticky-bar" initial={false} animate={{ y: show ? 0 : -96, opacity: show ? 1 : 0 }} transition={show ? springs.open : springs.close} inert={!show} aria-hidden={!show}>
-      <a className="sticky-brand" href="/" aria-label="Crest, home">
+      <a className="sticky-brand" href="/" aria-label="Cupcake, home">
         <Mark size={30} animate={false} />
-        <span>Crest</span>
+        <span>Cupcake</span>
       </a>
       <div className="sticky-actions">
         <a className="btn btn-small btn-light" href="/try/">Try it</a>
-        <a className="btn btn-small sticky-get" href="#install">Get Crest</a>
+        <a className="btn btn-small sticky-get" href="#install">Get Cupcake</a>
       </div>
     </motion.div>
   );
@@ -145,11 +145,11 @@ function Hero() {
         </PixelReveal>
         <motion.div className="hero-side" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}>
           <p className="lead">
-            Crest is a free, open source Dynamic Island for Windows and macOS. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
+            Cupcake is a free, open source Dynamic Island for Windows and macOS. The notch at the top of this page is the real app: point at it, or tap it on a phone, and use every tool.
           </p>
           <div className="actions">
             <a className="btn" href="/try/">Try it in your browser</a>
-            <a className="btn btn-ghost" href="#install">Get Crest {RELEASE}</a>
+            <a className="btn btn-ghost" href="#install">Get Cupcake {RELEASE}</a>
           </div>
         </motion.div>
       </div>
@@ -212,7 +212,7 @@ function Story() {
     <section ref={ref} className="story" style={{ height: `${STEPS.length * 70}svh` }} aria-labelledby="story-title">
       <div className="story-pin" style={{ color: "#000" }}>
         <Wash color={hue} />
-        <h2 id="story-title" className="sr-only">What Crest opens into</h2>
+        <h2 id="story-title" className="sr-only">What Cupcake opens into</h2>
         <div className="story-stage" ref={stage}>
           {s.plain ? (
             <motion.img key={s.tool} className="story-plain" src={s.shot.src} alt={s.shot.alt} width={s.shot.w} height={s.shot.h} style={{ width: `min(100%, ${s.shot.w * 2}px)` }} initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} />

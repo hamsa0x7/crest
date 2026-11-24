@@ -108,7 +108,7 @@ function ingest(input: IncomingNotice, focus: boolean) {
 }
 
 /*
- * Crest's own sound when a notice pops up (issue #31), with the card rather than Windows' sound before it. The picked
+ * Cupcake's own sound when a notice pops up (issue #31), with the card rather than Windows' sound before it. The picked
  * file is decoded once, and again only after another pick; a missing or broken file plays Ding instead of nothing.
  */
 let fileSound: Promise<AudioBuffer | null> | null = null;
@@ -142,7 +142,7 @@ export async function pickSoundFile() {
 }
 
 /*
- * Windows' banners and sound stay off only while Crest pops the notices up (and plays its own sound) itself: turning
+ * Windows' banners and sound stay off only while Cupcake pops the notices up (and plays its own sound) itself: turning
  * off live notices or the Windows source, Windows taking the access back or the source failing brings them back, so
  * nothing is left without any banner or sound. Only apps whose rule is "show" lose theirs. banners.rs marks what it
  * turned off.
@@ -218,7 +218,7 @@ export function deleteNotice(id: string) {
 }
 
 /*
- * The other way round: a toast that left the notification centre leaves Crest too, say once its app withdrew it
+ * The other way round: a toast that left the notification centre leaves Cupcake too, say once its app withdrew it
  * because the message was read there (issue #30). In the queue, so a toast withdrawn right after it came in is not
  * added back by the notice still on its way.
  */

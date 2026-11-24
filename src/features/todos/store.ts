@@ -5,7 +5,7 @@ import { DEFAULT_PROJECT, migrate, type Task, type TodoState } from "./model";
 import { MAX_WAIT_MS, dueReminders, nextAlert, snoozeAt, wait } from "./schedule";
 
 const KEY = "notch:todo-projects";
-/** The flat list of Crest 0.2 and earlier. Read once to migrate, never written or deleted, so an older version still finds it. */
+/** The flat list of Cupcake 0.2 and earlier. Read once to migrate, never written or deleted, so an older version still finds it. */
 const LEGACY_KEY = "notch:todos";
 
 function readRaw(key: string): unknown {

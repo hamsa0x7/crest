@@ -68,7 +68,7 @@ export function LyricsCardApp() {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-body font-semibold">{np?.title || t("Crest Lyrics")}</div>
+            <div className="truncate text-body font-semibold">{np?.title || t("Cupcake Lyrics")}</div>
             <div className="truncate text-footnote text-label-2">{np?.artist || ""}</div>
           </div>
         </div>

@@ -303,10 +303,10 @@ export function openFile(path: string): Promise<void> {
 /** GitHub Sponsors in the default browser. */
 export function openSponsors() {
   if (isNative) void invoke("open_sponsors");
-  else window.open("https://github.com/sponsors/andrealo20", "_blank", "noopener");
+  else window.open("https://github.com/hamsa0x7", "_blank", "noopener");
 }
 
-/** GitHub's bug report form, with Crest's version filled in (src-tauri lib.rs). */
+/** GitHub's bug report form, with Cupcake's version filled in (src-tauri lib.rs). */
 /** Overview's search line: the results in the default browser (lib.rs `web_search`, which builds the address). Not in the browser demo. */
 export function webSearch(engine: string, query: string): Promise<void> {
   return isNative ? invoke("web_search", { engine, query }) : Promise.resolve();
@@ -314,10 +314,10 @@ export function webSearch(engine: string, query: string): Promise<void> {
 
 export function openBugReport() {
   if (isNative) void invoke("open_bug_report");
-  else window.open("https://github.com/andrealo20/crest/issues/new?template=bug_report.yml", "_blank", "noopener");
+  else window.open("https://github.com/hamsa0x7/cupcake/issues/new", "_blank", "noopener");
 }
 
-/** Crest's rating page in the Microsoft Store app (Store build only). */
+/** Cupcake's rating page in the Microsoft Store app (Store build only). */
 export function openStoreReview() {
   if (isNative) void invoke("open_store_review");
 }
@@ -471,7 +471,7 @@ export async function fetchChangelog(version: string): Promise<ChangelogEntry[] 
     return [{ version, date: new Date().toISOString().slice(0, 10), items }, ...bundledChangelog];
   }
   try {
-    const r = await fetch(`https://raw.githubusercontent.com/andrealo20/crest/v${version}/src/changelog.json`, {
+    const r = await fetch(`https://raw.githubusercontent.com/hamsa0x7/cupcake/v${version}/src/changelog.json`, {
       signal: AbortSignal.timeout(8000),
     });
     return r.ok ? ((await r.json()) as ChangelogEntry[]) : null;
@@ -616,7 +616,7 @@ export const downloadWatch = {
 const mockDownloadHandlers = new Set<{ progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }>();
 
 /** Browser: a download that runs for three seconds, then finishes (the demo's "download" notice). Returns a way to call it off. */
-export function mockDownload(name = "Crest-report.pdf") {
+export function mockDownload(name = "Cupcake-report.pdf") {
   const each = (f: (h: { progress: (list: DownloadProgress[]) => void; finished: (d: DownloadFinished) => void }) => void) => mockDownloadHandlers.forEach(f);
   let size = 0;
   const id = window.setInterval(() => {
@@ -928,7 +928,7 @@ export const systemControls = {
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
   },
-  /** The notch's monitor, 0..100; null when Crest can't set it (src-tauri brightness.rs, macos/brightness.rs). */
+  /** The notch's monitor, 0..100; null when Cupcake can't set it (src-tauri brightness.rs, macos/brightness.rs). */
   brightness: (): Promise<number | null> =>
     isNative ? invoke<number | null>("brightness_get").catch(() => null) : Promise.resolve(mockBrightness.percent),
   setBrightness: (percent: number): Promise<void> => {
@@ -1348,27 +1348,27 @@ export function fetchCalendar(sources: CalendarSourceIn[], force: boolean): Prom
 export async function openMeetingLink(url: string): Promise<void> {
   if (isNative) await invoke("calendar_open_link", { url });
   // Demo: the sample link goes nowhere; a notice says what the app would have done.
-  else if (demo) mockNotice({ appName: "Crest demo", title: "Meeting link", body: `The app opens ${url} in your browser.` });
+  else if (demo) mockNotice({ appName: "Cupcake demo", title: "Meeting link", body: `The app opens ${url} in your browser.` });
   else window.open(url, "_blank", "noopener");
 }
 
 // ---------- Live notices (src-tauri/src/notices.rs) ----------
 
-/** One notice from Windows or crest-notify, before the history gives it an id. */
+/** One notice from Windows or cupcake-notify, before the history gives it an id. */
 export type IncomingNotice = Omit<import("../features/notices/history").Notice, "id">;
 
 export interface NoticeSourceStatus {
   access: "allowed" | "denied" | "unspecified" | "unavailable";
   mode: "off" | "event-log" | "polling" | "failed";
   pipe: boolean;
-  /** The crest-notify channel could not be opened. */
+  /** The cupcake-notify channel could not be opened. */
   pipeFailed: boolean;
 }
 
 /** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
 const mockNoticeHandlers = new Set<(n: IncomingNotice) => void>();
 export function mockNotice(n: Partial<IncomingNotice>) {
-  const full: IncomingNotice = { source: "cli", appId: "cli:crest-notify", appName: "crest-notify", title: "", body: "", at: Date.now(), ...n };
+  const full: IncomingNotice = { source: "cli", appId: "cli:cupcake-notify", appName: "cupcake-notify", title: "", body: "", at: Date.now(), ...n };
   mockNoticeHandlers.forEach((h) => h(full));
 }
 
@@ -1386,13 +1386,13 @@ export const noticeSource = {
     if (isNative && ids.length) void invoke("notices_remove_windows", { ids });
   },
   /**
-   * Turns Windows' own banners off (or back on) for these apps; their notices still reach Crest (banners.rs).
+   * Turns Windows' own banners off (or back on) for these apps; their notices still reach Cupcake (banners.rs).
    * Rejects with "settings" in the Store build, which opened Windows' notification settings instead.
    */
   banners: (hide: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_banners", { hide, apps }) : Promise.resolve()),
-  /** Windows' own notification sound off for these apps while Crest plays its own (banners.rs); rejects in the Store build. */
+  /** Windows' own notification sound off for these apps while Cupcake plays its own (banners.rs); rejects in the Store build. */
   sounds: (mute: boolean, apps: string[]): Promise<void> => (isNative && !isMac ? invoke("notices_sounds", { mute, apps }) : Promise.resolve()),
-  /** Asks for a sound file and keeps a copy in Crest's data folder; its name, or null when cancelled. Rejects with "format" or "size". */
+  /** Asks for a sound file and keeps a copy in Cupcake's data folder; its name, or null when cancelled. Rejects with "format" or "size". */
   pickSound: (): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
   /** The kept sound file's bytes; rejects with "none" when there is no copy. */
   readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
@@ -1415,7 +1415,7 @@ export const noticeSource = {
     const off = listen<NoticeSourceStatus>("notices://status", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** `crest-notify part`: a custom closed-row part set or cleared. In the browser `mockPart` stands in. */
+  /** `cupcake-notify part`: a custom closed-row part set or cleared. In the browser `mockPart` stands in. */
   onPart: (handler: (p: PartMessage) => void): (() => void) => {
     if (!isNative) {
       mockPartHandlers.add(handler);
@@ -1424,7 +1424,7 @@ export const noticeSource = {
     const off = listen<PartMessage>("notices://part", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** `crest-notify ask`: a question waiting for a click. In the browser `mockAsk` stands in. */
+  /** `cupcake-notify ask`: a question waiting for a click. In the browser `mockAsk` stands in. */
   onAsk: (handler: (a: Ask) => void): (() => void) => {
     if (!isNative) {
       mockAskHandlers.add(handler);
@@ -1454,7 +1454,7 @@ export const noticeSource = {
 
 const mockAskHandlers = new Set<(a: Ask) => void>();
 let mockAskId = 0;
-/** Demo: who waits for the click on a question (the terminal's `crest-notify ask`). */
+/** Demo: who waits for the click on a question (the terminal's `cupcake-notify ask`). */
 export const askAnswers = new Map<number, (choice: string | null) => void>();
 export function mockAsk(a: Partial<Ask> = {}): number {
   const full: Ask = { id: ++mockAskId, appId: "cli:agent", appName: "Agent", title: "Run command?", body: "cargo test", options: ["allow", "always", "deny"], at: Date.now(), ...a };
@@ -1464,7 +1464,7 @@ export function mockAsk(a: Partial<Ask> = {}): number {
 
 const mockPartHandlers = new Set<(p: PartMessage) => void>();
 export function mockPart(p: Partial<PartMessage> & { id: string }) {
-  mockPartHandlers.forEach((h) => h({ source: "crest-notify", clear: false, ...p }));
+  mockPartHandlers.forEach((h) => h({ source: "cupcake-notify", clear: false, ...p }));
 }
 
 // ---------- Plugins (src-tauri/src/plugins.rs) ----------
@@ -1553,7 +1553,7 @@ export const windowShell = {
     const off = listen<ScreenBehavior>("notch://screen", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** Keeps Crest's windows out of other apps' screen sharing and recordings (sharing.rs). */
+  /** Keeps Cupcake's windows out of other apps' screen sharing and recordings (sharing.rs). */
   hideFromCapture: (on: boolean) => {
     if (isNative) void invoke("sharing_hide", { on }).catch(() => {});
   },
@@ -1563,7 +1563,7 @@ export const windowShell = {
     const off = listen<boolean>("notch://hidden", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
-  /** Shows Crest if the hide shortcut hid it and puts it above other always-on-top windows. */
+  /** Shows Cupcake if the hide shortcut hid it and puts it above other always-on-top windows. */
   raise: () => {
     if (isNative) void invoke("display_raise");
   },
@@ -1610,7 +1610,7 @@ export const windowShell = {
 // ---------- Colour ----------
 
 /**
- * The Colour tool's pick from the screen: Crest's own eyedropper on Windows (capture/eyedropper.rs), AppKit's colour sampler on
+ * The Colour tool's pick from the screen: Cupcake's own eyedropper on Windows (capture/eyedropper.rs), AppKit's colour sampler on
  * a Mac (macos/colour.rs). "#rrggbb", or null when cancelled. Not in the browser, which has its own (src/features/colour/store.ts).
  */
 export const screenColour = {
@@ -1621,12 +1621,12 @@ export const screenColour = {
 
 /** Backup files (backup.rs): errors are short codes ("too-big", "unreadable", "write", "no-folder"). Native only. */
 export const backupFiles = {
-  /** Writes a new file into Documents/Crest/Backups; its path. */
+  /** Writes a new file into Documents/Cupcake/Backups; its path. */
   save: (text: string, beforeRestore: boolean): Promise<string> =>
     isNative ? invoke<string>("backup_save", { text, beforeRestore }) : Promise.reject(new Error("unsupported")),
   /** The text of the backup file the user picks; null when cancelled. */
   open: (): Promise<string | null> => (isNative ? invoke<string | null>("backup_open") : Promise.resolve(null)),
-  /** Restarts Crest, which applies a pending restore before anything reads the saved data. */
+  /** Restarts Cupcake, which applies a pending restore before anything reads the saved data. */
   restart: async () => {
     const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
@@ -1635,7 +1635,7 @@ export const backupFiles = {
 
 // ---------- Portable ----------
 
-/** A portable copy (Crest.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */
+/** A portable copy (Cupcake.portable next to the exe) keeps its data beside it and updates itself in place (portable.rs). */
 export const portable = {
   info: (): Promise<{ portable: boolean; writable: boolean }> =>
     isNative ? invoke<{ portable: boolean; writable: boolean }>("portable_info") : Promise.resolve({ portable: false, writable: false }),
@@ -1721,17 +1721,17 @@ const mockSources: CaptureSource[] = [
   { id: "monitor:\\\\.\\DISPLAY2", kind: "monitor", name: "\\\\.\\DISPLAY2", width: 1920, height: 1080, primary: false },
   { id: "window:1", kind: "window", name: "Visual Studio Code", width: 1600, height: 1000, primary: false },
   // A long browser title: the source menu must keep it on one line.
-  { id: "window:2", kind: "window", name: "andrealo20/crest: Crest Island (preview). A notch at the screen edge with music and synced lyrics, live notices, timers - Google Chrome", width: 1600, height: 1000, primary: false },
+  { id: "window:2", kind: "window", name: "hamsa0x7/cupcake: Cupcake (preview). A notch at the screen edge with music and synced lyrics, live notices, timers - Google Chrome", width: 1600, height: 1000, primary: false },
 ];
 
 /** Showcase only: three captures for the Capture gallery, drawn as small desktops so no real screen shows. */
 function showcaseCaptures(): CaptureFile[] {
   const now = Date.now();
   return [
-    { path: "C:/Users/demo/Videos/Captures/Crest 1.mp4", name: "Crest 1.mp4", kind: "video", size: 48_600_000, modified: now - 3 * 60_000 },
-    { path: "C:/Users/demo/Pictures/Screenshots/Crest 2.png", name: "Crest 2.png", kind: "shot", size: 1_120_000, modified: now - 40 * 60_000 },
-    { path: "C:/Users/demo/Pictures/Screenshots/Crest 3.png", name: "Crest 3.png", kind: "shot", size: 2_040_000, modified: now - 26 * 3_600_000 },
-    { path: "C:/Users/demo/Music/Crest/Recordings/Recording 4.m4a", name: "Recording 4.m4a", kind: "audio", size: 1_010_000, modified: now - 90 * 60_000 },
+    { path: "C:/Users/demo/Videos/Captures/Cupcake 1.mp4", name: "Cupcake 1.mp4", kind: "video", size: 48_600_000, modified: now - 3 * 60_000 },
+    { path: "C:/Users/demo/Pictures/Screenshots/Cupcake 2.png", name: "Cupcake 2.png", kind: "shot", size: 1_120_000, modified: now - 40 * 60_000 },
+    { path: "C:/Users/demo/Pictures/Screenshots/Cupcake 3.png", name: "Cupcake 3.png", kind: "shot", size: 2_040_000, modified: now - 26 * 3_600_000 },
+    { path: "C:/Users/demo/Music/Cupcake/Recordings/Recording 4.m4a", name: "Recording 4.m4a", kind: "audio", size: 1_010_000, modified: now - 90 * 60_000 },
   ];
 }
 
@@ -1752,8 +1752,8 @@ let sampleCount = 4;
 function addSample(kind: CaptureFile["kind"], length = 0): CaptureFile {
   const n = ++sampleCount;
   const ext = kind === "shot" ? "png" : kind === "video" ? "mp4" : "m4a";
-  const dir = kind === "shot" ? "Pictures/Screenshots" : kind === "video" ? "Videos/Captures" : "Music/Crest/Recordings";
-  const file: CaptureFile = { path: `C:/Users/demo/${dir}/${kind === "audio" ? "Recording" : "Crest"} ${n}.${ext}`, name: `${kind === "audio" ? "Recording" : "Crest"} ${n}.${ext}`, kind, size: kind === "shot" ? 1_300_000 : Math.max(120_000, length * 16_000), modified: Date.now() };
+  const dir = kind === "shot" ? "Pictures/Screenshots" : kind === "video" ? "Videos/Captures" : "Music/Cupcake/Recordings";
+  const file: CaptureFile = { path: `C:/Users/demo/${dir}/${kind === "audio" ? "Recording" : "Cupcake"} ${n}.${ext}`, name: `${kind === "audio" ? "Recording" : "Cupcake"} ${n}.${ext}`, kind, size: kind === "shot" ? 1_300_000 : Math.max(120_000, length * 16_000), modified: Date.now() };
   if (kind !== "audio") sampleThumbs.set(file.path, n % 2 ? screenshot(320, 180) : photo(320, 180));
   if (length) sampleLengths.set(file.path, length);
   sampleLibrary.unshift(file);

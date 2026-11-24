@@ -25,7 +25,7 @@ const base: Diagnostics = {
 
 test("diagnostics list the build, Windows, monitors and settings", () => {
   const text = diagnosticsText(base);
-  assert.match(text, /^Crest diagnostics\n/);
+  assert.match(text, /^Cupcake diagnostics\n/);
   assert.match(text, /App: 0\.3\.0 \(portable, x86_64\)/);
   assert.match(text, /OS: Windows 11 Home, build 26100, PC aarch64/);
   assert.match(text, /Monitors: 2 \(150 %, 100 %\)/);

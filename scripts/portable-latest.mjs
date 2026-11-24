@@ -1,7 +1,7 @@
 // Adds a portable zip to a release's latest.json as windows-<arch>-portable (the entry src-tauri/src/portable.rs updates from)
 // and leaves everything else as it was: JSON.parse keeps pub_date as the string it was, and the result is checked before it is written.
-//   node scripts/portable-latest.mjs latest.json x86_64 Crest-0.3.0-Portable-x64.zip.sig https://github.com/.../Crest-0.3.0-Portable-x64.zip
-//   node scripts/portable-latest.mjs latest.json aarch64 Crest-0.3.0-Portable-arm64.zip.sig https://github.com/.../Crest-0.3.0-Portable-arm64.zip
+//   node scripts/portable-latest.mjs latest.json x86_64 Cupcake-0.3.0-Portable-x64.zip.sig https://github.com/.../Cupcake-0.3.0-Portable-x64.zip
+//   node scripts/portable-latest.mjs latest.json aarch64 Cupcake-0.3.0-Portable-arm64.zip.sig https://github.com/.../Cupcake-0.3.0-Portable-arm64.zip
 import { readFileSync, writeFileSync } from "node:fs";
 
 const [file, arch, sigFile, url] = process.argv.slice(2);

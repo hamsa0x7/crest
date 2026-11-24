@@ -79,7 +79,7 @@ export function PrivacyPopover({ open, onClose, triggerRect }: Props) {
   const screenAppList = p.screen_apps && p.screen_apps.length > 0
     ? p.screen_apps.join(", ")
     : recPhase === "recording"
-      ? "Crest"
+      ? "Cupcake"
       : t("Aktive Anwendung");
 
   const toggleMicMute = async () => {

@@ -37,7 +37,7 @@ export const LIMITS = {
   lineTop: [0, 16],
 } as const satisfies Record<keyof ClosedSize | "capsuleTop", readonly [number, number]>;
 
-/** The sizes Crest had before they became settings: notch and capsule 188 x 30 (the capsule 5 below the edge, display.y), line 150 x 5 at the edge. */
+/** The sizes Cupcake had before they became settings: notch and capsule 188 x 30 (the capsule 5 below the edge, display.y), line 150 x 5 at the edge. */
 export const CLOSED_SIZE_DEFAULTS: ClosedSize = {
   notchWidth: ROW.minSurface,
   notchHeight: BASE_HEIGHT,

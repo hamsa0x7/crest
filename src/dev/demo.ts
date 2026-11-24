@@ -30,7 +30,7 @@ import { normalizeSearch } from "../features/overview/search";
 import { TIMER_LOOKS } from "../features/timer/looks";
 
 /*
- * The try-it demo of the project page (Crest's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
+ * The try-it demo of the project page (Cupcake's real frontend, built for the web: `vite build --mode demo`, or `?demo`).
  * Browser only; nothing here runs in the app, and nothing leaves the page: every request the tools would make is
  * answered from sample data (src/dev/demo-data.ts and the mocks in src/platform).
  *
@@ -88,7 +88,7 @@ const pick = <T>(list: T[], i: number): T => list[i % list.length];
 
 export function startDemo() {
   // The site's icon, one folder up; otherwise the browser asks the host's root for /favicon.ico.
-  document.head.append(Object.assign(document.createElement("link"), { rel: "icon", type: "image/svg+xml", href: "../crest-icon.svg" }));
+  document.head.append(Object.assign(document.createElement("link"), { rel: "icon", href: "../favicon.ico" }));
   const lang: Language = isLanguage(params.get("lang")) ? (params.get("lang") as Language) : "en";
 
   updateSettings((s): Partial<Settings> => ({
@@ -309,7 +309,7 @@ function notice(kind: string) {
     case "ask":
       return void mockAsk({ title: "Run command?", body: "npm test", appName: "Agent" });
     case "download":
-      return void (stopDownload = mockDownload(pick(["Crest-report.pdf", "holiday-photos.zip", "installer.exe"], step)));
+      return void (stopDownload = mockDownload(pick(["Cupcake-report.pdf", "holiday-photos.zip", "installer.exe"], step)));
     case "capture":
       return void takeShot("all", null);
     case "status-unplug":
@@ -428,7 +428,7 @@ function seedNotices() {
     n(2, "Messages", "Mira", "The build is green. Ship it!", 17),
     n(3, "Calendar", "Design review in 10 minutes", "Room 4", 52),
     n(4, "Photos", "Memories", "Your trip to Lisbon, two years ago", 140),
-    { ...n(5, "crest-notify", "cargo test finished", "Exit code 0", 190), appId: "cli:crest-notify", source: "cli" as const, exitCode: 0, durationMs: 41_000, command: "cargo test" },
+    { ...n(5, "cupcake-notify", "cargo test finished", "Exit code 0", 190), appId: "cli:cupcake-notify", source: "cli" as const, exitCode: 0, durationMs: 41_000, command: "cargo test" },
   ]);
   // The apps page lists the apps seen, as the first notice of each would have added them.
   updateSettings((s) => ({ notices: { ...s.notices, apps: Object.fromEntries(history.get().map((x) => [x.appId, x.appName])) } }));

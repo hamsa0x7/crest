@@ -13,8 +13,8 @@ import { libraryEpoch, recording, startRecording } from "../capture/store";
 
 /*
  * Recorder: sound only, from the microphone, the system audio (what a call or video plays) or both mixed,
- * into an M4A in Music\Crest\Recordings. It runs through the Capture tool's recording (one at a time),
- * and Crest tells no one: whether others must know is up to the person recording, hence the one-time note.
+ * into an M4A in Music\Cupcake\Recordings. It runs through the Capture tool's recording (one at a time),
+ * and Cupcake tells no one: whether others must know is up to the person recording, hence the one-time note.
  */
 
 const setRecorder = (patch: Partial<Settings["recorder"]>) => updateSettings((s) => ({ recorder: { ...s.recorder, ...patch } }));
@@ -62,7 +62,7 @@ export function RecorderView() {
 
       {!cfg.noted && (
         <div className="flex items-center gap-2 rounded-[12px] bg-fill-1 px-3 py-2">
-          <p className="min-w-0 flex-1 text-caption text-label-2">{t("Crest benachrichtigt niemanden. In vielen Ländern darf ein Gespräch nur mit Zustimmung aller aufgenommen werden.")}</p>
+          <p className="min-w-0 flex-1 text-caption text-label-2">{t("Cupcake benachrichtigt niemanden. In vielen Ländern darf ein Gespräch nur mit Zustimmung aller aufgenommen werden.")}</p>
           <Button onClick={() => setRecorder({ noted: true })}>{t("Verstanden")}</Button>
         </div>
       )}

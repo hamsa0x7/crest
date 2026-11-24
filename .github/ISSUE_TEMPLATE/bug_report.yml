@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Crest does not work as it should.
+description: Something in Cupcake does not work as it should.
 labels: ["bug"]
 body:
   - type: markdown
@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for taking the time to report this. Please search the open issues first, in case it is already known.
 
-        If Crest crashed, the crash log helps a lot. It is `crash.log` in `%LOCALAPPDATA%\io.github.andrealo20.crest\logs` for the installed app, in `data\logs` next to Crest.exe for the portable build, or in `~/Library/Logs/io.github.andrealo20.crest` on a Mac (see [Crash log](https://github.com/andrealo20/crest/blob/main/docs/features.md#install-in-detail)). Check it for anything private before you attach it.
+        If Cupcake crashed, the crash log helps a lot. It is `crash.log` in `%LOCALAPPDATA%\io.github.hamsa0x7.cupcake\logs` for the installed app, in `data\logs` next to Cupcake.exe for the portable build, or in `~/Library/Logs/io.github.hamsa0x7.cupcake` on a Mac (see [Crash log](https://github.com/hamsa0x7/cupcake/blob/main/docs/features.md#install-in-detail)). Check it for anything private before you attach it.
   - type: input
     id: system
     attributes:
@@ -19,7 +19,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Crest version
+      label: Cupcake version
       description: Shown in Settings → General → Updates.
       placeholder: 0.2.0
     validations:

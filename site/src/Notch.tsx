@@ -32,7 +32,7 @@ const Ear = ({ side }: { side: "left" | "right" }) => (
 );
 
 /**
- * Crest's notch, moved by the app's own springs: closed it shows a row (cover, time, equalizer); open it grows into the
+ * Cupcake's notch, moved by the app's own springs: closed it shows a row (cover, time, equalizer); open it grows into the
  * panel of `shot`, scaled to fit `maxW` and `maxH`. Changing `shot` while open morphs from one panel to the next.
  */
 export function Notch({ shot, open, maxW, maxH = Infinity, onToggle, label }: { shot: Shot | null; open: boolean; maxW: number; maxH?: number; onToggle?: () => void; label?: string }) {

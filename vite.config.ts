@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       name: "demo-html",
       apply: () => mode === "demo",
       transformIndexHtml: (html: string) =>
-        html.replace('lang="de"', 'lang="en"').replace("<title>Crest</title>", '<title>Crest demo</title>\n    <meta name="robots" content="noindex" />'),
+        html.replace('lang="de"', 'lang="en"').replace("<title>Cupcake</title>", '<title>Cupcake demo</title>\n    <meta name="robots" content="noindex" />'),
     },
   ],
   clearScreen: false,

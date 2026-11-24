@@ -15,7 +15,7 @@ import { popover } from "../design/motion";
 import { display } from "../platform/services";
 import { settings, updateSettings } from "../settings/store";
 import { notchLocked, toggleLock } from "./lock";
-import { snoozeCrest } from "./snooze";
+import { snoozeCupcake } from "./snooze";
 
 export interface NotchContextMenuProps {
   x: number;
@@ -80,7 +80,7 @@ export function NotchContextMenu({
 
   const handleSnooze = async () => {
     onClose();
-    await snoozeCrest(60);
+    await snoozeCupcake(60);
   };
 
   const handleRestoreTaskbar = async () => {
@@ -145,7 +145,7 @@ export function NotchContextMenu({
           <span className="text-caption font-medium text-label-3">Ctrl+Alt+L</span>
         </button>
 
-        {/* 2. Snooze Crest for 1 Hour */}
+        {/* 2. Snooze Cupcake for 1 Hour */}
         <button
           type="button"
           onClick={() => void handleSnooze()}
@@ -153,7 +153,7 @@ export function NotchContextMenu({
         >
           <span className="flex items-center gap-2">
             <Moon size={14} weight="bold" className="shrink-0 text-label-2" />
-            <span>{t("Crest für 1 Stunde pausieren")}</span>
+            <span>{t("Cupcake für 1 Stunde pausieren")}</span>
           </span>
           <span className="text-caption text-label-3">1h</span>
         </button>

@@ -92,7 +92,7 @@ jobs:
           $nsisDir = "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
           $original = Get-ChildItem "$nsisDir/*.exe" | Select-Object -First 1
           if ($original) {
-            $targetName = "Crest_${{ steps.meta.outputs.version }}_x64-setup.exe"
+            $targetName = "Cupcake_${{ steps.meta.outputs.version }}_x64-setup.exe"
             $targetPath = Join-Path $nsisDir $targetName
             if ($original.FullName -ne $targetPath) {
               Move-Item -Path $original.FullName -Destination $targetPath -Force
@@ -103,8 +103,8 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Crest-${{ steps.meta.outputs.version }}-x64-Setup
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Crest_${{ steps.meta.outputs.version }}_x64-setup.exe
+          name: Cupcake-${{ steps.meta.outputs.version }}-x64-Setup
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Cupcake_${{ steps.meta.outputs.version }}_x64-setup.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -112,9 +112,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          name: Crest v${{ steps.meta.outputs.version }}
+          name: Cupcake v${{ steps.meta.outputs.version }}
           draft: false
           prerelease: false
-          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Crest_${{ steps.meta.outputs.version }}_x64-setup.exe
+          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Cupcake_${{ steps.meta.outputs.version }}_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

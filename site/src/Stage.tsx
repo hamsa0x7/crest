@@ -84,7 +84,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
   }, []);
 
   const f = fit(width, size, edge, pet);
-  const label = TOOLS[tool]?.label ?? (tool === "settings" ? "Settings" : tool === "setup" ? "Setup" : tool === "whatsnew" ? "What's new" : tool === "plugin:hello-crest" ? "Hello Crest" : tool);
+  const label = TOOLS[tool]?.label ?? (tool === "settings" ? "Settings" : tool === "setup" ? "Setup" : tool === "whatsnew" ? "What's new" : tool === "plugin:hello-crest" ? "Hello Cupcake" : tool);
 
   return (
     <div className="stage">
@@ -96,7 +96,7 @@ export function Stage({ frame, tool, open, size, edge, pet, onLoad, onOpen }: Pr
           <iframe
             ref={frame}
             src={DEMO_SRC}
-            title="Crest, live demo: the real notch running on sample data"
+            title="Cupcake, live demo: the real notch running on sample data"
             width={IW}
             height={IH}
             allow="clipboard-write; camera"

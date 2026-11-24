@@ -1,13 +1,13 @@
 [package]
-name = "crest"
+name = "cupcake"
 version = "1.2.1"
 edition = "2021"
 license = "GPL-3.0-only"
 # src/bin/crest-notify.rs is a second binary; `cargo run` and the app mean this one.
-default-run = "crest"
+default-run = "cupcake"
 
 [lib]
-name = "crest_lib"
+name = "cupcake_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]

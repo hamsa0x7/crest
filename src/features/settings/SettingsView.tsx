@@ -39,6 +39,8 @@ import { alarmSounds, playAlarm, playMechanicalClick, playSpringWhoosh, playTime
 import { nav, navigate } from "../../notch/nav";
 import { findTab, setupTab } from "../../notch/tabs";
 import { PluginSettings } from "../plugins/PluginSettings";
+import { ExtensionsSettings } from "./ExtensionsSettings";
+import { isExtensionEnabled } from "../../extensions";
 import { plugins } from "../plugins/store";
 import {
   autostart,
@@ -306,7 +308,7 @@ export function SettingsView() {
         {/* Not a page: opens GitHub's form, with this version filled in. */}
         <button
           onClick={openBugReport}
-          title={t("Öffnet das Formular auf GitHub, mit deiner Crest-Version schon eingetragen")}
+          title={t("Öffnet das Formular auf GitHub, mit deiner Cupcake-Version schon eingetragen")}
           className="pressable relative flex min-h-8 items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-start text-body text-label-3 transition-colors duration-150 hover:text-label-2"
         >
           <Bug size={15} weight="bold" className="relative shrink-0" style={iconColors ? { color: hueVar("rose") } : undefined} />
@@ -385,7 +387,7 @@ function PageContent({ page }: { page: PageId }) {
       {page === "display" && (
         <>
           <Display />
-          <AcousticsSettings />
+          {isExtensionEnabled("acoustic-feedback") && <AcousticsSettings />}
           <MusicSettings />
           <Presentation />
         </>
@@ -412,7 +414,12 @@ function PageContent({ page }: { page: PageId }) {
         </>
       )}
       {page === "notices" && <NoticesSettings />}
-      {page === "plugins" && <PluginSettings />}
+      {page === "plugins" && (
+        <>
+          <PluginSettings />
+          <ExtensionsSettings />
+        </>
+      )}
       {page === "ai" && (
         <>
           <Ask />
@@ -542,7 +549,7 @@ function DoctorRow() {
   const copyReport = async () => {
     if (!report) return;
     const lines = [
-      `Crest Doctor Report (${report.timestamp})`,
+      `Cupcake Doctor Report (${report.timestamp})`,
       `Status: ${report.passed}/${report.total} Checks Passed`,
       "----------------------------------------",
       ...report.checks.map(
@@ -561,7 +568,7 @@ function DoctorRow() {
 
   return (
     <>
-      <Row label={t("Crest Doctor")} hint={hint}>
+      <Row label={t("Cupcake Doctor")} hint={hint}>
         <div className="flex items-center gap-2">
           {report && (
             <Button onClick={() => setExpanded((v) => !v)}>
@@ -676,11 +683,11 @@ function Support() {
   const { store } = update.use();
   return (
     <Group title={t("Unterstützen")} id="settings-support">
-      <Row label={t("Crest unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
+      <Row label={t("Cupcake unterstützen")} hint={t("Kostenlos und ohne Werbung. Spenden über GitHub Sponsors sind freiwillig")}>
         <Button onClick={openSponsors}>{t("Sponsern")}</Button>
       </Row>
       {store && (
-        <Row label={t("Crest bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Crest zu finden")}>
+        <Row label={t("Cupcake bewerten")} hint={t("Eine Bewertung im Microsoft Store hilft anderen, Cupcake zu finden")}>
           <Button onClick={openStoreReview}>{t("Bewerten")}</Button>
         </Row>
       )}
@@ -898,7 +905,7 @@ const statusAlerts: [keyof ClosedSettings["statusAlerts"], string, string][] = [
   ["lock", "Feststell- und Num-Taste", "Wenn die Feststelltaste oder die Num-Taste umgeschaltet wird"],
   ["insert", "Einfg-Taste", "Wenn sie allein gedrückt wird; Tastenkürzel wie Umschalt+Einfg zählen nicht"],
   ["mic", "Mikrofon", "Wenn das Tastenkürzel das Mikrofon stumm- oder wieder einschaltet"],
-  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Crest läuft; braucht Lautstärke und Helligkeit"],
+  ["hideOsd", "Windows-Anzeige ausblenden", "Blendet die Lautstärke- und Helligkeitsanzeige von Windows aus, solange Cupcake läuft; braucht Lautstärke und Helligkeit"],
 ];
 
 /** Where and when the notch shows up. */
@@ -1100,7 +1107,7 @@ function Display() {
           )}
         </>
       )}
-      {/* macOS shows its own recording dots, and Crest cannot read the state there. */}
+      {/* macOS shows its own recording dots, and Cupcake cannot read the state there. */}
       {!isMac && (
         <Row label={t("Aufnahme-Punkte")} hint={t("Grün: Mikrofon/Kamera aktiv · Rot: Bildschirm wird aufgenommen")}>
           <Switch label={t("Aufnahme-Punkte")} checked={s.privacyDots} onChange={(privacyDots) => updateSettings({ privacyDots })} />
@@ -1230,7 +1237,7 @@ const partInfo: Record<PartId, { label: string; icon: Icon; hue: Hue }> = {
   clock: { label: "Uhrzeit", icon: Clock, hue: "blue" },
   github: { label: "GitHub heute", icon: GithubLogo, hue: "violet" },
   calendar: { label: "Nächster Termin", icon: CalendarBlank, hue: "red" },
-  script: { label: "Skript-Anzeigen (crest-notify)", icon: TerminalWindow, hue: "slate" },
+  script: { label: "Skript-Anzeigen (cupcake-notify)", icon: TerminalWindow, hue: "slate" },
   downloads: { label: "Downloads", icon: DownloadSimple, hue: "teal" },
   weather: { label: "Wetter", icon: CloudSun, hue: "sky" },
 };
@@ -1299,7 +1306,7 @@ function ClosedParts() {
   // What a part shows nothing without; the part itself says so while it is on.
   const needs: Partial<Record<PartId, string | false>> = {
     calendar: !tools.some((x) => x.id === "calendar" && x.enabled) && t("Braucht das Tool Kalender"),
-    script: !(notices.enabled && notices.cli) && t("Braucht Live-Mitteilungen und crest-notify"),
+    script: !(notices.enabled && notices.cli) && t("Braucht Live-Mitteilungen und cupcake-notify"),
     github: !github.user.trim() && t("Braucht deinen GitHub-Namen"),
   };
 
@@ -1541,7 +1548,7 @@ function FpsUnlockRow() {
     ok: t("Freigeschaltet, die FPS laufen"),
     relogin: t("Fertig: einmal ab- und wieder anmelden, dann laufen die FPS"),
     cancelled: t("Abgebrochen"),
-    failed: t("Hat nicht geklappt, Crest einmal als Administrator starten"),
+    failed: t("Hat nicht geklappt, Cupcake einmal als Administrator starten"),
   }[state];
   return (
     <Row label={t("FPS freischalten")} hint={hint}>

@@ -56,7 +56,7 @@ export function CalendarSettings() {
       {draft ? (
         <SourceForm draft={draft} onChange={setDraft} onDone={() => setDraft(null)} />
       ) : (
-        <Row label={c.sources.length ? "" : t("Noch kein Kalender")} hint={c.sources.length ? undefined : t("Nur lesen: Crest ändert keine Termine")}>
+        <Row label={c.sources.length ? "" : t("Noch kein Kalender")} hint={c.sources.length ? undefined : t("Nur lesen: Cupcake ändert keine Termine")}>
           <Button icon={Plus} disabled={c.sources.length >= MAX_SOURCES} onClick={() => setDraft({ id: null, kind: "ics", name: "", color: nextColor(c.sources), url: "", user: "", secret: "" })}>
             {t("Kalender hinzufügen")}
           </Button>

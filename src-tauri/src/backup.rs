@@ -16,10 +16,10 @@ const MAX_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Documents/Crest/Backups, which may not exist yet.
 fn folder(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app.path().document_dir().map_err(|_| "no-folder")?.join("Crest").join("Backups"))
+    Ok(app.path().document_dir().map_err(|_| "no-folder")?.join("Cupcake").join("Backups"))
 }
 
-/// Writes `text` as a new file, "Crest backup 2026-11-10 140501.json" ("Crest before restore …" for the copy of the data
+/// Writes `text` as a new file, "Cupcake backup 2026-11-10 140501.json" ("Crest before restore …" for the copy of the data
 /// a restore replaces), next to the earlier ones; its path.
 #[tauri::command]
 pub async fn backup_save(text: String, before_restore: bool, app: AppHandle) -> Result<String, String> {
@@ -29,7 +29,7 @@ pub async fn backup_save(text: String, before_restore: bool, app: AppHandle) -> 
     let dir = folder(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         fs::create_dir_all(&dir).map_err(|_| "no-folder")?;
-        let prefix = if before_restore { "Crest before restore" } else { "Crest backup" };
+        let prefix = if before_restore { "Cupcake before restore" } else { "Cupcake backup" };
         let base = format!("{prefix} {}", jiff::Zoned::now().strftime("%Y-%m-%d %H%M%S"));
         let (path, mut file) = create(&dir, &base).map_err(|_| "write")?;
         if file.write_all(text.as_bytes()).and_then(|_| file.sync_all()).is_err() {
@@ -60,7 +60,7 @@ fn create(dir: &Path, base: &str) -> std::io::Result<(PathBuf, File)> {
 #[tauri::command]
 pub async fn backup_open(app: AppHandle, window: WebviewWindow) -> Result<Option<String>, String> {
     let dir = folder(&app).ok().filter(|d| d.is_dir());
-    let Some(path) = picker::pick(Pick::File { name: "Crest backup", exts: &["json"], dir }, &window).await else { return Ok(None) };
+    let Some(path) = picker::pick(Pick::File { name: "Cupcake backup", exts: &["json"], dir }, &window).await else { return Ok(None) };
     tauri::async_runtime::spawn_blocking(move || read(Path::new(&path)).map(Some)).await.map_err(|_| "unreadable".to_string())?
 }
 
@@ -82,10 +82,10 @@ mod tests {
     fn a_new_name_never_replaces_an_earlier_backup() {
         let dir = std::env::temp_dir().join(format!("crest-backup-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let (first, _) = create(&dir, "Crest backup 2026-11-10 140501").unwrap();
-        let (second, _) = create(&dir, "Crest backup 2026-11-10 140501").unwrap();
-        assert_eq!(first.file_name().unwrap(), "Crest backup 2026-11-10 140501.json");
-        assert_eq!(second.file_name().unwrap(), "Crest backup 2026-11-10 140501 (2).json");
+        let (first, _) = create(&dir, "Cupcake backup 2026-11-10 140501").unwrap();
+        let (second, _) = create(&dir, "Cupcake backup 2026-11-10 140501").unwrap();
+        assert_eq!(first.file_name().unwrap(), "Cupcake backup 2026-11-10 140501.json");
+        assert_eq!(second.file_name().unwrap(), "Cupcake backup 2026-11-10 140501 (2).json");
         fs::write(&first, "x".repeat(10)).unwrap();
         assert_eq!(read(&first).unwrap().len(), 10);
         assert_eq!(read(&dir.join("missing.json")), Err("unreadable".to_string()));

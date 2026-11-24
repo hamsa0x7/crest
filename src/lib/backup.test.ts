@@ -22,7 +22,7 @@ function memory(entries: Record<string, string> = {}, full: (key: string, value:
 
 const now = new Date("2026-11-10T14:05:01Z");
 
-test("a backup holds Crest's own entries, parsed, and nothing else", () => {
+test("a backup holds Cupcake's own entries, parsed, and nothing else", () => {
   const storage = memory({
     "notch:settings": '{"lang":"it"}',
     "notch:note": '"Buy milk"',
@@ -32,7 +32,7 @@ test("a backup holds Crest's own entries, parsed, and nothing else", () => {
     [PENDING_KEY]: "{}",
   });
   assert.deepEqual(collectBackup(storage, "1.1.0", now), {
-    app: "Crest",
+    app: "Cupcake",
     format: 1,
     version: "1.1.0",
     created: "2026-11-10T14:05:01.000Z",
@@ -40,7 +40,7 @@ test("a backup holds Crest's own entries, parsed, and nothing else", () => {
   });
 });
 
-test("reading a file: only a Crest backup of a known format with something in it", () => {
+test("reading a file: only a Cupcake backup of a known format with something in it", () => {
   const backup = collectBackup(memory({ "notch:note": '"x"' }), "1.1.0", now);
   assert.deepEqual(readBackup(JSON.stringify(backup)), { backup });
   assert.deepEqual(readBackup("not json"), { error: "not-backup" });
@@ -48,13 +48,13 @@ test("reading a file: only a Crest backup of a known format with something in it
   assert.deepEqual(readBackup(JSON.stringify({ ...backup, app: "Other" })), { error: "not-backup" });
   assert.deepEqual(readBackup(JSON.stringify({ ...backup, data: [] })), { error: "not-backup" });
   assert.deepEqual(readBackup(JSON.stringify({ ...backup, format: 2 })), { error: "newer" });
-  // Keys that are not Crest's are dropped; with none left there is nothing to restore.
+  // Keys that are not Cupcake's are dropped; with none left there is nothing to restore.
   assert.deepEqual(readBackup(JSON.stringify({ ...backup, data: { "other-app": 1, "notch:x.bad": "y" } })), { error: "empty" });
   const read = readBackup(JSON.stringify({ ...backup, version: 3, data: { "notch:note": "x", evil: 1 } }));
   assert.deepEqual(read, { backup: { ...backup, version: "", data: { "notch:note": "x" } } });
 });
 
-test("a pending restore replaces all of Crest's entries at the next start, once", () => {
+test("a pending restore replaces all of Cupcake's entries at the next start, once", () => {
   const storage = memory({ "notch:settings": '{"lang":"de"}', "notch:todo-projects": '{"tasks":[]}', "notch:settings.bad": "{x", "other-app": "1" });
   const backup = collectBackup(memory({ "notch:settings": '{"lang":"it"}', "notch:note": '"From the backup"' }), "1.1.0", now);
   scheduleRestore(storage, backup);

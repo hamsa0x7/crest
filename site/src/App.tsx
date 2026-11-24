@@ -70,7 +70,7 @@ export default function App() {
       <div id="top" ref={root}>
         <a className="skip" href="#overview">Skip to the demo controls</a>
         <main>
-        <section className="bench" aria-label="Try Crest" style={{ background: color }}>
+        <section className="bench" aria-label="Try Cupcake" style={{ background: color }}>
           <Wash color={color} />
           <Nav />
           <div className="bench-grid">
@@ -79,11 +79,11 @@ export default function App() {
             <div className="lede">
               <Rise>
                 <p className="lead">
-                  Crest is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including what version {RELEASE} added.
+                  Cupcake is a free, open source Dynamic Island for Windows and macOS. The notch on this page is the real app, running here on sample data. Open it and try every tool, including what version {RELEASE} added.
                 </p>
               </Rise>
               <Rise i={1} className="actions">
-                <a className="btn" href="/#install">Get Crest</a>
+                <a className="btn" href="/#install">Get Cupcake</a>
                 <a className="textlink" href="#overview">Try each tool, one by one</a>
               </Rise>
             </div>

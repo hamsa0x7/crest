@@ -18,7 +18,7 @@ pub fn set(app: &AppHandle, enabled: bool) -> Result<(), String> {
     if enabled { manager.enable() } else { manager.disable() }.map_err(|e| e.to_string())
 }
 
-/// The plugin's Windows mode writes the Run key under HKLM when Crest runs elevated, and a normal session can never remove that again.
+/// The plugin's Windows mode writes the Run key under HKLM when Cupcake runs elevated, and a normal session can never remove that again.
 #[cfg(all(windows, not(feature = "store")))]
 fn run_key(app: &AppHandle) -> Result<auto_launch::AutoLaunch, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -30,9 +30,9 @@ fn run_key(app: &AppHandle) -> Result<auto_launch::AutoLaunch, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Shown (translated) when an entry for all users, written by an elevated Crest, stays after switching off.
+/// Shown (translated) when an entry for all users, written by an elevated Cupcake, stays after switching off.
 #[cfg(all(windows, not(feature = "store")))]
-const ALL_USERS: &str = "Der Eintrag gilt für alle Benutzer. Crest als Administrator starten und hier ausschalten";
+const ALL_USERS: &str = "Der Eintrag gilt für alle Benutzer. Cupcake als Administrator starten und hier ausschalten";
 
 #[cfg(all(windows, not(feature = "store")))]
 pub fn is_enabled(app: &AppHandle) -> bool {
@@ -54,11 +54,11 @@ use windows::ApplicationModel::{StartupTask, StartupTaskState};
 
 /// The TaskId in the manifest.
 #[cfg(feature = "store")]
-const TASK: &str = "CrestStartup";
+const TASK: &str = "CupcakeStartup";
 
 /// Shown (translated) when Windows keeps the task off: the user or a policy switched it off, and no app can override that.
 #[cfg(feature = "store")]
-const REFUSED: &str = "Von Windows ausgeschaltet. Crest im Task-Manager unter Autostart-Apps einschalten";
+const REFUSED: &str = "Von Windows ausgeschaltet. Cupcake im Task-Manager unter Autostart-Apps einschalten";
 
 /// StartupTask is agile and never prompts a packaged desktop app, so blocking on it is safe on any thread.
 #[cfg(feature = "store")]

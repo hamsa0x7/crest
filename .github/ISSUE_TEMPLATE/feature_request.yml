@@ -15,7 +15,7 @@ body:
   - type: textarea
     id: idea
     attributes:
-      label: How could Crest help?
+      label: How could Cupcake help?
       description: What it would look like in the notch or the open panel. Sketches and examples from other apps are welcome.
     validations:
       required: true

@@ -106,7 +106,7 @@ function ThemeChoice() {
 
   return (
     <Group title={t("Theme")} id="settings-themes">
-      {forced && <Row label={t("Windows-Kontrastdesign ist an")} hint={t("Crest zeigt die Systemfarben, bis es ausgeschaltet wird")} />}
+      {forced && <Row label={t("Windows-Kontrastdesign ist an")} hint={t("Cupcake zeigt die Systemfarben, bis es ausgeschaltet wird")} />}
       <div className="p-2">
         <StyleCards
           label={t("Theme")}

@@ -4,7 +4,7 @@
 import { BLACK, WHITE, contrast, contrastScore, ensureContrast, formatColor, isDark, luminance, mix, over, parseColor, toHex, withAlpha, type ContrastNeed, type Rgba } from "./color.ts";
 
 /**
- * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Crest's tokens follow from
+ * Panel themes. A theme names a few colours (THEME_KEYS); the rest of Cupcake's tokens follow from
  * them. Readability never depends on the theme: every colour with a minimum is held to it on the
  * backgrounds it is drawn on, and a colour that misses is moved along its own hue just far enough.
  */
@@ -53,8 +53,8 @@ export interface ThemeSettings {
   materialYouAccent?: string;
 }
 
-/** Inter ships with Crest, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
- *  take Inter's digits first ("Crest Digits", global.css). */
+/** Inter ships with Cupcake, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
+ *  take Inter's digits first ("Cupcake Digits", global.css). */
 export const FONTS = {
   inter: '"Inter Variable", "Segoe UI Variable Text", system-ui, sans-serif',
   segoe: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
@@ -67,11 +67,11 @@ export const FONTS = {
   cascadia: '"Cascadia Code", Consolas, "SF Mono", Menlo, ui-monospace, monospace',
   courier: '"Courier New", Courier, monospace',
   comic: '"Comic Sans MS", "Segoe UI", sans-serif',
-  inkfree: '"Crest Digits", "Ink Free", "Marker Felt", cursive',
+  inkfree: '"Cupcake Digits", "Ink Free", "Marker Felt", cursive',
   print: '"Segoe Print", "Chalkboard SE", cursive',
   script: '"Segoe Script", "Snell Roundhand", cursive',
-  mvboli: '"Crest Digits", "MV Boli", Noteworthy, cursive',
-  gabriola: '"Crest Digits", Gabriola, "Apple Chancery", cursive',
+  mvboli: '"Cupcake Digits", "MV Boli", Noteworthy, cursive',
+  gabriola: '"Cupcake Digits", Gabriola, "Apple Chancery", cursive',
 } as const;
 export type FontId = keyof typeof FONTS;
 /** Names in the menu: font names, never translated. */
@@ -82,10 +82,10 @@ export const FONT_NAMES: Record<FontId, string> = {
 };
 
 export const TEXT = 4.5, STRONG_TEXT = 7, GRAPHIC = 3;
-/** Tertiary text (hints, inactive icons): Crest's own dark tertiary, white at 34 %, is 2.9:1 on black. */
+/** Tertiary text (hints, inactive icons): Cupcake's own dark tertiary, white at 34 %, is 2.9:1 on black. */
 export const TERTIARY = 2.8;
 /**
- * The glass's veil in the bands along the panel's sides, where Crest writes nothing, and under the tool bar: 35 %, the dimming Apple asks
+ * The glass's veil in the bands along the panel's sides, where Cupcake writes nothing, and under the tool bar: 35 %, the dimming Apple asks
  * for under clear glass over bright content.
  */
 export const GLASS_EDGE = 0.35;
@@ -118,7 +118,7 @@ const MODES = {
 
 const builtIn = (id: string, name: string, colors: ThemeFile["colors"], extra: Partial<ThemeFile> = {}): ThemeFile => ({ format: 1, id, name, colors, ...extra });
 
-/** Dark first (Crest's own look, equal to tokens.css), then Light, then the ported editor themes. */
+/** Dark first (Cupcake's own look, equal to tokens.css), then Light, then the ported editor themes. */
 export const BUILT_IN_THEMES: readonly ThemeFile[] = [
   builtIn("dark", "Dark", {
     background: "#000000",
@@ -249,7 +249,7 @@ export interface ResolvedTheme {
   closedNotch: boolean;
 }
 
-/** From a theme file to Crest's tokens. */
+/** From a theme file to Cupcake's tokens. */
 export function resolveTheme(file: ThemeFile): ResolvedTheme {
   const written = (k: ThemeKey) => parseColor(file.colors[k]);
   const bg = over(written("background") ?? BLACK, BLACK);
@@ -513,7 +513,7 @@ export function validateTheme(input: unknown): ThemeCheck {
   if (typeof input !== "object" || input === null || Array.isArray(input)) return { theme: null, problems: [{ key: "Keine Theme-Datei: ein JSON-Objekt erwartet" }] };
   const o = input as Record<string, unknown>;
   if (o.format !== undefined && o.format !== 1) {
-    problems.push(typeof o.format === "number" && o.format > 1 ? { key: "Format {n} ist neuer als diese Version von Crest", vars: { n: o.format } } : { key: "Unbekanntes Format" });
+    problems.push(typeof o.format === "number" && o.format > 1 ? { key: "Format {n} ist neuer als diese Version von Cupcake", vars: { n: o.format } } : { key: "Unbekanntes Format" });
   }
   const name = typeof o.name === "string" ? o.name.trim().slice(0, 60) : "";
   // A name with no a-z0-9 at all (ダーク, Тёмная) still has an id.
@@ -547,7 +547,7 @@ export function parseThemeText(text: string): ThemeCheck {
   return validateTheme(value);
 }
 
-/** The file as Crest writes it on export. */
+/** The file as Cupcake writes it on export. */
 export function themeToText(theme: ThemeFile): string {
   const { format, id, name, description, author, license, homepage, colors, closedNotch } = theme;
   const ordered: Partial<Record<ThemeKey, string>> = {};

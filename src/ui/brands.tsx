@@ -38,7 +38,7 @@ export function BrandLogo({ id, size = 14, className }: { id: BrandId; size?: nu
   );
 }
 
-/** The brand an app name belongs to ("Claude Code" is Claude), for notices that come without a logo of their own (crest-notify). */
+/** The brand an app name belongs to ("Claude Code" is Claude), for notices that come without a logo of their own (cupcake-notify). */
 export function brandFor(appName: string): Exclude<BrandId, "grok"> | null {
   // Whole words only, so "Pizzaiolo" is not Z.ai.
   const words = appName.toLowerCase().split(/[^a-z0-9.]+/);

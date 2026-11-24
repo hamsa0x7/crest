@@ -60,7 +60,7 @@ export type PluginRequest =
   | { type: "pill.set"; text?: string; icon?: IconName; color?: string }
   | { type: "pill.clear" };
 
-/** `ignore`: not a Crest message, or one without an id to answer; `error`: answered with the code. */
+/** `ignore`: not a Cupcake message, or one without an id to answer; `error`: answered with the code. */
 export type Parsed = { kind: "ignore" } | { kind: "error"; id: ReqId; error: string } | { kind: "ok"; id: ReqId; req: PluginRequest };
 
 const MAX_VALUE = 32 * 1024;
@@ -102,8 +102,10 @@ const SPEC: Record<PluginRequest["type"], Record<string, [Check, boolean]>> = {
 
 /** Checks one message from a plugin page. The caller has already checked it came from that plugin's frame. */
 export function parseRequest(data: unknown): Parsed {
-  if (!isPlain(data) || data.crest !== API) return { kind: "ignore" };
-  const { crest: _api, id, type, ...rest } = data;
+  if (!isPlain(data)) return { kind: "ignore" };
+  const hasApi = data.cupcake === API || data.crest === API;
+  if (!hasApi) return { kind: "ignore" };
+  const { crest: _crest, cupcake: _cupcake, id, type, ...rest } = data;
   const idOk = (typeof id === "number" && Number.isSafeInteger(id) && id >= 0) || (typeof id === "string" && id.length > 0 && id.length <= 64);
   if (!idOk) return { kind: "ignore" };
   if (typeof type !== "string" || !Object.hasOwn(SPEC, type)) return { kind: "error", id, error: "unknown-type" };
@@ -137,5 +139,5 @@ export function allowNotice(times: number[], now: number): boolean {
   return true;
 }
 
-/** Text from a plugin shown in Crest: no control characters or direction overrides. */
+/** Text from a plugin shown in Cupcake: no control characters or direction overrides. */
 export const plainText = (s: string) => s.replace(/[\p{Cc}\u{200E}\u{200F}\u{202A}-\u{202E}\u{2066}-\u{2069}]/gu, " ").replace(/\s+/g, " ").trim();

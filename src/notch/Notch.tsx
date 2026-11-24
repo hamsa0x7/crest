@@ -199,7 +199,7 @@ export function Notch() {
   const timerFinished = timer.use().finished;
   const tasksDue = dueTasks.use().length > 0;
   const recordingOn = recording.use().phase !== "idle";
-  // A crest-notify ask: a coding agent waits on the answer.
+  // A cupcake-notify ask: a coding agent waits on the answer.
   const asking = asks.use().length > 0;
   const urgent = timerFinished || tasksDue || recordingOn || asking;
   const statusOn = statusAlert.use() !== null;

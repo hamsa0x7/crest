@@ -8,11 +8,11 @@ const html = markdown(policy.replace(/^# [^\n]*\n/, ""));
 
 function Privacy() {
   return (
-    <Page color="#ffc75f" title="Privacy" lead="Crest has no account, no server of its own and no tracking. This page says what the website does, then what the app keeps and sends.">
+    <Page color="#ffc75f" title="Privacy" lead="Cupcake has no account, no server of its own and no tracking. This page says what the website does, then what the app keeps and sends.">
       <section className="sec prose" aria-labelledby="site-title">
         <h2 id="site-title">This website</h2>
         <p>
-          crestisland.app is served by Cloudflare Pages. Its fonts, scripts, images and the demo come from this address only. It sets no cookies, stores nothing in your browser (the demo keeps its settings and notes in memory, so a reload starts fresh) and runs no analytics.
+          cupcake.app is served by Cloudflare Pages. Its fonts, scripts, images and the demo come from this address only. It sets no cookies, stores nothing in your browser (the demo keeps its settings and notes in memory, so a reload starts fresh) and runs no analytics.
         </p>
         <p>
           Cloudflare handles the requests on Andrea Loroni's behalf and, like any web host, sees your IP address and the pages you ask for. Its own privacy policy covers that.

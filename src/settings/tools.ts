@@ -31,7 +31,6 @@ export const TOOL_IDS = [
   "teleprompter",
   "agents",
   "calc",
-  "downloader",
 ] as const;
 
 /** The tools that start switched off on a fresh install. */

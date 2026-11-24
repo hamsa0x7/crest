@@ -763,49 +763,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crest"
-version = "1.2.1"
-dependencies = [
- "aes-gcm",
- "arboard",
- "auto-launch",
- "base64 0.22.1",
- "block2",
- "cpal",
- "flate2",
- "hmac",
- "image",
- "jiff",
- "objc2-app-kit",
- "objc2-foundation",
- "pinyin",
- "qrcodegen",
- "quick-xml",
- "reqwest",
- "rqrr",
- "rustfft",
- "security-framework",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-process",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tokio",
- "webview2-com",
- "windows",
- "windows-collections",
- "windows-core",
- "zip 8.6.0",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -873,6 +830,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
  "cipher",
+]
+
+[[package]]
+name = "cupcake"
+version = "1.2.1"
+dependencies = [
+ "aes-gcm",
+ "arboard",
+ "auto-launch",
+ "base64 0.22.1",
+ "block2",
+ "cpal",
+ "flate2",
+ "hmac",
+ "image",
+ "jiff",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "pinyin",
+ "qrcodegen",
+ "quick-xml",
+ "reqwest",
+ "rqrr",
+ "rustfft",
+ "security-framework",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-process",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tokio",
+ "webview2-com",
+ "windows",
+ "windows-collections",
+ "windows-core",
+ "zip 8.6.0",
 ]
 
 [[package]]

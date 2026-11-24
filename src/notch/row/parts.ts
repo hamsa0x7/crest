@@ -17,7 +17,7 @@ export const NEST_GAP = 20;
 export const NEST_ZOOM = 1.5;
 export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; clockDate: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean;
   secondTimezone: string | null; secondTimezoneLabel: string; statusAlerts: StatusAlerts; pet: PetSettings }
-/** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Crest shows its own (status.ts osdHidden). */
+/** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Cupcake shows its own (status.ts osdHidden). */
 export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; insert: boolean; hideOsd: boolean; mic: boolean }
 
 export const CLOSED_DEFAULTS: ClosedSettings = {

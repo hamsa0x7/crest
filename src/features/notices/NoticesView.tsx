@@ -32,7 +32,7 @@ export function NoticesView() {
       <Empty
         icon={BellSimple}
         title={t("Live-Mitteilungen sind aus")}
-        text={t("Zeigt Mitteilungen von Windows und von crest-notify in der Notch. Alles bleibt auf diesem PC.")}
+        text={t("Zeigt Mitteilungen von Windows und von cupcake-notify in der Notch. Alles bleibt auf diesem PC.")}
         action={<Button onClick={() => setNoticesEnabled(true)}>{t("Einschalten")}</Button>}
       />
     );
@@ -49,7 +49,7 @@ export function NoticesView() {
         </HeaderButton>
       </HeaderActions>
       {list.length === 0 ? (
-        <Empty icon={BellSimple} title={t("Keine Mitteilungen")} text={t("Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Crest.")} />
+        <Empty icon={BellSimple} title={t("Keine Mitteilungen")} text={t("Neue Mitteilungen erscheinen hier und bleiben bis zum Beenden von Cupcake.")} />
       ) : (
         <div className="-mx-1 flex-1 overflow-y-auto px-1 [scrollbar-width:none]">
           <AnimatePresence initial={false}>

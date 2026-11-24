@@ -24,12 +24,12 @@ use serde::Serialize;
 use tauri::{App, AppHandle, Emitter, Manager, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_updater::UpdaterExt;
 
-pub const MARKER: &str = "Crest.portable";
+pub const MARKER: &str = "Cupcake.portable";
 pub const DATA: &str = "data";
 /// The latest.json platform key of the portable zip for this build's architecture (release.yml). An x64 copy running
 /// emulated on an ARM PC stays on the x64 zip.
 const TARGET: &str = if cfg!(target_arch = "aarch64") { "windows-aarch64-portable" } else { "windows-x86_64-portable" };
-const DOWNLOAD_PAGE: &str = "https://github.com/andrealo20/crest/releases/latest";
+const DOWNLOAD_PAGE: &str = "https://github.com/hamsa0x7/cupcake/releases/latest";
 const AFTER_UPDATE: &str = "--after-update";
 /// The command-line tool shipped next to Crest.exe (src/bin/crest-notify.rs), updated with it.
 pub const NOTIFY_EXE: &str = "crest-notify.exe";
@@ -53,7 +53,7 @@ static COPY: OnceLock<Option<Copy>> = OnceLock::new();
 fn copy() -> Option<&'static Copy> {
     COPY.get_or_init(|| {
         let dir = exe()?.parent()?.to_path_buf();
-        let portable = !cfg!(feature = "store") && dir.join(MARKER).is_file();
+        let portable = !cfg!(feature = "store") && (dir.join(MARKER).is_file() || dir.join("Crest.portable").is_file());
         let writable = portable && can_write(&dir);
         Some(Copy { dir, portable, writable })
     })

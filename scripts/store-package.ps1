@@ -1,14 +1,14 @@
-# Builds the Microsoft Store package: crest.exe and crest-notify.exe from the `store` Cargo feature (no self-update, never
+# Builds the Microsoft Store package: cupcake.exe and crest-notify.exe from the `store` Cargo feature (no self-update, never
 # portable, Start with Windows through the package's startup task), the logos and packaging/store/AppxManifest.xml, packed
-# unsigned into dist-store/Crest-<version>-<arch>.msix (outside dist/, which every frontend build empties) for Partner Center, which signs it.
+# unsigned into dist-store/Cupcake-<version>-<arch>.msix (outside dist/, which every frontend build empties) for Partner Center, which signs it.
 #   powershell -File scripts/store-package.ps1                # x64
 #   powershell -File scripts/store-package.ps1 -Arch arm64    # needs the MSVC ARM64 build tools and clang (for ring)
-#   powershell -File scripts/store-package.ps1 -Bundle        # both, plus dist-store/Crest-<version>.msixbundle
+#   powershell -File scripts/store-package.ps1 -Bundle        # both, plus dist-store/Cupcake-<version>.msixbundle
 #   powershell -File scripts/store-package.ps1 -TestSign      # also a self-signed copy to install on this PC
 # Run it from PowerShell: in Git Bash /usr/bin/link shadows the MSVC linker.
 #
-# Partner Center, adding arm64: open the app's new submission, Packages, and upload Crest-<version>-x64.msix and
-# Crest-<version>-arm64.msix together (or the one .msixbundle from -Bundle instead of both). Both carry the same version;
+# Partner Center, adding arm64: open the app's new submission, Packages, and upload Cupcake-<version>-x64.msix and
+# Cupcake-<version>-arm64.msix together (or the one .msixbundle from -Bundle instead of both). Both carry the same version;
 # the Store hands each PC the package of its architecture. Check that the Packages table lists x64 and arm64, then
 # submit. Device family availability stays Windows.Desktop.
 param(
@@ -88,7 +88,7 @@ function New-StorePackage([string]$PackageArch) {
     $stage = Join-Path $target "store-staging-$PackageArch"
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse }
     New-Item -ItemType Directory -Path $stage | Out-Null
-    foreach ($exe in 'crest.exe', 'crest-notify.exe') { Copy-Item -LiteralPath (Join-Path $target "$rustTarget\release\$exe") -Destination $stage }
+    foreach ($exe in 'cupcake.exe', 'crest-notify.exe') { Copy-Item -LiteralPath (Join-Path $target "$rustTarget\release\$exe") -Destination $stage }
     foreach ($logo in 'Square44x44Logo', 'Square71x71Logo', 'Square150x150Logo', 'StoreLogo') {
         Copy-Item -LiteralPath (Join-Path $root "src-tauri\icons\$logo.png") -Destination $stage
     }
@@ -109,7 +109,7 @@ function New-StorePackage([string]$PackageArch) {
     $manifest = (Get-Content -Raw (Join-Path $root 'packaging\store\AppxManifest.xml')).Replace('{version}', $storeVersion).Replace('{arch}', $PackageArch)
     [IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, [Text.UTF8Encoding]::new($false))
 
-    $msix = Join-Path $out "Crest-$version-$PackageArch.msix"
+    $msix = Join-Path $out "Cupcake-$version-$PackageArch.msix"
     Invoke-Tool (Join-Path $tools 'makeappx.exe') pack /d $stage /p $msix /o | Out-Host
     $msix
 }
@@ -120,7 +120,7 @@ if ($Bundle) {
     if (Test-Path -LiteralPath $bundleDir) { Remove-Item -LiteralPath $bundleDir -Recurse }
     New-Item -ItemType Directory -Path $bundleDir | Out-Null
     foreach ($a in 'x64', 'arm64') { Copy-Item -LiteralPath (New-StorePackage $a) -Destination $bundleDir }
-    $package = Join-Path $out "Crest-$version.msixbundle"
+    $package = Join-Path $out "Cupcake-$version.msixbundle"
     Invoke-Tool (Join-Path $tools 'makeappx.exe') bundle /d $bundleDir /p $package /bv $storeVersion /o
 }
 else {
@@ -133,7 +133,7 @@ if ($TestSign) {
     $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
         Where-Object { $_.Subject -eq $publisher -and $_.NotAfter -gt (Get-Date) } | Select-Object -First 1
     if (-not $cert) {
-        $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyUsage DigitalSignature -FriendlyName 'Crest Store test signing' `
+        $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyUsage DigitalSignature -FriendlyName 'Cupcake Store test signing' `
             -CertStoreLocation Cert:\CurrentUser\My -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
     }
     $cer = Join-Path $env:TEMP 'crest-store-test.cer'

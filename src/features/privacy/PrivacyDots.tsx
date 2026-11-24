@@ -6,6 +6,7 @@ import { settings } from "../../settings/store";
 import { discordState } from "../discord/store";
 import { privacy } from "./store";
 import { PrivacyPopover } from "./PrivacyPopover";
+import { isExtensionEnabled } from "../../extensions";
 
 /** Dot size and the space between two dots. */
 const DOT = 6, DOT_GAP = 5;
@@ -29,6 +30,7 @@ export function Dots({ dots }: { dots: ("red" | "green")[] }) {
 
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isExtensionEnabled("privacy-inspector")) return;
     if (triggerRef.current) {
       setTriggerRect(triggerRef.current.getBoundingClientRect());
     }

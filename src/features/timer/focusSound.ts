@@ -20,7 +20,7 @@ export function normalizeFocusSound(v: unknown): FocusSound {
 
 /**
  * The sound to play for this timer state: only while a focus timer runs that was started in this
- * app run (`bootEndsAt` is the end the timer had when Crest started), and not muted.
+ * app run (`bootEndsAt` is the end the timer had when Cupcake started), and not muted.
  */
 export function focusSoundFor(s: { mode: string; endsAt: number | null }, sound: FocusSound, muted: boolean, bootEndsAt: number | null): FocusSound {
   return s.mode === "focus" && s.endsAt !== null && s.endsAt !== bootEndsAt && !muted ? sound : "off";

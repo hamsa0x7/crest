@@ -14,7 +14,7 @@ const itemWidth = (p: ScriptPart) => {
 /** Room for every custom part side by side. */
 export const scriptPartsWidth = (parts: ScriptPart[]) => parts.reduce((w, p, i) => w + (i ? SPACE : 0) + itemWidth(p), 0);
 
-/** The parts scripts set with `crest-notify part`: icon, text and a small progress bar each. A part that names an enabled tool opens it on click. */
+/** The parts scripts set with `cupcake-notify part`: icon, text and a small progress bar each. A part that names an enabled tool opens it on click. */
 export function ScriptParts({ parts }: { parts: ScriptPart[] }) {
   return (
     <span className="flex items-center whitespace-nowrap text-footnote font-medium text-label" style={{ gap: SPACE }}>

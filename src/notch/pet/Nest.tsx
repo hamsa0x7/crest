@@ -40,7 +40,7 @@ function useCheer(): boolean {
   const [on, setOn] = useState(false);
   const seen = useRef(last);
   useEffect(() => {
-    // Only what happens from now on: tasks done before Crest started don't count.
+    // Only what happens from now on: tasks done before Cupcake started don't count.
     const fresh = last > seen.current && Date.now() - last <= CHEER_MS;
     seen.current = last;
     // The cleanup of the run before cancelled its timer: if last fell (the download's notice was dismissed), nothing else would turn it off.

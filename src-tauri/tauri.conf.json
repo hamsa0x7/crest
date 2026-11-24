@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Crest",
+  "productName": "Cupcake",
   "version": "1.2.1",
-  "identifier": "io.github.andrealo20.crest",
+  "identifier": "io.github.hamsa0x7.cupcake",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -16,7 +16,7 @@
       {
         "label": "notch",
         "create": false,
-        "title": "Crest",
+        "title": "Cupcake",
         "width": 960,
         "height": 880,
         "x": 0,
@@ -38,7 +38,7 @@
         "label": "mirror",
         "create": false,
         "url": "mirror.html",
-        "title": "Crest",
+        "title": "Cupcake",
         "focusable": false,
         "width": 960,
         "height": 880,
@@ -59,7 +59,7 @@
         "label": "timer",
         "create": false,
         "url": "timer.html",
-        "title": "Crest Timer",
+        "title": "Cupcake Timer",
         "focusable": false,
         "width": 320,
         "height": 84,
@@ -80,7 +80,7 @@
         "label": "pip",
         "create": false,
         "url": "pip.html",
-        "title": "Crest Video",
+        "title": "Cupcake Video",
         "focusable": true,
         "width": 400,
         "height": 225,
@@ -101,7 +101,7 @@
         "label": "lyrics",
         "create": false,
         "url": "lyrics.html",
-        "title": "Crest Lyrics",
+        "title": "Cupcake Lyrics",
         "focusable": true,
         "width": 380,
         "height": 520,
@@ -147,10 +147,8 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE3QUQzMUQ4OTQ5Mzc0OUYKUldTZmRKT1UyREd0RnpOUWNRazhwU29UbThjYi9aa2lNaVZQUWF1aHZkYUhGNXRVQ1V1YVhMcDcK",
-      "endpoints": [
-        "https://github.com/andrealo20/crest/releases/latest/download/latest.json"
-      ],
+      "pubkey": "",
+      "endpoints": [],
       "windows": {
         "installMode": "passive"
       }
