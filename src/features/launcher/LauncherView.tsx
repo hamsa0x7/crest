@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Check, DownloadSimple, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react"; import { invoke } from "@tauri-apps/api/core"; import { looksLikeVideoUrl } from "../downloader/DownloaderView";
+import { Check, MagnifyingGlass, Plus, RocketLaunch, SlidersHorizontal, X } from "../../ui/iconset";
 import { content } from "../../design/motion";
+import { isTaskbarWindow } from "../../lib/windowKind";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
+import { appDrop } from "../../platform/drop";
 import { launcher } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
 import { Button, Empty, Skeleton, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { aiKey, searchApps, toggleFavorite, type Favorite } from "./apps";
+import { AppIcon } from "./AppIcon";
 import { slotStatus, type SlotStatus } from "./shortcuts";
-import { hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
+import { addAppFromFile, hotkeysResting, launchError, launcherApps, loadApps, shortcutResult, showLaunchError, useIcons } from "./store";
 
 const PICKER_SIZE = { w: 520, h: 420 };
 const PICKER_LIMIT = 60;
@@ -22,10 +25,13 @@ const PICKER_LIMIT = 60;
  *   Alt+1  Alt+2   Alt+3  Alt+4
  *
  * Click starts the app. "+" (also in the header) opens the picker: every Start menu entry,
- * detected AI apps first; a click pins or unpins.
+ * detected AI apps first; a click pins or unpins. An app without one comes from its file: "Add from file", or
+ * dropped on the open Launcher in the notch (`appDrop`).
  */
 export function LauncherView() {
-  const l = settings.use().launcher;
+  const { launcher: l, tools } = settings.use();
+  // Alt+N works only while the tool is on in the notch (store.ts syncShortcuts); the bar's panel opens the Launcher either way.
+  const keys = l.hotkeys && tools.some((x) => x.id === "launcher" && x.enabled);
   const { apps, failed } = launcherApps.use();
   const shortcuts = shortcutResult.use();
   const [picking, setPicking] = useState(false);
@@ -36,6 +42,12 @@ export function LauncherView() {
     requestSize("launcher", picking ? PICKER_SIZE : null);
   }, [picking]);
   useEffect(() => () => requestSize("launcher", null), []);
+  useEffect(() => {
+    // The bar's window refuses every drop (taskbar/window/main.tsx): its Launcher takes none, as its Shelf.
+    if (isTaskbarWindow) return;
+    appDrop.set(true);
+    return () => appDrop.set(false);
+  }, []);
 
   const actions = (
     <HeaderActions>
@@ -52,7 +64,7 @@ export function LauncherView() {
     return (
       <>
         {actions}
-        <Picker favorites={favorites} />
+        <Picker favorites={favorites} onAdded={() => setPicking(false)} />
       </>
     );
   }
@@ -80,18 +92,19 @@ export function LauncherView() {
   return (
     <>
       {actions}
-      <Grid favorites={favorites} status={slotStatus(favorites, l.hotkeys, shortcuts)} onAdd={() => setPicking(true)} />
+      <Grid favorites={favorites} status={slotStatus(favorites, keys, shortcuts)} onAdd={() => setPicking(true)} />
     </>
   );
 }
 
-/** Under the tiles: a failed launch, or the Alt+N state with the one-tap opt-in. */
+/** Under the tiles: a failed launch, or the Alt+N state with the one-tap opt-in, which its × hides for good. */
 function Footer() {
-  const { hotkeys } = settings.use().launcher;
+  const { hotkeys, hotkeyOffer } = settings.use().launcher;
   const error = launchError.use();
   const resting = hotkeysResting.use();
   if (error) return <div className="truncate pt-1 text-caption text-red">{error}</div>;
   if (hotkeys) return resting ? <div className="truncate pt-1 text-caption text-label-3">{t("Alt+1 bis Alt+6 ruhen, solange ein Spiel oder eine Vollbild-App läuft")}</div> : null;
+  if (!hotkeyOffer) return null;
   return (
     <div className="flex items-center gap-2 pt-1">
       <button
@@ -100,9 +113,17 @@ function Footer() {
       >
         {t("Alt+1 bis Alt+6 nutzen")}
       </button>
-      <span className="min-w-0 line-clamp-2 text-caption text-label-3" title={t(HOTKEY_HINT)}>
+      <span className="min-w-0 flex-1 line-clamp-2 text-caption text-label-3" title={t(HOTKEY_HINT)}>
         {t(HOTKEY_HINT)}
       </span>
+      <button
+        onClick={() => updateSettings((s) => ({ launcher: { ...s.launcher, hotkeyOffer: false } }))}
+        aria-label={t("Ausblenden")}
+        title={t("Ausblenden")}
+        className="pressable flex size-5 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-fill-2 hover:text-label-2"
+      >
+        <X size={11} weight="bold" />
+      </button>
     </div>
   );
 }
@@ -112,9 +133,10 @@ export const HOTKEY_HINT = "Solange an, fehlen diese Tasten anderen Apps wie VS 
 function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: SlotStatus[]; onAdd: () => void }) {
   const icons = useIcons(favorites.map((f) => f.id));
 
-  const start = (f: Favorite) => {
+  /** An app already open comes forward; Shift or the middle button starts a new copy, as on Windows' taskbar (#64). */
+  const start = (f: Favorite, fresh: boolean) => {
     launchError.set(null);
-    launcher.open(f.id).catch((e) => showLaunchError(f.id, e));
+    launcher.open(f.id, false, !fresh).catch((e) => showLaunchError(f.id, e));
   };
 
   return (
@@ -123,7 +145,10 @@ function Grid({ favorites, status, onAdd }: { favorites: Favorite[]; status: Slo
         {favorites.map((f, i) => (
           <motion.button
             key={f.id}
-            onClick={() => start(f)}
+            onClick={(e) => start(f, e.shiftKey)}
+            onAuxClick={(e) => e.button === 1 && start(f, true)}
+            // The middle button would start the WebView's autoscroll.
+            onMouseDown={(e) => e.button === 1 && e.preventDefault()}
             title={f.name}
             className="pressable flex w-[76px] flex-col items-center gap-1 rounded-[12px] px-1 pt-2 pb-1.5 hover:bg-fill-2"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
@@ -165,19 +190,15 @@ function ShortcutBadge({ status }: { status: SlotStatus | undefined }) {
   );
 }
 
-export function AppIcon({ src, size }: { src: string | null | undefined; size: number }) {
-  if (src) return <img src={src} alt="" draggable={false} className="shrink-0" style={{ width: size, height: size }} />;
-  return (
-    <span className="flex shrink-0 items-center justify-center rounded-[8px] bg-fill-2 text-label-3" style={{ width: size, height: size }}>
-      <SquaresFour size={size / 2} weight="bold" />
-    </span>
-  );
-}
-
-/** Search over every Start menu entry; a click pins or unpins. */
-function Picker({ favorites }: { favorites: Favorite[] }) {
+/** Search over every Start menu entry; a click pins or unpins. "Add from file" pins an app that has none, then shows the tiles (`onAdded`). */
+function Picker({ favorites, onAdded }: { favorites: Favorite[]; onAdded: () => void }) {
   const { apps, loading, failed } = launcherApps.use();
   const [query, setQuery] = useState("");
+  const [notApp, setNotApp] = useState(false);
+  const fromFile = () => {
+    setNotApp(false);
+    addAppFromFile().then((added) => added && onAdded(), () => setNotApp(true));
+  };
   const results = apps ? searchApps(apps, query, PICKER_LIMIT) : [];
   const truncated = !!apps && results.length === PICKER_LIMIT && searchApps(apps, query, Infinity).length > PICKER_LIMIT;
   const icons = useIcons(results.map((a) => a.id));
@@ -191,8 +212,10 @@ function Picker({ favorites }: { favorites: Favorite[] }) {
         <Button onClick={() => void loadApps(true)} disabled={loading}>
           {t("Neu einlesen")}
         </Button>
+        <Button onClick={fromFile}>{t("Aus Datei hinzufügen")}</Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">{looksLikeVideoUrl(query) && (<div className="m-2 rounded-[12px] bg-fill-2 p-2.5 flex flex-col gap-2 border border-separator"><div className="flex items-center gap-2"><DownloadSimple size={16} weight="bold" className="text-accent shrink-0" /><span className="truncate text-caption font-medium text-label flex-1">{query}</span></div><div className="flex items-center gap-2"><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: false }); setQuery(""); }}>{t("Video herunterladen")}</Button><Button onClick={() => { void invoke("ytdlp_download", { url: query, audioOnly: true }); setQuery(""); }}>{t("Audio (MP3) herunterladen")}</Button></div></div>)}
+      {notApp && <div className="truncate text-caption text-red">{t("Diese Datei ist keine App auf diesem PC")}</div>}
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] bg-fill-1 [scrollbar-width:none]">
         {!apps && failed ? (
           <div className="p-3 text-caption text-label-3">{t("App-Liste nicht lesbar, Neu einlesen versuchen")}</div>
         ) : !apps ? (

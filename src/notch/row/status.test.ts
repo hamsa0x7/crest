@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { btAlert, btIcon, levelAlert, lockAlert, mergeSeed, micAlert, netAlert, osdArmed, osdHidden, powerAlert } from "./status.ts";
+import { STATUS, airplaneAlert, btAlert, btIcon, chargedAlert, clipAlert, displayAlert, focusAlert, heldBack, levelAlert, lockAlert, mergeSeed, micAlert, modeAlert, netAlert, osdArmed, osdHidden, outputAlert, powerAlert, saverAlert } from "./status.ts";
 
 const tr = (k: string, v: Record<string, string | number> = {}) => k.replace(/\{(\w+)\}/g, (_, x) => String(v[x]));
 const s = (ac: boolean, percent: number | null, battery = true, charging = ac) => ({ ac, percent, battery, charging });
@@ -101,16 +101,16 @@ test("seed: fills only what is still unknown", () => {
 
 test("level: volume icon, bar and text", () => {
   const v = (level: number, muted = false) => levelAlert({ kind: "volume", level, muted }, tr);
-  assert.deepEqual(v(64), { kind: "volume", icon: "speaker-high", text: "64 %", tone: "normal", level: 64 });
+  assert.deepEqual(v(64), { kind: "volume", icon: "speaker-high", text: "64 %", tone: "normal", accent: "blue", level: 64 });
   assert.equal(v(49).icon, "speaker-low");
   assert.equal(v(50).icon, "speaker-high");
   assert.deepEqual([v(0).icon, v(0).text], ["speaker-none", "0 %"]);
   // Muted keeps the level for the bar and says so instead of the percent.
-  assert.deepEqual(v(30, true), { kind: "volume", icon: "speaker-x", text: "Stummgeschaltet", tone: "normal", level: 30 });
+  assert.deepEqual(v(30, true), { kind: "volume", icon: "speaker-x", text: "Stummgeschaltet", tone: "normal", accent: "blue", level: 30 });
 });
 test("level: brightness and out of range readings", () => {
   const b = (level: number) => levelAlert({ kind: "brightness", level, muted: false }, tr);
-  assert.deepEqual(b(80), { kind: "brightness", icon: "sun", text: "80 %", tone: "normal", level: 80 });
+  assert.deepEqual(b(80), { kind: "brightness", icon: "sun", text: "80 %", tone: "normal", accent: "yellow", level: 80 });
   assert.equal(b(20).icon, "sun-dim");
   assert.equal(b(140).level, 100);
   assert.equal(b(-5).level, 0);
@@ -118,18 +118,40 @@ test("level: brightness and out of range readings", () => {
 });
 test("osd: hidden only while the HUD replaces both and can show", () => {
   const on = { volume: true, brightness: true, hideOsd: true };
-  assert.equal(osdHidden(on, false), true);
-  assert.equal(osdHidden({ ...on, hideOsd: false }, false), false);
-  assert.equal(osdHidden({ ...on, brightness: false }, false), false);
-  assert.equal(osdHidden({ ...on, volume: false }, false), false);
-  assert.equal(osdHidden(on, true), false);
-  // A fullscreen app only pauses it: the option stays in force, so the process that restores the indicator stays too.
+  const shown = { focus: false, fullscreen: false, hidden: false };
+  assert.equal(osdHidden(on, shown), true);
+  assert.equal(osdHidden({ ...on, hideOsd: false }, shown), false);
+  assert.equal(osdHidden({ ...on, brightness: false }, shown), false);
+  assert.equal(osdHidden({ ...on, volume: false }, shown), false);
+  assert.equal(osdHidden(on, { ...shown, fullscreen: true }), false);
+  // Hidden by a window rule or the hide shortcut, Crest shows no HUD, so Windows' own indicator comes back (#50).
+  assert.equal(osdHidden(on, { ...shown, hidden: true }), false);
+  // Focus mode drops Crest's HUD, also with the indicators shown everywhere, so Windows' own comes back.
+  assert.equal(osdHidden(on, { ...shown, focus: true }), false);
+  assert.equal(osdHidden({ ...on, everywhere: true }, { ...shown, focus: true }), false);
+  // Focus mode or a fullscreen app only pause it: the option stays in force, so the process that restores the indicator stays too.
   assert.equal(osdArmed(on), true);
   assert.equal(osdArmed({ ...on, volume: false }), false);
+  // With the indicators shown everywhere Crest's HUD shows in both cases, so Windows' own stays hidden.
+  assert.equal(osdHidden({ ...on, everywhere: true }, { ...shown, fullscreen: true, hidden: true }), true);
+  assert.equal(osdHidden({ ...on, hideOsd: false, everywhere: true }, shown), false);
+});
+test("fullscreen: alerts wait it out, the indicators not when shown everywhere", () => {
+  assert.equal(heldBack("volume", { fullscreen: true, everywhere: false }), true);
+  assert.equal(heldBack("volume", { fullscreen: true, everywhere: true }), false);
+  assert.equal(heldBack("lock", { fullscreen: true, everywhere: true }), false);
+  assert.equal(heldBack("mic", { fullscreen: true, everywhere: true }), false);
+  // Charger, network and Bluetooth arrive on their own and keep waiting.
+  assert.equal(heldBack("bt", { fullscreen: true, everywhere: true }), true);
+  assert.equal(heldBack("power", { fullscreen: true, everywhere: true }), true);
+  assert.equal(heldBack("brightness", { fullscreen: false, everywhere: false }), false);
 });
 test("lock: Caps Lock and Num Lock", () => {
-  assert.deepEqual(lockAlert({ key: "caps", on: true }, tr), { kind: "lock", icon: "caps-lock", text: "Feststelltaste an", tone: "normal" });
+  // Caps Lock switched on is a red padlock, switched off an open one in the text's colour.
+  assert.deepEqual(lockAlert({ key: "caps", on: true }, tr), { kind: "lock", icon: "lock", text: "Feststelltaste an", tone: "normal", accent: "red" });
   assert.equal(lockAlert({ key: "caps", on: false }, tr).text, "Feststelltaste aus");
+  assert.equal(lockAlert({ key: "caps", on: false }, tr).icon, "lock-open");
+  assert.equal(lockAlert({ key: "caps", on: false }, tr).accent, undefined);
   // Off differs from on beyond the text, for the side edge's icon.
   assert.equal(lockAlert({ key: "caps", on: false }, tr).off, true);
   assert.deepEqual(lockAlert({ key: "num", on: true }, tr), { kind: "lock", icon: "num-lock", text: "Num-Taste an", tone: "normal" });
@@ -140,7 +162,85 @@ test("lock: Caps Lock and Num Lock", () => {
 test("lock: Insert says it was pressed, never on or off", () => {
   assert.deepEqual(lockAlert({ key: "insert", on: true }, tr), { kind: "lock", icon: "keyboard", text: "Einfg", tone: "normal" });
 });
+test("clip: what was copied, in the Clipboard tool's teal, never the copied text", () => {
+  assert.deepEqual(clipAlert({ kind: "text", text: "hunter2", folders: 0 }, tr), { kind: "clip", tone: "normal", accent: "teal", icon: "text", text: "Text kopiert" });
+  const shown = (kind: "text" | "link" | "image" | "files", text: string, folders = 0) => {
+    const a = clipAlert({ kind, text, folders }, tr);
+    return [a.icon, a.text];
+  };
+  assert.deepEqual(shown("link", "https://example.com"), ["link", "Link kopiert"]);
+  assert.deepEqual(shown("image", "1600 × 1000"), ["image", "Bild kopiert"]);
+  assert.deepEqual(shown("files", "Rechnung.pdf"), ["file", "Datei kopiert"]);
+  // Names one per line; a mix of files and folders counts as files, only folders as folders.
+  assert.deepEqual(shown("files", "a.pdf\nb.docx\nProjekte", 1), ["files", "3 Dateien kopiert"]);
+  assert.deepEqual(shown("files", "Projekte", 1), ["folder", "Ordner kopiert"]);
+  assert.deepEqual(shown("files", "Projekte\nFotos", 2), ["folder", "2 Ordner kopiert"]);
+  // A copy answers something just done, so it shows over a fullscreen app when the indicators show everywhere.
+  assert.equal(heldBack("clip", { fullscreen: true, everywhere: true }), false);
+});
 test("mic: the shortcut's mute and unmute", () => {
   assert.deepEqual(micAlert({ muted: true }, tr), { kind: "mic", icon: "microphone-slash", text: "Mikrofon ist stumm", tone: "normal" });
   assert.deepEqual(micAlert({ muted: false }, tr), { kind: "mic", icon: "microphone", text: "Mikrofon ist an", tone: "normal" });
+});
+test("charged: charging stops on the charger near the top, once per charge, not while the charger settles", () => {
+  const charge = { since: 0, done: false };
+  const at = (ac: boolean, percent: number | null, charging: boolean) => ({ ac, percent, battery: true, charging });
+  const later = 1000 + STATUS.chargerSettleMs;
+  // Plugged in at 1000: the flag can flip in the first minute, which says nothing.
+  assert.equal(chargedAlert(at(false, 70, false), at(true, 70, true), charge, 1000, tr), null);
+  assert.equal(chargedAlert(at(true, 90, true), at(true, 90, false), charge, 2000, tr), null);
+  assert.equal(chargedAlert(at(true, 90, false), at(true, 90, true), charge, 3000, tr), null);
+  // Past it, charging that stops at 80 % or more is a full battery or a charge limit.
+  assert.deepEqual(chargedAlert(at(true, 100, true), at(true, 100, false), charge, later, tr), { kind: "power", icon: "battery-full", text: "Geladen · 100 %", tone: "normal", accent: "green" });
+  // Once per charge: trickle charging at the top flips it again.
+  assert.equal(chargedAlert(at(true, 99, false), at(true, 99, true), charge, later + 1, tr), null);
+  assert.equal(chargedAlert(at(true, 100, true), at(true, 100, false), charge, later + 2, tr), null);
+  // Unplugging starts over; below 80 % a stop is a pause, not a charged battery.
+  assert.equal(chargedAlert(at(true, 100, false), at(false, 100, false), charge, later + 3, tr), null);
+  assert.deepEqual(charge, { since: 0, done: false });
+  assert.equal(chargedAlert(at(false, 50, false), at(true, 50, true), charge, later + 4, tr), null);
+  assert.equal(chargedAlert(at(true, 60, true), at(true, 60, false), charge, later + 4 + STATUS.chargerSettleMs, tr), null);
+  assert.equal(chargedAlert(at(true, 80, true), at(true, 80, false), charge, later + 4 + STATUS.chargerSettleMs, tr)?.text, "Geladen · 80 %");
+  // A first reading on the charger counts from then, as does a percent Windows does not know.
+  const fresh = { since: 0, done: false };
+  assert.equal(chargedAlert(null, at(true, 95, true), fresh, 5000, tr), null);
+  assert.equal(fresh.since, 5000);
+  assert.equal(chargedAlert(at(true, null, true), at(true, null, false), fresh, 5000 + STATUS.chargerSettleMs, tr), null);
+});
+test("saver: Energy saver on and off, nothing from a first reading or one without the flag", () => {
+  const at = (saver?: boolean) => ({ ac: false, percent: 50, battery: true, charging: false, ...(saver === undefined ? {} : { saver }) });
+  assert.deepEqual(saverAlert(at(false), at(true), tr), { kind: "saver", icon: "leaf", text: "Energiesparen an", tone: "normal", accent: "green" });
+  assert.deepEqual(saverAlert(at(true), at(false), tr), { kind: "saver", icon: "leaf", text: "Energiesparen aus", tone: "normal", off: true });
+  assert.equal(saverAlert(null, at(true), tr), null);
+  assert.equal(saverAlert(at(), at(true), tr), null);
+  assert.equal(saverAlert(at(true), at(true), tr), null);
+});
+test("output: the new output's name and an icon for its kind", () => {
+  assert.deepEqual(outputAlert({ name: " Headphones (WH-1000XM5) ", form: "headphones" }), { kind: "output", icon: "headphones", text: "Headphones (WH-1000XM5)", tone: "normal", accent: "blue" });
+  assert.equal(outputAlert({ name: "Speakers", form: "speakers" })?.icon, "speaker-hifi");
+  assert.equal(outputAlert({ name: "DELL U2720Q", form: "display" })?.icon, "monitor");
+  assert.equal(outputAlert({ name: "Line out", form: "other" })?.icon, "speaker-high");
+  assert.equal(outputAlert({ name: "  ", form: "speakers" }), null);
+});
+test("focus: Do not disturb and a focus session, on and off", () => {
+  assert.deepEqual(focusAlert({ on: true, focus: false }, tr), { kind: "focus", icon: "moon", text: "Nicht stören an", tone: "normal", accent: "violet" });
+  assert.deepEqual(focusAlert({ on: false, focus: false }, tr), { kind: "focus", icon: "moon", text: "Nicht stören aus", tone: "normal", off: true });
+  assert.equal(focusAlert({ on: true, focus: true }, tr).text, "Fokus an");
+  assert.equal(focusAlert({ on: false, focus: true }, tr).text, "Fokus aus");
+});
+test("mode: the three power modes, nothing for one Windows passes over", () => {
+  assert.deepEqual(modeAlert({ mode: 1 }, tr), { kind: "mode", icon: "gauge", text: "Beste Energieeffizienz", tone: "normal", accent: "green" });
+  assert.equal(modeAlert({ mode: 2 }, tr)?.text, "Ausbalanciert");
+  assert.equal(modeAlert({ mode: 4 }, tr)?.text, "Beste Leistung");
+  for (const mode of [0, 3, 5, 6, -1]) assert.equal(modeAlert({ mode }, tr), null);
+});
+test("airplane: on in orange, off dimmed", () => {
+  assert.deepEqual(airplaneAlert(true, tr), { kind: "airplane", icon: "airplane", text: "Flugzeugmodus an", tone: "normal", accent: "orange" });
+  assert.deepEqual(airplaneAlert(false, tr), { kind: "airplane", icon: "airplane", text: "Flugzeugmodus aus", tone: "normal", off: true });
+});
+test("display: a monitor with its refresh rate, gone, or the laptop's own screen without a name", () => {
+  assert.deepEqual(displayAlert({ name: "DELL U2720Q", hz: 60, connected: true, builtin: false }, tr), { kind: "display", icon: "monitor", text: "DELL U2720Q · 60 Hz", tone: "normal", accent: "indigo" });
+  assert.deepEqual(displayAlert({ name: "DELL U2720Q", hz: null, connected: false, builtin: false }, tr), { kind: "display", icon: "monitor", text: "DELL U2720Q · Getrennt", tone: "normal", off: true });
+  assert.equal(displayAlert({ name: "", hz: 120, connected: true, builtin: true }, tr).text, "Eingebauter Bildschirm · 120 Hz");
+  assert.equal(displayAlert({ name: " ", hz: null, connected: true, builtin: false }, tr).text, "Bildschirm");
 });

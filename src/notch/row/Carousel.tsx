@@ -6,7 +6,7 @@ import type { CarouselWindow } from "./layout";
 /**
  * Runs a cycle as two motion values (shift and opacity). Rests are a setTimeout; only the moving stretches are a Motion
  * animation, of the cycle's own time, so the curve stays the one in cycles.ts. Paused, it freezes where it is and later
- * goes on from there. A new cycle starts from 0. `done` (the title's laps) ends it at its start. With reduced motion there is no cycle: it stays at its start.
+ * goes on from there. A new cycle starts from 0. `done` (the title's laps) ends it at its start, or at the cycle's `doneAt`. With reduced motion there is no cycle: it stays at its start.
  */
 export function useCycle(wanted: Cycle | null, paused: boolean, done?: (played: number) => boolean) {
   const cycle = useReducedMotion() ? null : wanted;
@@ -23,7 +23,7 @@ export function useCycle(wanted: Cycle | null, paused: boolean, done?: (played: 
     };
     const offTime = time.on("change", show);
     if (!cycle || paused) {
-      show(cycle && !done?.(played.current) ? played.current % cycle.period : 0);
+      show(!cycle ? 0 : done?.(played.current) ? cycle.doneAt ?? 0 : played.current % cycle.period);
       return offTime;
     }
     const origin = performance.now() / 1000 - played.current;
@@ -31,7 +31,7 @@ export function useCycle(wanted: Cycle | null, paused: boolean, done?: (played: 
     const step = () => {
       anim?.stop();
       const t = (played.current = performance.now() / 1000 - origin);
-      if (done?.(t)) return show(0);
+      if (done?.(t)) return show(cycle.doneAt ?? 0);
       // The exact remainder, never a sum of stretches: a boundary off by an ulp would land in the stretch before.
       const at = t % cycle.period, now = cycle.stretch(at);
       let next = cycle.stretch(now.end);

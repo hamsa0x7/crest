@@ -1,8 +1,11 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
 import { rowVisible } from "../../notch/row/visibility";
 import { fetchGithub, type GithubContributions } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
 
 /** Rust caches for an hour; asking more often would only return the cache. */
 const POLL_MS = 3_600_000;
@@ -22,6 +25,11 @@ let retry: ReturnType<typeof setTimeout> | null = null;
 let retried = false;
 
 export function refreshGithub(force = false): Promise<void> {
+  // The notch fetches; a token saved in the settings window forces it past Rust's cache.
+  if (!isNotchWindow) {
+    askNotch({ kind: "refresh", what: "github", force });
+    return Promise.resolve();
+  }
   const call = ++latest, user = settings.get().github.user.trim();
   askedUser = user.toLowerCase();
   github.set((g) => ({ ...g, loading: true }));
@@ -83,6 +91,8 @@ export function startGithub() {
   settings.subscribe(apply);
   rowVisible.subscribe(apply);
   viewers.subscribe(apply);
+  // A bar's panel showing GitHub counts as one more open view, so the notch fetches for it.
+  onBarShows("github", (shown) => viewers.set((n) => n + (shown ? 1 : -1)));
 }
 
 /** For views that show the calendar: polling while mounted. */

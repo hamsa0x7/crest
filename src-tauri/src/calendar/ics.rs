@@ -650,9 +650,11 @@ mod tests {
         // Dropping a tree this deep recursed once per level and overflowed the stack.
         let n = 100_000;
         let deep = format!("BEGIN:VCALENDAR\r\n{}{}BEGIN:VEVENT\r\nUID:a\r\nSUMMARY:after\r\nDTSTART:20261102T090000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n", "BEGIN:X\r\n".repeat(n), "END:X\r\n".repeat(n));
+        // The time zone is loaded out here: its first load fills jiff's zone database, which needs more stack than the thread has.
+        let tz = berlin();
         let titles = std::thread::Builder::new()
             .stack_size(256 * 1024)
-            .spawn(move || read(&deep, &berlin()).into_iter().map(|e| e.0).collect::<Vec<_>>())
+            .spawn(move || read(&deep, &tz).into_iter().map(|e| e.0).collect::<Vec<_>>())
             .unwrap()
             .join()
             .unwrap();

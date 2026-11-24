@@ -50,7 +50,7 @@ hello-crest/
 | `author`, `description` | Optional, up to 60 and 200 characters |
 | `icon` | Optional, one of the [icons](#icons) below (default `puzzle`). Crest draws it itself; no image is loaded from the plugin for the tool bar |
 | `entry` | The page the tool opens, an `.html` file in the folder |
-| `size` | The open notch's size for the tool, header and tool bar included: `w` 320 to 740, `h` 160 to 540 |
+| `size` | The open notch's size for the tool, header and tool bar included: `w` 320 to 740, `h` 160 to 540; a `w` narrower than the tool bar opens as wide as the bar where the monitor holds it ([features.md](features.md)) |
 | `permissions.network` | Up to 8 host names the plugin may fetch from, for example `api.github.com` |
 | `permissions.storage` | `true` for a key-value storage of its own |
 | `permissions.notices` | `true` to show notices in the closed notch |
@@ -95,6 +95,10 @@ const r = await crest.fetch("https://api.github.com/zen", { method: "GET", heade
 await crest.notify("Countdown finished", "Optional text");
 await crest.resize(560, 300);               // returns the size it got
 ```
+
+Under the Material style the same 16 colours carry Material's scheme: `notch` is its surface, `label` its on-surface, `accent` and `link` its primary, `red` its error. The API has no keys for Material's other roles.
+
+`font` is the stack Crest draws with, so it names Crest's own faces (Inter, and Google Sans Flex under Material). A page cannot load them from Crest: it ships the face in its own folder or lets the stack fall back to the next one.
 
 | Call | Needs | Limits |
 | --- | --- | --- |

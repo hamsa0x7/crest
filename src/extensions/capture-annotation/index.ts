@@ -1,4 +1,4 @@
-import { PaintBrush } from "@phosphor-icons/react";
+import { PaintBrush } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 import { AnnotationCanvas } from "../../features/capture/AnnotationCanvas";
 

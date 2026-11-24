@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLineUp, FolderOpen, Plus, X } from "@phosphor-icons/react";
+import { ArrowLineUp, Plus, X } from "../../ui/iconset";
 import { isMac } from "../../platform/native";
 import { windowShell, type HotkeyState, type RunningApp } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { tabs, settingsTab, findTab, type NotchTab } from "../../notch/tabs";
 import { Button, Group, Row, Segmented, Select, Switch, TextField } from "../../ui/controls";
+import type { RowSymbol } from "../../ui/materialNames";
 import { t } from "../../i18n";
 import { altGrRisk, conflicts, keycaps, record, toolConflicts, type Holder, type HotkeyKind, type RecordError } from "./hotkeys";
 import { CONTEXTS, MAX_APP_RULES, addRule, newRule, ruleKey, type AppRule, type Behavior, type ScreenContext } from "./model";
@@ -16,6 +17,7 @@ const contextLabel: Record<ScreenContext, string> = {
   borderless: "Randloses Vollbild",
   exclusive: "Exklusives Vollbild",
 };
+const contextSymbol: Record<ScreenContext, RowSymbol> = { maximized: "web_asset", borderless: "fullscreen", exclusive: "fit_screen" };
 const contextHint: Record<ScreenContext, string> = {
   maximized: "Ein Fenster, das den Bildschirm bis zur Taskleiste füllt",
   borderless: "Spiele, Videos und Browser im Vollbild (F11)",
@@ -50,9 +52,10 @@ function Rules() {
       {!isMac && (
         <>
           {CONTEXTS.map((c) => (
-            <Row key={c} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Cupcake hier sichtbar") : t(contextHint[c])}>
+            <Row key={c} icon={contextSymbol[c]} label={t(contextLabel[c])} hint={gaming && c !== "maximized" ? t("Der Gaming-Modus hält Cupcake hier sichtbar") : t(contextHint[c])}>
               <Segmented
                 id={`rule-${c}`}
+                label={t(contextLabel[c])}
                 size="sm"
                 value={r[c]}
                 onChange={(v) => updateBehavior((b) => ({ rules: { ...b.rules, [c]: v } }))}
@@ -60,12 +63,12 @@ function Rules() {
               />
             </Row>
           ))}
-          <Row label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
+          <Row icon="layers" label={t("Auch Fenster dahinter prüfen")} hint={t("Ein maximiertes oder randloses Fenster hinter dem aktiven zählt auch")}>
             <Switch label={t("Auch Fenster dahinter prüfen")} checked={r.background} onChange={(background) => updateBehavior((b) => ({ rules: { ...b.rules, background } }))} />
           </Row>
         </>
       )}
-      <Row label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Cupcake liegt")}>
+      <Row icon="flip_to_front" label={t("Nach vorne holen")} hint={t("Wenn ein anderes Fenster über Cupcake liegt")}>
         <Button icon={ArrowLineUp} onClick={windowShell.raise}>
           {t("Jetzt")}
         </Button>
@@ -79,7 +82,6 @@ function AppRules() {
   const [running, setRunning] = useState<RunningApp[]>([]);
   const [pick, setPick] = useState("");
   const [typed, setTyped] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     void windowShell.apps().then(setRunning);
   }, []);
@@ -122,7 +124,7 @@ function AppRules() {
           </div>
         );
       })}
-      <Row label={t("Laufende App")} hint={apps.length === 0 ? t("Eigene Regeln für eine App, nach ihrer .exe") : undefined}>
+      <Row icon="apps" label={t("Laufende App")} hint={apps.length === 0 ? t("Eigene Regeln für eine App, nach ihrer .exe") : undefined}>
         <div className="flex items-center gap-2">
           <Select<string>
             width="w-44"
@@ -142,22 +144,8 @@ function AppRules() {
           </Button>
         </div>
       </Row>
-      <Row label={t("Nach Name")} hint={t("Für Apps, die gerade nicht laufen")}>
+      <Row icon="edit_note" label={t("Nach Name")} hint={t("Für Apps, die gerade nicht laufen")}>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".exe"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file || full) return;
-              const path = (file as unknown as { path?: string }).path || "";
-              const name = file.name.replace(/\.exe$/i, "");
-              add(newRule(name, path));
-              e.target.value = "";
-            }}
-          />
           <TextField
             value={typed}
             onChange={setTyped}
@@ -177,13 +165,6 @@ function AppRules() {
             }}
           >
             {t("Hinzufügen")}
-          </Button>
-          <Button
-            icon={FolderOpen}
-            disabled={full}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {t("Durchsuchen …")}
           </Button>
         </div>
       </Row>
@@ -211,11 +192,11 @@ const recordErrors: Record<RecordError, string> = {
 function Shortcuts() {
   return (
     <Group title={t("Tastenkürzel")}>
-      <HotkeyRow kind="open" />
-      <HotkeyRow kind="hide" />
-      <HotkeyRow kind="resize" />
-      {!isMac && <HotkeyRow kind="find" />}
-      <HotkeyRow kind="mic" />
+      <HotkeyRow kind="open" icon="keyboard" />
+      <HotkeyRow kind="hide" icon="visibility_off" />
+      <HotkeyRow kind="resize" icon="aspect_ratio" />
+      {!isMac && <HotkeyRow kind="find" icon="screen_search_desktop" />}
+      <HotkeyRow kind="mic" icon="mic_off" />
       <ToolHotkeys />
     </Group>
   );
@@ -307,14 +288,14 @@ function ShortcutBox({ rec, value, name, onClear }: { rec: ReturnType<typeof use
         // Key combinations read left to right in any language.
         dir="ltr"
         className={`pressable flex h-7 min-w-24 items-center justify-center gap-1 rounded-[8px] px-2 text-caption outline-none focus-visible:ring-1 focus-visible:ring-label-3 ${
-          rec.recording ? "bg-fill-3 text-label ring-1 ring-label-3" : "bg-fill-2 text-label-2"
+          rec.recording ? "bg-secondary-container text-on-secondary-container ring-1 ring-label-3" : "bg-fill-2 text-label-2"
         }`}
       >
         {rec.recording ? (
           t("Kombination drücken …")
         ) : caps.length ? (
           caps.map((k, i) => (
-            <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption">
+            <kbd key={i} className="rounded-[5px] bg-fill-2 px-1.5 py-0.5 font-sans text-caption material:rounded-[8px] material:bg-fill-3 material:border-b-2 material:border-separator material:font-semibold">
               {k}
             </kbd>
           ))
@@ -331,7 +312,7 @@ function ShortcutBox({ rec, value, name, onClear }: { rec: ReturnType<typeof use
   );
 }
 
-function HotkeyRow({ kind }: { kind: HotkeyKind }) {
+function HotkeyRow({ kind, icon }: { kind: HotkeyKind; icon: RowSymbol }) {
   const s = settings.use();
   const status = hotkeyStatus.use()[kind];
   const value = s.behavior.hotkeys[kind];
@@ -341,7 +322,7 @@ function HotkeyRow({ kind }: { kind: HotkeyKind }) {
   // AltGr is a Windows and Linux key; a Mac types its characters with Option alone.
   const altGr = !isMac && altGrRisk(kind, value);
   return (
-    <Row label={t(hotkeyLabel[kind])} hint={shortcutHint({ error: rec.error, clash, status, altGr }, t(hotkeyHint[kind]))}>
+    <Row icon={icon} label={t(hotkeyLabel[kind])} hint={shortcutHint({ error: rec.error, clash, status, altGr }, t(hotkeyHint[kind]))}>
       <ShortcutBox rec={rec} value={value} name={t(hotkeyLabel[kind])} onClear={() => save("")} />
     </Row>
   );
@@ -365,7 +346,7 @@ function ToolHotkeys() {
         <ToolHotkeyRow key={id} id={id} adding={id === adding} onStop={() => setAdding(null)} />
       ))}
       {free.length > 0 && (
-        <Row label={t("Tool direkt öffnen")} hint={t("Ein eigenes Tastenkürzel öffnet die Notch gleich auf einem Tool")}>
+        <Row icon="keyboard" label={t("Tool direkt öffnen")} hint={t("Ein eigenes Tastenkürzel öffnet die Notch gleich auf einem Tool")}>
           <Select<string>
             value=""
             options={free.map((x) => ({ value: x.id, label: toolName(x.id) }))}
@@ -410,7 +391,7 @@ function ToolHotkeyRow({ id, adding, onStop }: { id: string; adding: boolean; on
   const tab = findTab(id);
   const name = toolName(id);
   return (
-    <Row
+    <Row icon="keyboard"
       label={
         <span className="flex items-center gap-1.5">
           {tab && <tab.icon size={13} weight="bold" className="shrink-0 text-label-2" />}
@@ -433,9 +414,10 @@ function Panel() {
   const quick = currentQuick(defs, b.sizes);
   return (
     <Group title={t("Offenes Panel")}>
-      <Row label={t("Größe")} hint={t("Pro Tool an den Rändern des offenen Panels ziehen; Doppelklick setzt zurück")}>
+      <Row icon="aspect_ratio" label={t("Größe")} hint={t("Pro Tool an den Rändern des offenen Panels ziehen; Doppelklick setzt zurück")}>
         <Segmented<QuickSize | "custom">
           id="panel-size"
+          label={t("Größe")}
           size="sm"
           value={quick ?? "custom"}
           onChange={(q) => {
@@ -449,7 +431,27 @@ function Panel() {
           ]}
         />
       </Row>
-      <Row label={t("Skalierung")} hint={t("Zeichnet Cupcake größer, wie eine höhere Windows-Skalierung nur für Cupcake")}>
+      <Row icon="open_in_full" label={t("Größe an den Rändern ziehen")} hint={t("Aus ändert sich die Größe nur hier und mit dem Tastenkürzel dafür")}>
+        <Switch label={t("Größe an den Rändern ziehen")} checked={b.resizeEdges} onChange={(resizeEdges) => updateBehavior({ resizeEdges })} />
+      </Row>
+      {/* #76: under the header or at the bottom, with or without the capsule behind its icons. */}
+      <Row icon="dock_to_bottom" label={t("Werkzeugleiste")}>
+        <Segmented<"bottom" | "top">
+          id="panel-tool-bar"
+          label={t("Werkzeugleiste")}
+          size="sm"
+          value={b.toolBar}
+          onChange={(toolBar) => updateBehavior({ toolBar })}
+          options={[
+            { value: "bottom", label: t("Unten") },
+            { value: "top", label: t("Oben") },
+          ]}
+        />
+      </Row>
+      <Row icon="format_color_fill" label={t("Hintergrund der Werkzeugleiste")}>
+        <Switch label={t("Hintergrund der Werkzeugleiste")} checked={b.toolBarFill} onChange={(toolBarFill) => updateBehavior({ toolBarFill })} />
+      </Row>
+      <Row icon="zoom_in" label={t("Skalierung")} hint={t("Zeichnet Cupcake größer, wie eine höhere Windows-Skalierung nur für Cupcake")}>
         {/* Steps instead of a slider: the scale redraws the whole page, so a dragged thumb would move under the pointer. */}
         <div id="panel-scale" className="flex shrink-0 items-center gap-2">
           <Button disabled={b.scale === PANEL_SCALES[0]} onClick={() => updateBehavior({ scale: stepScale(b.scale, -1) })}>
@@ -471,10 +473,10 @@ function Mouse() {
   const b = settings.use().behavior;
   return (
     <Group title={t("Maus")}>
-      <Row label={t("Rechtsklick öffnet die Einstellungen")}>
+      <Row icon="right_click" label={t("Rechtsklick öffnet die Einstellungen")}>
         <Switch label={t("Rechtsklick öffnet die Einstellungen")} checked={b.rightClickSettings} onChange={(rightClickSettings) => updateBehavior({ rightClickSettings })} />
       </Row>
-      <Row label={t("Mausrad wechselt das Tool")} hint={t("Über dem offenen Panel, wo nichts scrollt")}>
+      <Row icon="mouse" label={t("Mausrad wechselt das Tool")} hint={t("Über dem offenen Panel, wo nichts scrollt")}>
         <Switch label={t("Mausrad wechselt das Tool")} checked={b.wheelTools} onChange={(wheelTools) => updateBehavior({ wheelTools })} />
       </Row>
     </Group>

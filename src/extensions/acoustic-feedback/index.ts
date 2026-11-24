@@ -1,4 +1,4 @@
-import { SpeakerHigh } from "@phosphor-icons/react";
+import { SpeakerHigh } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 
 export const AcousticFeedbackExtension: NativeExtension = {

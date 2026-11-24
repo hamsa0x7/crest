@@ -1,6 +1,8 @@
 // The live glass on the closed notch and the capsule (docs/themes.md, Glass; capture/glass_live.rs, Windows 11 24H2): a capture session
 // around the closed shape, asked for from here one command at a time, its frames uploaded into the glass's second texture (GlassLayer.tsx).
-// While Glass and "Also the closed notch and capsule" are on, the notch window stays out of every capture, running or not.
+// While Glass and "Also the closed notch and capsule" are on, the notch window stays out of every capture, running or not; with that
+// switch off, also while a status alert is drawn as glass and a little after (Notch.tsx, liveForHud), and while the open panel's tool
+// bar is drawn as the taskbar's Liquid Glass + over a session around it (liveForDock).
 
 import { createStore } from "../../lib/store";
 import { glassLive, isMac, isNative, onGlassLiveStop, onSessionState, type GlassLiveSupport, type GlassZone } from "../../platform/native";
@@ -32,6 +34,24 @@ let maxGen = 0, floor = 1, ended = 0, last = { gen: 0, seq: 0 };
 // A command in flight, a restart asked for meanwhile, a zone change waiting, a restart that waits for that change, a start sent in
 // this turn.
 let busy = false, again = false, settle = 0, moved = false, fresh = false;
+
+// A status alert and the open panel's tool bar want the live glass while "Also the closed notch and capsule" is off; `resync` asks for
+// the exclusion they need.
+let hudWants = false, dockWants = false, resync = () => {};
+
+/** A status alert drawn as glass (Notch.tsx) wants the live copy, and so the exclusion, although the closed notch's own glass is off. */
+export function liveForHud(on: boolean) {
+  if (on === hudWants) return;
+  hudWants = on;
+  resync();
+}
+
+/** The open panel's tool bar under the taskbar's Liquid Glass + (Notch.tsx dockLive) wants the live copy, and so the exclusion, as liveForHud. */
+export function liveForDock(on: boolean) {
+  if (on === dockWants) return;
+  dockWants = on;
+  resync();
+}
 
 /** The zone to run a session for: none while nothing can draw its frames (the canvas gone, its WebGL context lost). */
 const zone = () => (renderer ? want : null);
@@ -82,7 +102,8 @@ async function run(call: Api, step: NonNullable<LiveStep>) {
     }
   } else if (step.do === "start") {
     floor = maxGen + 1;
-    await call.start(step.zone).then(
+    // Whole: Rust reads no other, and the other windows adopt a hand edit as saved.
+    await call.start(step.zone, Math.round(settings.get().themes.glassFps)).then(
       (r) => {
         maxGen = Math.max(maxGen, r.gen);
         floor = Math.max(floor, r.gen);
@@ -110,7 +131,7 @@ async function run(call: Api, step: NonNullable<LiveStep>) {
   }
 }
 
-/** The zone the closed shape needs (params.ts liveNeed), or null: a session for it, moved once the shape has settled, or none. */
+/** The zone the closed shape needs (params.ts liveNeed) or the open tool bar (dockNeed), or null: a session for it, moved once the shape has settled, or none. */
 export function wantLive(need: GlassZone | null) {
   window.clearTimeout(settle);
   settle = 0;
@@ -175,8 +196,17 @@ export function receiveLive(meta: unknown, data: ArrayBuffer) {
   if (!liveFrame.get()) liveFrame.set(true);
 }
 
-/** At start (main.tsx): asks whether the live glass can run, keeps the exclusion with Glass and the switch, listens to Rust. */
-export function startGlassLive() {
+/** The notch's exclusion: Glass and "Also the closed notch and capsule" on, or a status alert drawn as glass, or the open panel's tool bar. */
+const notchWants = () => {
+  const t = settings.get().themes;
+  return t.glass && (t.glassLive || hudWants || dockWants);
+};
+
+/**
+ * At start (main.tsx, and the bar's window with its own switch): asks whether the live glass can run, keeps the exclusion while
+ * `wants` holds, listens to Rust.
+ */
+export function startGlassLive(wants: () => boolean = notchWants) {
   if (isMac) return;
   if (!isNative) {
     if (!new URLSearchParams(location.search).has("glassLive")) return;
@@ -216,14 +246,22 @@ export function startGlassLive() {
   }
   // Asked at load with the state as it is, once Rust has said whether it can run, and again on every change.
   const sync = () => {
-    const t = settings.get().themes, on = t.glass && t.glassLive && liveSupport.get()?.supported === true;
+    const on = wants() && liveSupport.get()?.supported === true;
     if (on === exclude && excluded !== null) return;
     exclude = on;
     // Also when the refusal came after the switch went off (its command was still out): on again, the exclusion is asked for again.
     refused = false;
     pump();
   };
+  resync = sync;
   settings.subscribe(sync);
   liveSupport.subscribe(sync);
   sync();
+  // A new rate is a new session, as a new zone is.
+  let fps = settings.get().themes.glassFps;
+  settings.subscribe(() => {
+    if (settings.get().themes.glassFps === fps) return;
+    fps = settings.get().themes.glassFps;
+    restartLive();
+  });
 }

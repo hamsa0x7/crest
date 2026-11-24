@@ -1,4 +1,4 @@
-import { ShieldCheck } from "@phosphor-icons/react";
+import { ShieldCheck } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 
 export const PrivacyInspectorExtension: NativeExtension = {

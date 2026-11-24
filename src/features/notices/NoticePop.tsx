@@ -73,13 +73,16 @@ export function noticePop(n: Notice, max: number) {
       plain: true,
       title: n.title || n.appName,
       // A Windows notice opens its app and goes, as a click on its toast would: the notch stays closed (issue #34).
-      // crest-notify has no app, and Windows cannot open one whose id is a full path, so those notices open the Notices page;
+      // crest-notify has no app, and Windows cannot open one whose id is a full path or missing from its app list (system
+      // notifications, a tray icon's balloon: issue #50), so those notices open the Notices page;
       // that page is a Windows tool, so a plugin's notice on a Mac opens nothing.
       onOpen:
         n.source === "windows" && appOpens(n.appId)
           ? (e) => {
               e.stopPropagation();
-              noticeSource.openApp(n.appId);
+              void noticeSource.openApp(n.appId).then((opened) => {
+                if (!opened) openOn("notices");
+              });
               dismissPop();
             }
           : isMac

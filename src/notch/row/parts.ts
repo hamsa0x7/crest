@@ -1,7 +1,9 @@
 // Settings model of the closed notch's row: which parts show and in what order. Pure, so the saved shape can be repaired (and tested) without the app around it.
 
-export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "calendar", "script", "downloads", "weather"] as const;
+export const PART_IDS = ["timer", "discord", "rings", "title", "readings", "equalizer", "clock", "github", "leetcode", "calendar", "script", "downloads", "weather", "disk", "processes", "battery", "mic", "stopwatch", "todo", "note", "progress", "date", "world", "currency", "crypto", "temps", "bluetooth", "keepawake", "unread", "screentime", "timeline", "wallpaper"] as const;
 export type PartId = (typeof PART_IDS)[number];
+/** Widgets of Crest's bar alone: the closed row draws nothing for them, and its settings do not list them. */
+export const BAR_ONLY: readonly PartId[] = ["disk", "processes", "battery", "mic", "stopwatch", "todo", "note", "progress", "date", "world", "currency", "crypto", "temps", "keepawake", "unread", "wallpaper"];
 /** Readings of the closed row; net, power, battery and temp are opt-in. */
 export const READING_KEYS = ["cpu", "ram", "gpu", "net", "power", "battery", "temp"] as const;
 export type ReadingKey = (typeof READING_KEYS)[number];
@@ -15,18 +17,41 @@ export const PET_SIZE = { min: 32, max: 96, default: 48 } as const;
 export const NEST_GAP = 20;
 /** A click makes the pet this much bigger, until the pointer leaves it. */
 export const NEST_ZOOM = 1.5;
-export interface ClosedSettings { order: PartId[]; parts: Record<PartId, boolean>; readings: Record<ReadingKey, boolean>; clockSeconds: boolean; clockDate: boolean; lineProgress: boolean; quotaAlerts: boolean; downloadAlerts: boolean;
-  secondTimezone: string | null; secondTimezoneLabel: string; statusAlerts: StatusAlerts; pet: PetSettings }
-/** `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Cupcake shows its own (status.ts osdHidden). */
-export interface StatusAlerts { power: boolean; net: boolean; bt: boolean; volume: boolean; brightness: boolean; lock: boolean; insert: boolean; hideOsd: boolean; mic: boolean }
+export interface ClosedSettings {
+  order: PartId[];
+  parts: Record<PartId, boolean>;
+  readings: Record<ReadingKey, boolean>;
+  clockSeconds: boolean;
+  clockDate: boolean;
+  lineProgress: boolean;
+  quotaAlerts: boolean;
+  downloadAlerts: boolean;
+  secondTimezone: string | null;
+  secondTimezoneLabel: string;
+  statusAlerts: StatusAlerts;
+  pet: PetSettings;
+}
+/**
+ * `hideOsd` is not an alert: it hides the Windows volume and brightness indicator while Cupcake shows its own (status.ts osdHidden).
+ * `everywhere` neither: the indicators (volume, brightness, the lock keys, the microphone, a copy) show over fullscreen apps and while Cupcake is hidden too.
+ * `saver` covers Energy saver and the power mode, `power` the charger, the low battery and a battery charged on the charger.
+ */
+export interface StatusAlerts {
+  power: boolean; saver: boolean; net: boolean; airplane: boolean; bt: boolean; output: boolean; display: boolean; volume: boolean; brightness: boolean;
+  lock: boolean; insert: boolean; mic: boolean; focus: boolean; clip: boolean; hideOsd: boolean; everywhere: boolean;
+}
 
 export const CLOSED_DEFAULTS: ClosedSettings = {
   order: [...PART_IDS],
-  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, calendar: false, script: false, downloads: true, weather: false },
+  parts: { timer: true, discord: true, rings: true, title: false, readings: false, equalizer: true, clock: false, github: false, leetcode: false, calendar: false, script: false, downloads: true, weather: false, disk: false, processes: false, battery: false, mic: false, stopwatch: false, todo: false, note: false, progress: false, date: false, world: false, currency: false, crypto: false, temps: false, bluetooth: false, keepawake: false, unread: false, screentime: false, timeline: false, wallpaper: false },
   readings: { cpu: true, ram: true, gpu: true, net: false, power: false, battery: false, temp: false },
   clockSeconds: false, clockDate: false, lineProgress: true, quotaAlerts: true, downloadAlerts: true,
-  secondTimezone: null, secondTimezoneLabel: "",
-  statusAlerts: { power: true, net: true, bt: true, volume: true, brightness: true, lock: true, insert: false, hideOsd: false, mic: true },
+  secondTimezone: null,
+  secondTimezoneLabel: "",
+  statusAlerts: {
+    power: true, saver: true, net: true, airplane: true, bt: true, output: true, display: true, volume: true, brightness: true,
+    lock: true, insert: false, mic: true, focus: true, clip: false, hideOsd: false, everywhere: false,
+  },
   pet: { id: null, size: PET_SIZE.default, side: "right" },
 };
 
@@ -86,13 +111,18 @@ export function partTool(part: string): string | null {
     case "script":
       return "notices";
     case "awake":
+    case "bluetooth":
       return "overview";
+    case "screentime":
+    case "timeline":
+      return "screentime";
     case "downloads":
       return "shelf";
     case "weather":
       return "weather";
     case "discord":
     case "github":
+    case "leetcode":
     case "calendar":
       return part;
     default:

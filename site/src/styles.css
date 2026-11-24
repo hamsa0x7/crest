@@ -1,7 +1,7 @@
 @import "@fontsource-variable/inter/opsz.css";
 
 /*
- * Tokens come from Crest itself (src/styles/tokens.css, src/features/themes/themes.ts):
+ * Tokens come from Cupcake itself (src/styles/tokens.css, src/features/themes/themes.ts):
  * black panels, white at stepped opacities, one hue per tool, the logo's four warm colours.
  * Motion follows src/design/motion.ts: springs for things that travel, 150 to 250 ms smooth-out for the rest,
  * transform and opacity only.
@@ -406,6 +406,12 @@ h1 {
   gap: 6px;
   min-height: 44px;
   text-underline-offset: 4px;
+}
+/* The same test the demo makes before it shows the taskbar (src/dev/demo.ts). */
+@media (max-width: 999px), (pointer: coarse) {
+  .stage-full-bar {
+    display: none;
+  }
 }
 
 .chapters {

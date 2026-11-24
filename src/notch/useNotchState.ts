@@ -1,3 +1,4 @@
+import { isNotchWindow } from "../lib/windowKind";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createStore } from "../lib/store";
 import { setPinned } from "../platform/native";
@@ -30,8 +31,12 @@ const holds = createStore(0);
 
 export function holdOpen(on: boolean) {
   holds.set((n) => Math.max(0, n + (on ? 1 : -1)));
-  setPinned(holds.get() > 0);
+  // The hit-test pin belongs to the notch: a picker in the settings window holds nothing there.
+  if (isNotchWindow) setPinned(holds.get() > 0);
 }
+
+/** Whether something holds the notch open; in a bar's window its panel stays open meanwhile as the window loses the focus (BarPanel.tsx). */
+export const held = () => holds.get() > 0;
 
 /*
  * After work done away from the notch (a colour picked elsewhere on the screen) the result should stay in view, and

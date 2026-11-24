@@ -42,6 +42,11 @@ export function normalizeDock(saved: unknown): Dock {
   const s = typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>) : {};
   return { edge: isEdge(s.edge) ? s.edge : DOCK_DEFAULTS.edge, anchor: isAnchor(s.anchor) ? s.anchor : DOCK_DEFAULTS.anchor };
 }
+/**
+ * With Crest's bar on, its edge (`bar`, null while it is off) is the bar's: a dock saved there moves to the top with its default anchor,
+ * or to the bottom from a top bar (the offset along the edge stays, both running the same way).
+ */
+export const dockBesideBar = (dock: Dock, bar: Edge | null): Dock => (bar && dock.edge === bar ? (bar === "top" ? { edge: "bottom", anchor: "auto" } : DOCK_DEFAULTS) : dock);
 
 export const overTaskbar =(edge: Edge, anchor: Anchor) => (anchor === "auto" ? edge === "top" : anchor === "screen");
 
@@ -139,8 +144,11 @@ export function applyLinear(m: [number, number, number, number], x: number, y: n
 export const linear = (edge: Edge) => LINEAR[edge];
 export const upright = (edge: Edge) => UPRIGHT[edge];
 
-/** The edge a dragged notch hangs from for a pointer at (x, y): the nearest side of the screen, unless the current one is less than EDGE_HYSTERESIS farther. */
-export function nearestEdge(x: number, y: number, screenW: number, screenH: number, current: Edge): Edge {
+/**
+ * The edge a dragged notch hangs from for a pointer at (x, y): the nearest side of the screen, unless the current one is less than EDGE_HYSTERESIS farther.
+ * A pointer nearest to `shut` (the bar's edge while Crest's bar is on) leaves it on the current one.
+ */
+export function nearestEdge(x: number, y: number, screenW: number, screenH: number, current: Edge, shut?: Edge): Edge {
   const dist = (e: Edge) => (e === "bottom" ? Math.abs(fin(screenH) - y) : e === "left" ? Math.abs(x) : e === "right" ? Math.abs(fin(screenW) - x) : Math.abs(y));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return current;
   let nearest = current, best = dist(current) - EDGE_HYSTERESIS;
@@ -148,7 +156,7 @@ export function nearestEdge(x: number, y: number, screenW: number, screenH: numb
     const d = dist(e);
     if (d < best) { best = d; nearest = e; }
   }
-  return nearest;
+  return nearest === shut ? current : nearest;
 }
 
 /** What a notch dragged to an edge hangs from: the screen's edge while the pointer is over the taskbar there, the taskbar's inner edge otherwise; null where no taskbar is on that edge. */

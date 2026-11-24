@@ -97,12 +97,16 @@ pub fn lenient_rules<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Rules, D:
     Ok(Rules::from_value(&serde_json::Value::deserialize(d)?))
 }
 
-/// The context of one window. A frameless window across the monitor is borderless even when
-/// maximized; a framed one covering it without being maximized (old games) is borderless too.
-pub fn classify(exclusive: bool, covers_monitor: bool, has_caption: bool, maximized: bool) -> Context {
+/// The context of one window. A window without a caption across the monitor is borderless unless
+/// it is maximized inside the work area and keeps its resize frame: where the work area is the
+/// whole monitor (Windows' taskbar on auto-hide, or a monitor without a taskbar), a maximized app
+/// that draws its own title bar covers the monitor but keeps its resize frame, while full-screen
+/// modes (F11 in Firefox and Chromium) drop it. A window with a caption covering the monitor
+/// without being maximized (old games) is borderless too.
+pub fn classify(exclusive: bool, covers_monitor: bool, has_caption: bool, maximized: bool, within_work: bool, resizable: bool) -> Context {
     if exclusive {
         Context::Exclusive
-    } else if covers_monitor && !has_caption {
+    } else if covers_monitor && !has_caption && !(maximized && within_work && resizable) {
         Context::Borderless
     } else if maximized {
         Context::Maximized
@@ -111,6 +115,19 @@ pub fn classify(exclusive: bool, covers_monitor: bool, has_caption: bool, maximi
     } else {
         Context::Desktop
     }
+}
+
+/// A rectangle in physical pixels: left, top, right, bottom.
+pub type Edges = (i32, i32, i32, i32);
+
+/// A window that is not maximized but whose top edge reaches into the notch's band, the `band` pixels below the top of the
+/// monitor `m`, while it overlaps the notch's window `notch` along that edge (snapped to a half or a quarter, or dragged
+/// to the top): the notch would cover its title bar, so it follows the maximized rule. Only a notch on the top edge of
+/// this monitor counts. The notch's window keeps one size whether the notch is closed, the line or open, so the answer
+/// does not change with the look it calls for.
+pub fn under_notch(frame: Edges, notch: Edges, m: Edges, band: i32) -> bool {
+    let on_top_edge = notch.1 >= m.1 - 2 && notch.1 <= m.1 + 2 && notch.0 >= m.0 - 2 && notch.2 <= m.2 + 2;
+    on_top_edge && frame.1 < m.1 + band && frame.3 > m.1 + band && frame.0 < notch.2 && frame.2 > notch.0
 }
 
 /// Process names compare without ".exe", so a rule may be saved either way.
@@ -177,11 +194,40 @@ mod tests {
 
     #[test]
     fn classifies_the_four_contexts() {
-        assert_eq!(classify(true, false, true, false), Context::Exclusive);
-        assert_eq!(classify(false, true, false, true), Context::Borderless);
-        assert_eq!(classify(false, false, true, true), Context::Maximized);
-        assert_eq!(classify(false, true, true, false), Context::Borderless);
-        assert_eq!(classify(false, false, true, false), Context::Desktop);
+        assert_eq!(classify(true, false, true, false, false, false), Context::Exclusive);
+        assert_eq!(classify(false, true, false, true, false, false), Context::Borderless);
+        assert_eq!(classify(false, false, true, true, false, false), Context::Maximized);
+        assert_eq!(classify(false, true, true, false, false, false), Context::Borderless);
+        assert_eq!(classify(false, false, true, false, false, false), Context::Desktop);
+    }
+
+    #[test]
+    fn a_maximized_window_inside_the_work_area_is_not_full_screen() {
+        use Context::*;
+        assert_eq!(classify(false, true, false, true, true, true), Maximized); // auto-hide taskbar, maximized app that draws its own title bar
+        assert_eq!(classify(false, true, false, true, false, true), Borderless); // maximized over a reserved taskbar band
+        assert_eq!(classify(false, true, false, false, true, false), Borderless); // F11 in Chromium, borderless game
+        assert_eq!(classify(false, true, false, true, true, false), Borderless); // full screen entered from a maximized window (Firefox F11)
+        assert_eq!(classify(true, true, false, true, true, true), Exclusive);
+    }
+
+    #[test]
+    fn a_window_under_the_notch_follows_the_maximized_rule() {
+        // A 2560 x 1080 monitor, the notch's window 760 px wide in the middle of the top edge, a 40 px band.
+        let m = (0, 0, 2560, 1080);
+        let notch = (900, 0, 1660, 560);
+        assert!(under_notch((0, 0, 1280, 1032), notch, m, 40)); // snapped to the left half
+        assert!(under_notch((1280, 0, 2560, 1032), notch, m, 40)); // the right half
+        assert!(under_notch((1000, 20, 1500, 700), notch, m, 40)); // dragged up under the notch
+        assert!(!under_notch((0, 0, 800, 1032), notch, m, 40)); // beside the notch
+        assert!(!under_notch((1000, 120, 1500, 700), notch, m, 40)); // below the notch's band
+        assert!(!under_notch((1000, 0, 1500, 30), notch, m, 40)); // a strip that ends inside the band
+        // A notch on another edge or another monitor never counts.
+        assert!(!under_notch((0, 0, 1280, 1032), (900, 520, 1660, 1080), m, 40));
+        assert!(!under_notch((0, 0, 1280, 1032), (3460, 0, 4220, 560), m, 40));
+        // A second monitor below the first: a window at the top of the lower one is not under the notch above it.
+        let below = (0, 1080, 2560, 2160);
+        assert!(!under_notch((0, 1080, 1280, 2112), notch, below, 40));
     }
 
     #[test]

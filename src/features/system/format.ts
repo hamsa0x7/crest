@@ -1,5 +1,5 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck.Core/MonitorFormat.cs.
-// Number formatting for the Hardware tool and the closed row's readings. Numbers and units come apart because the
+// Number formatting for the Hardware tool and the closed row's readings, and the check of the public IP the tool asks for. Numbers and units come apart because the
 // tool draws units smaller and lighter than their numbers. Pure, so it is tested without the app.
 
 import { isLanguage, localeFor } from "../../i18n/core.ts";
@@ -35,7 +35,7 @@ export function compactRate(bytesPerSecond: number): string {
 }
 
 /** The widest figures each closed-row reading can show, for the room it reserves. */
-export const WIDEST = { rate: "888M", watts: "~888W", percent: "100%", temp: "188°" } as const;
+export const WIDEST = { rate: "888M", watts: "~888W", percent: "100%", temp: "188°", fan: "8888" } as const;
 
 /** Watts with one decimal under 100, whole from there: "38.2", "112". */
 export const watts = (w: number) => (finite(w) < 99.95 ? one(finite(w)) : whole(finite(w)));
@@ -76,4 +76,29 @@ export function driveSizes(used: number, total: number): { used: string; total: 
   const scale = tb ? 1024 ** 4 : 1024 ** 3;
   const fig = (b: number) => (tb || b / scale < 9.95 ? one(b / scale) : whole(b / scale));
   return { used: fig(finite(used)), total: fig(finite(total)), unit: tb ? "TB" : "GB" };
+}
+
+/** A drive's free space in at most three figures and a binary unit, as File Explorer counts: "512 MB", "9.5 GB", "120 GB", "1.2 TB". */
+export function diskSize(bytes: number): string {
+  const v = finite(bytes), fig = (x: number) => (x < 9.95 ? one(x) : whole(x));
+  if (v >= 999.5 * 1024 ** 3) return `${fig(v / 1024 ** 4)} TB`;
+  if (v >= 999.5 * 1024 ** 2) return `${fig(v / 1024 ** 3)} GB`;
+  return `${whole(v / 1024 ** 2)} MB`;
+}
+
+const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+
+/** The address in get.geojs.io's answer (`{ ip }`) when it is a well-formed IPv4 or IPv6 address, else null: a third party's text goes no further unchecked. */
+export function publicIpOf(answer: unknown): string | null {
+  const ip = typeof answer === "object" && answer !== null ? (answer as { ip?: unknown }).ip : undefined;
+  if (typeof ip !== "string") return null;
+  if (IPV4.test(ip)) return ip;
+  if (ip.length > 45 || !ip.includes(":") || !/^[0-9a-f:.]+$/i.test(ip)) return null;
+  // The URL parser knows every IPv6 form (::, embedded IPv4); the characters above keep anything else out of the brackets.
+  try {
+    new URL(`http://[${ip}]/`);
+    return ip;
+  } catch {
+    return null;
+  }
 }

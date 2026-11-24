@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, limits, normalizeSizes, quickSize, sizeFor, stepScale, stepSize, toPageCss, toSaved } from "./panelSize.ts";
+import { PANEL_MAX, clampSize, currentQuick, dragSize, fitScale, fromShown, limits, normalizeSizes, normalizeTextSizes, quickSize, sizeFor, stepScale, stepSize, stepTextSize, toPageCss, toSaved } from "./panelSize.ts";
 
 const def = { w: 520, h: 250 };
 
@@ -12,13 +12,6 @@ test("limits: 80 % of the default, a floor, the window and the monitor", () => {
   // Never below the minimum, even on a tiny monitor.
   assert.equal(limits(def, 100).maxH, 200);
   assert.equal(limits(def, Number.NaN).maxH, PANEL_MAX.h);
-});
-
-test("limits supports custom user configured limits", () => {
-  const custom = { minW: 600, maxH: 700 };
-  const l = limits(def, undefined, custom);
-  assert.equal(l.minW, 600);
-  assert.equal(l.maxH, 700);
 });
 
 test("clamping and the saved size", () => {
@@ -59,6 +52,18 @@ test("the resize shortcut steps", () => {
   assert.deepEqual(stepSize({ w: 740, h: 540 }, "down", l), { w: 740, h: 540 });
 });
 
+test("a resize of a panel the tool bar holds wider than its tool: growing past it takes the new width, anything else never widens the tool (#82)", () => {
+  const own = { w: 520, h: 250 };
+  // From the 649 px on screen: past them the width is the tool's new one.
+  assert.deepEqual(fromShown({ w: 689, h: 250 }, own, 649), { w: 689, h: 250 });
+  // Narrower or only taller, the tool's own width stays, or the narrower one.
+  assert.deepEqual(fromShown({ w: 629, h: 250 }, own, 649), { w: 520, h: 250 });
+  assert.deepEqual(fromShown({ w: 649, h: 290 }, own, 649), { w: 520, h: 290 });
+  assert.deepEqual(fromShown({ w: 480, h: 250 }, own, 649), { w: 480, h: 250 });
+  // Not held, as wide as its tool: the resize as it is.
+  assert.deepEqual(fromShown({ w: 600, h: 250 }, { w: 700, h: 250 }, 700), { w: 600, h: 250 });
+});
+
 test("positions survive scale round trips exactly and keep their device pixels", () => {
   const values = [0, 1, 2, 5, 7, 100, 101, 333, 1234, -1, -5, -7, -100, -999, 0.5, -2.25];
   for (const chain of [[100, 150, 100], [100, 125, 175, 100]]) {
@@ -87,4 +92,27 @@ test("scale and saved sizes are repaired", () => {
   assert.equal(fitScale("150"), 100);
   assert.deepEqual(normalizeSizes({ a: { w: 500.4, h: 200 }, b: { w: -1, h: 2 }, c: null, d: { w: "x", h: 1 } }), { a: { w: 500, h: 200 } });
   assert.deepEqual(normalizeSizes(null), {});
+});
+
+test("a tool whose layout needs its whole height cannot be made shorter (#64, the Music tool's controls)", () => {
+  const music = { w: 520, h: 232, minH: 232 };
+  assert.equal(limits(music).minH, 232);
+  // A height saved before, below it, comes back up; the width keeps its 80 %.
+  assert.deepEqual(sizeFor(music, { w: 416, h: 186 }), { w: 416, h: 232 });
+  assert.equal(quickSize(music, "compact").h, 232);
+  assert.equal(limits({ w: 520, h: 232 }).minH, 186);
+});
+
+test("a tool's text size keeps only the scale steps other than 100 %", () => {
+  assert.deepEqual(normalizeTextSizes({ notes: 125, calc: 200, todos: 100, odd: 133, text: "150", none: null }), { notes: 125, calc: 200 });
+  assert.deepEqual(normalizeTextSizes(null), {});
+  assert.deepEqual(normalizeTextSizes("notes"), {});
+});
+
+test("Ctrl + and Ctrl - walk a tool's text size through the scale steps; Ctrl 0 and 100 % leave no entry", () => {
+  assert.deepEqual(stepTextSize({}, "notes", 1), { notes: 110 });
+  assert.deepEqual(stepTextSize({ notes: 110, calc: 150 }, "notes", -1), { calc: 150 });
+  assert.deepEqual(stepTextSize({ notes: 200 }, "notes", 1), { notes: 200 });
+  assert.deepEqual(stepTextSize({ notes: 80 }, "notes", -1), { notes: 80 });
+  assert.deepEqual(stepTextSize({ notes: 175, calc: 90 }, "notes", 0), { calc: 90 });
 });

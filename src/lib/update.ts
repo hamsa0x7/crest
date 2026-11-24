@@ -1,3 +1,5 @@
+import { askNotch } from "./tauriTransport";
+import { isNotchWindow } from "./windowKind";
 import { createStore } from "./store";
 import { settings } from "../settings/store";
 import { build, fetchChangelog, updater, type ChangelogEntry, type UpdateHandle } from "../platform/services";
@@ -28,6 +30,8 @@ export const update = createStore<{
 let found: UpdateHandle | null = null;
 
 export async function checkForUpdate() {
+  // The notch keeps what it found, to install it later: the settings window asks it.
+  if (!isNotchWindow) return askNotch({ kind: "checkUpdate" });
   // Store policy: the Store build never looks for updates anywhere else, not even on the automatic check.
   if ((await build.info()).store) return;
   const phase = update.get().phase;
@@ -48,6 +52,7 @@ export async function checkForUpdate() {
 }
 
 export async function installUpdate() {
+  if (!isNotchWindow) return askNotch({ kind: "installUpdate" });
   if (!found || update.get().phase !== "available") return;
   update.set((s) => ({ ...s, phase: "downloading", progress: 0, installFailed: false }));
   try {

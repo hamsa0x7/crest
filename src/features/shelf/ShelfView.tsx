@@ -18,10 +18,11 @@ import {
   Tray,
   X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { createStore } from "../../lib/store";
 import { formatBytes } from "../../lib/format";
+import { isTaskbarWindow } from "../../lib/windowKind";
 import { draggingOut, drop, pasteFiles, takeDropped, usePasteFiles } from "../../platform/drop";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
@@ -30,6 +31,7 @@ import { addFiles, addText, dragPayload, isText, keyOf, normalizeItems, removeKe
 import { NONE, clickSelect, dragKeys, prune, type Selection } from "./selection";
 import { lang, t, tBackend } from "../../i18n";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 import { HUE_PALETTE } from "../themes/themes";
 import { Redacted } from "../../ui/controls";
 
@@ -278,12 +280,14 @@ export function ShelfView() {
       keepText(e.dataTransfer.getData("text/plain"));
     },
   };
+  // The bar's window refuses every drop (taskbar/window/main.tsx): its Shelf invites none, and says where files go instead.
+  const drops = isTaskbarWindow ? {} : dropHandlers;
 
   const over = (dragging || textOver) && !out;
 
   if (items.length === 0) {
     return (
-      <div className="h-full px-4 pt-1 pb-2" {...dropHandlers}>
+      <div className="h-full px-4 pt-1 pb-2" {...drops}>
         <motion.div
           className={`flex h-full flex-col items-center justify-center gap-1.5 rounded-[14px] border-[1.5px] border-dashed transition-colors duration-200 ${
             over ? "border-label-2 bg-fill-2" : "border-fill-3 bg-fill-1"
@@ -292,10 +296,10 @@ export function ShelfView() {
           transition={springs.snappy}
         >
           <Tray size={22} weight="bold" className={over ? "text-label" : "text-label-3"} />
-          <span className="text-body text-label-2">{over ? t("Loslassen zum Ablegen") : t("Dateien oder Text hierher ziehen")}</span>
-          <div className="flex items-center gap-2">
-            <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
-          </div>
+          <span className="text-body text-label-2">
+            {isTaskbarWindow ? t("Dateien legst du auf der Notch ab") : over ? t("Loslassen zum Ablegen") : t("Dateien oder Text hierher ziehen")}
+          </span>
+          <PasteHint nothing={nothing} onPaste={() => void pasteAny().then((ok) => !ok && flash(setNothing))} />
         </motion.div>
       </div>
     );
@@ -304,7 +308,7 @@ export function ShelfView() {
   const picked = sel.keys.length;
 
   return (
-    <div className="relative flex h-full flex-col px-4 pt-1 pb-2 [container-type:inline-size]" {...dropHandlers}>
+<div className="relative flex h-full flex-col px-4 pt-1 pb-2" {...drops}>
       <HeaderActions>
         {failed !== null && (
           <span role="alert" title={failed} className="me-1 max-w-52 truncate text-caption text-red">
@@ -347,7 +351,7 @@ export function ShelfView() {
           </>
         )}
       </HeaderActions>
-      <div role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto [scrollbar-width:none]">
+<div ref={wheelSideways} role="listbox" aria-multiselectable="true" aria-label={t("Ablage")} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
         <AnimatePresence initial={false} mode="popLayout">
           {items.map((item) => {
             const key = keyOf(item);
@@ -382,7 +386,7 @@ export function ShelfView() {
                 {(selecting || picked > 0) && (
                   <span
                     className={`pointer-events-none absolute top-1.5 start-1.5 flex size-5 items-center justify-center rounded-full backdrop-blur-md ${
-                      on ? "bg-label text-notch" : "bg-fill-3 text-transparent"
+                      on ? "bg-primary text-notch material:text-on-primary" : "bg-fill-3 text-transparent"
                     }`}
                   >
                     <Check size={10} weight="bold" />

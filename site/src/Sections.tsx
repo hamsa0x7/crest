@@ -7,8 +7,8 @@ import { RELEASE } from "./release";
 export const REPO = "https://github.com/hamsa0x7/cupcake";
 export const RELEASES = "https://github.com/hamsa0x7/cupcake/releases/latest";
 export const STORE = "https://apps.microsoft.com/detail/9N2KXJ2924KS";
-export const SITE = "https://cupcake.app";
-export const SUPPORT = "support@cupcake.app";
+export const SITE = "https://crestisland.app";
+export const SUPPORT = "support@crestisland.app";
 
 /** A part of a section that rises into place once, `i` steps after its neighbours. */
 export function Rise({ children, i = 0, className }: { children: React.ReactNode; i?: number; className?: string }) {
@@ -266,7 +266,7 @@ export function Footer() {
           <a href={REPO}><GithubLogo size={30} weight="fill" aria-hidden="true" /> Source on GitHub</a>
           <a href={`${REPO}/issues/new/choose`}>Suggest an idea</a>
           <a href="/feedback/">Report a problem</a>
-          <a href="https://github.com/hamsa0x7">Sponsor the project</a>
+          <a href="https://github.com/sponsors/andrealo20">Sponsor the project</a>
         </div>
         <div className="small-links">
           <a href={`${REPO}/blob/main/docs/features.md`}>Every feature, in detail</a>
@@ -281,7 +281,7 @@ export function Footer() {
         </div>
       </div>
       <p className="legal">
-        Cupcake is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft or Apple. Text set in Inter and icons by Phosphor, both bundled with this page.
+        Cupcake is free software under the GPL-3.0 licence, a fork of L4-Notchbar 1.6.0 by Linux5Real, made by Andrea Loroni. It is not made, sponsored or endorsed by Microsoft, Apple or Google. Text set in Inter and Google Sans Flex (OFL), icons by Phosphor and Material Symbols (Apache-2.0), all bundled with this page.
       </p>
       <p className="wordmark" aria-hidden="true">Cupcake</p>
     </footer>

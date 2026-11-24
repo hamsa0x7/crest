@@ -15,9 +15,9 @@ const DAY_MS = 86_400_000;
 const dayNumber = (date: string) => Math.round(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) / DAY_MS);
 const fromNumber = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
 
-/** Shade 0..4 as GitHub's green steps (CSS colour); 0 is the empty cell. */
-export const shade = (level: number) =>
-  level <= 0 ? "var(--color-fill-2)" : `color-mix(in srgb, var(--color-green) ${[0, 32, 54, 76, 100][Math.min(4, Math.round(level))]}%, transparent)`;
+/** Shade 0..4 as green steps (or a custom colour variable); 0 is the empty cell. */
+export const shade = (level: number, colorVar = "--color-green") =>
+  level <= 0 ? "var(--color-fill-2)" : `color-mix(in srgb, var(${colorVar}) ${[0, 32, 54, 76, 100][Math.min(4, Math.round(level))]}%, transparent)`;
 
 export function total(days: Day[]): number {
   return days.reduce((s, d) => s + d.count, 0);

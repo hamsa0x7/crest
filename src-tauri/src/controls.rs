@@ -132,10 +132,10 @@ mod policy {
 }
 
 /// PKEY_Device_FriendlyName, defined here so one key does not need the FunctionDiscovery feature.
-const FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 };
+pub(crate) const FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0xa45c254e_df1c_4efd_8020_67d146a850e0), pid: 14 };
 
 /// Copies a string COM allocated and frees it.
-unsafe fn take(p: PWSTR) -> Option<String> {
+pub(crate) unsafe fn take(p: PWSTR) -> Option<String> {
     unsafe {
         let s = p.to_string().ok();
         CoTaskMemFree(Some(p.0 as _));
@@ -188,6 +188,8 @@ pub async fn audio_outputs() -> Result<Vec<Output>, String> {
 pub async fn audio_set_output(id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         check_output(&id, &read_outputs().map_err(|e| e.message())?)?;
+        // Picked in Crest: the status alert does not tell it back.
+        crate::sysevents::own(crate::sysevents::Own::Output);
         policy::set_default(&HSTRING::from(id.as_str())).map_err(|e| e.message())
     })
     .await
@@ -217,8 +219,13 @@ fn set_dnd(on: bool) -> Result<(), String> {
     if status >= 0 { Ok(()) } else { Err(format!("Could not switch Do Not Disturb ({status:#x})")) }
 }
 
-fn sessions() -> Option<FocusSessionManager> {
+pub(crate) fn sessions() -> Option<FocusSessionManager> {
     FocusSessionManager::IsSupported().ok().filter(|&s| s).and_then(|_| FocusSessionManager::GetDefault().ok())
+}
+
+/// A focus session running, and Do Not Disturb on, for the status alert (sysevents.rs).
+pub(crate) fn focus_now(manager: Option<&FocusSessionManager>) -> (bool, bool) {
+    (manager.is_some_and(|m| m.IsFocusActive().unwrap_or(false)), dnd_profile().is_some_and(|p| p != 0))
 }
 
 fn read_focus() -> Focus {
@@ -237,6 +244,7 @@ pub async fn focus_get() -> Focus {
 #[tauri::command]
 pub async fn focus_set(active: bool) -> Result<Focus, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        crate::sysevents::own(crate::sysevents::Own::Focus);
         let manager = sessions();
         if active {
             // Prefer a focus session; if that fails, at least Do Not Disturb.

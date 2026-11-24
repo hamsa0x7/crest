@@ -5,7 +5,7 @@ const GLIDE = { hold: 2.5, endHold: 2, speed: 12, fade: 0.25 } as const, MARQUEE
 
 /** A stretch of a cycle: whether its values move in it, and when it starts and ends. */
 export interface Stretch { moving: boolean; start: number; end: number }
-export interface Cycle { period: number; shift(t: number): number; opacity(t: number): number; moving(t: number): boolean; stretch(t: number): Stretch }
+export interface Cycle { period: number; shift(t: number): number; opacity(t: number): number; moving(t: number): boolean; stretch(t: number): Stretch; /** Where a finished cycle stays, in seconds into it; its start when absent. */ doneAt?: number }
 
 // ((t % P) + P) % P, but a t already in [0, P) comes back untouched: adding P rounds it by an ulp, and a boundary looked up as `stretch(s.end)` then falls in the stretch before.
 const wrap = (t: number, period: number) => { if (!(period > 0 && Number.isFinite(t))) return 0; const r = t % period; return r >= 0 ? r : (r + period) % period; };
@@ -48,6 +48,12 @@ export function marqueeCycle(overflow: number): Cycle & { done(played: number): 
     shift(t) { const at = wrap(t, period); return at < rest ? 0 : at < glideEnd ? -overflow * ((at - rest) / travel) : -overflow; },
     done: (played) => Number.isFinite(played) && played >= laps * period - 1e-9,
   };
+}
+
+/** A lyric line: one lap of the marquee, then it stays at its end until the next line replaces it, however long the line lasts. */
+export function stayCycle(overflow: number): Cycle & { done(played: number): boolean } {
+  const c = marqueeCycle(overflow);
+  return { ...c, done: (played) => Number.isFinite(played) && played >= c.period - 1e-9, doneAt: c.period - MARQUEE.rest };
 }
 
 /**

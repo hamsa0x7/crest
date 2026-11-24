@@ -18,21 +18,25 @@ import { useRowVisible } from "./visibility";
 import { fontEpoch, measureText } from "./measure";
 import { Carousel } from "./Carousel";
 import { Marquee } from "./Marquee";
-import { RING, RING_GAP, Ring, ringLabel, ringProviders, ringValue } from "./parts/Rings";
+import { RING, RING_GAP, Ring, ringProps, ringProviders } from "./parts/Rings";
 import { READING_GAP, ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
+import { LeetcodePart, leetcodeWidth, useLeetcodeToday } from "./parts/LeetcodePart";
 import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
 import { NextEventPart, nextEventWidth, useNextEvent } from "./parts/NextEventPart";
 import { ScriptParts, scriptPartsWidth } from "./parts/ScriptPart";
 import { scriptParts } from "../../features/notices/store";
-import { Coffee, MicrophoneSlash } from "@phosphor-icons/react";
+import { Coffee, MicrophoneSlash } from "../../ui/iconset";
 import { micMuted } from "../../features/status/store";
 import { t } from "../../i18n";
 import { awake } from "../../features/overview/store";
 import { DownloadsPart, downloadsCaption, downloadsWidth } from "./parts/DownloadsPart";
+import { useBtPart } from "./parts/BtPart";
+import { useDayPart, useScreenTimePart } from "./parts/ScreenTimePart";
+import { isMac } from "../../platform/native";
 import { downloads } from "../../features/downloads/store";
 import { pluginPills } from "../../features/plugins/store";
 import { iconFor } from "../../features/plugins/icons";
@@ -87,10 +91,14 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
   const dots = usePrivacyDots();
   const awakeOn = !!awake.use();
   const gh = useGithubToday();
+  const lc = useLeetcodeToday();
   const weather = useWeatherNow(closed.parts.weather);
   const next = useNextEvent();
   const scripted = scriptParts.use();
   const dl = downloads.use();
+  const screen = useScreenTimePart(closed.parts.screentime);
+  const day = useDayPart(closed.parts.timeline);
+  const bt = useBtPart(closed.parts.bluetooth && !isMac);
   const [hovered, setHovered] = useState(false);
   // The title stays while paused, like the cover; it only scrolls while playing.
   const music = s.music;
@@ -118,9 +126,13 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
     else if (id === "discord" && call) fixed(id, DISCORD_WIDTH, () => <DiscordPart call={call} paused={covered} />);
     else if (id === "equalizer" && np && playing) fixed(id, 16, () => <Equalizer playing={np.isPlaying && !covered} />);
     else if (id === "github" && gh) fixed(id, githubWidth(gh.count), () => <GithubPart count={gh.count} level={gh.level} />);
+    else if (id === "leetcode" && lc) fixed(id, leetcodeWidth(lc.count), () => <LeetcodePart count={lc.count} level={lc.level} />);
     else if (id === "weather" && weather) fixed(id, weatherWidth(), () => <WeatherPart now={weather} />);
     else if (id === "calendar" && next) fixed(id, nextEventWidth(next.text), () => <NextEventPart text={next.text} color={next.color} />);
     else if (id === "script" && scripted.length) fixed(id, scriptPartsWidth(scripted), () => <ScriptParts parts={scripted} />);
+    else if (id === "screentime" && screen) fixed(id, screen.width, screen.draw);
+    else if (id === "timeline" && day) fixed(id, day.width, day.draw);
+    else if (id === "bluetooth" && bt) fixed(id, bt.width, bt.draw);
     else if (id === "downloads" && dl.length && satellitePart !== "downloads") {
       const caption = downloadsCaption(dl);
       fixed(id, downloadsWidth(caption), () => <DownloadsPart list={dl} caption={caption} />);
@@ -144,11 +156,11 @@ export function CompactRow({ room, scale, covered, onWidth, satellitePart }: { r
       const text = measureText(caption);
       parts.push({ item: { id, kind: "title", text }, draw: (p) => titleLyric
         ? <LiveLyric text={caption} textWidth={text} width={p.width} paused={hovered || covered} />
-        : <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || covered || !np?.isPlaying} /> });
+        : <Marquee key={caption} text={caption} textWidth={text} width={p.width} paused={hovered || covered || !np?.isPlaying} endless={music.titleLoop} /> });
     } else if (id === "rings" && rings.length) {
       parts.push({
         item: { id, kind: "carousel", items: rings.map(() => RING), gap: RING_GAP },
-        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} label={ringLabel(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
+        draw: (p) => <Carousel items={rings.map((r) => <Ring key={r.id} id={r.id} {...ringProps(r)} />)} gap={RING_GAP} window={p.window!} width={p.width} paused={hovered || covered} />,
       });
     } else if (id === "readings" && readings.length) {
       // useReadings already leaves the part out when it is off and gaming is not forcing it on.
@@ -235,7 +247,7 @@ function Slot({ x, width, tool, children }: { x: number; width: number; tool: st
       initial={{ scale: 0.82, x }}
       animate={{ scale: 1, x }}
       exit={{ scale: 0.82 }}
-      transition={{ ...springs.morph, scale: springs.snappy }}
+      transition={{ default: springs.morph, scale: springs.snappy }}
     >
       {children}
     </motion.div>

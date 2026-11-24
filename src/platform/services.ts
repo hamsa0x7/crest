@@ -1,8 +1,11 @@
+import { askNotch } from "../lib/tauriTransport";
+import { isNotchWindow, isTaskbarWindow } from "../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { isMac, isNative } from "./native";
-import type { BluetoothEvent, LevelEvent, LockEvent, MicEvent, PowerState } from "../notch/row/status";
+import type { BluetoothEvent, DisplayEvent, FocusEvent, LevelEvent, LockEvent, MicEvent, ModeEvent, OutputEvent, PowerState } from "../notch/row/status";
 import type { LaunchPlan, ShellInfo } from "../features/terminal/shell";
 import type { TokenReport } from "../features/usage/tokens";
 import type { BatteryRaw } from "../features/system/battery";
@@ -11,6 +14,16 @@ import type { RulesPayload } from "../features/window/model";
 import type { PartMessage } from "../features/notices/scriptParts";
 import type { Ask } from "../features/notices/asks";
 import type { PluginManifest } from "../features/plugins/model";
+import type { BarKey, JumpList, TrayState, WindowList, WindowState } from "../features/taskbar/model";
+import type { Decor } from "../features/taskbar/decorModel";
+import type { DiskDrive, DiskScan } from "../features/taskbar/disks";
+import type { BarStatus, NetworkState, SoundState } from "../features/taskbar/statusModel";
+import type { Rect } from "../features/taskbar/autoHide";
+import type { BtDevice, WifiList } from "../features/taskbar/quickPages";
+import type { BarSeen } from "../features/taskbar/widgets";
+import type { Favorite } from "../features/launcher/apps";
+import type { WallFit, WallSource } from "../features/wallpapers/model";
+import { COLLECTION } from "../features/wallpapers/collection";
 import bundledChangelog from "../changelog.json";
 import { demo, photo, sample, sampleAvatar, screenshot, showcaseCall, showcaseFileSizes } from "../dev/showcase-data";
 import { demoFiles, demoPaste } from "./drop";
@@ -46,6 +59,9 @@ export const secrets = {
 // Kept here for code that imports it from services (the portfolio bridge owns it).
 import { localDate } from "./portfolio";
 export { localDate };
+export function utcDate(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
 
 // ---------- AI usage ----------
 
@@ -162,6 +178,8 @@ export interface SystemStats {
   gpuMemTotal: number;
   /** ms; null = no reply. */
   ping: number | null;
+  /** While the tool is shown: this PC's address on its network; null offline. */
+  localIp: string | null;
   /** ms since the probe started (monotonic), for rates. */
   at: number;
   /** Per logical processor while the tool is shown; `kind` 0 = the fastest kind of core. */
@@ -181,22 +199,30 @@ export interface SystemStats {
   /** Energy Meter / Power Meter channels: [instance, milliwatts]. */
   energy: [string, number][];
   meter: [string, number][];
-  nvml: { name: string; watts: number | null; temp: number | null }[];
-  /** From HWiNFO or LibreHardwareMonitor while one of them runs; `source` is the program's name. */
-  external: { source: string; cpuTemp: number | null; cpuWatts: number | null; gpus: { name: string; temp: number | null; watts: number | null }[] } | null;
+  nvml: { name: string; watts: number | null; temp: number | null; /** The fan in percent of its top speed (desktops; none on laptops). */ fan?: number | null }[];
+  /**
+   * From HWiNFO, LibreHardwareMonitor or Core Temp while one of them runs; `source` is the program's name. The fans in rpm: the CPU's,
+   * the fastest other one of the board (`caseFan`) and each GPU's; null where the program does not name one.
+   */
+  external: { source: string; cpuTemp: number | null; cpuWatts: number | null; cpuFan: number | null; caseFan: number | null; gpus: { name: string; temp: number | null; watts: number | null; fan: number | null }[] } | null;
   battery: BatteryRaw | null;
   drives: DrivesRaw | null;
   processes: ProcReading[] | null;
 }
 
-export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null }
+/** `fan`: the fan's speed in rpm as the driver reports it; 0 also from a driver that does not report it. */
+export interface GpuReading { key: string; name: string; memTotal: number; usage: number | null; engine: string | null; memUsed: number; temp: number | null; fan: number | null }
 /** One app: its processes folded by executable name. `cpu` is percent of one core. */
 export interface ProcReading { id: string; name: string; path: string | null; count: number; cpu: number; mem: number }
-/** Extras the closed row asks for outside the tool. */
-export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean }
+/** Extras the closed row asks for outside the tool; `processes`: the process list, for the bar's Top apps widget. */
+export interface SystemWant { net: boolean; temps: boolean; power: boolean; battery: boolean; processes: boolean }
 
 /** A program's icon as a PNG data URL. */
 export const systemIcon = (path: string): Promise<string | null> => (isNative ? invoke<string | null>("system_icon", { path }) : Promise.resolve(null));
+/** ipconfig in a new Command Prompt window (Windows). */
+export const openIpconfig = (): Promise<void> => (isNative ? invoke("system_ipconfig") : Promise.resolve());
+/** Windows' battery report, made by powercfg and opened in the default browser; rejects when it could not be made. */
+export const openBatteryReport = (): Promise<void> => (isNative ? invoke("system_battery_report") : new Promise((r) => setTimeout(r, 1500)));
 
 let mock = { cpu: 18, gpu: 32, ping: 14, rx: 0, tx: 0, at: 0 };
 /** `full = false`: CPU and RAM only (GPU and ping come back as null / 0) plus what `want` asks; `withGpu` adds the GPU without the ping. */
@@ -207,8 +233,8 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
   const gb = 1024 ** 3;
   const all = { net: true, temps: true, power: true, battery: true, ...want, ...(full ? { net: true, temps: true, power: true, battery: true } : {}) };
   const gpus: GpuReading[] = [
-    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null },
-    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null },
+    { key: "luid_a", name: "GeForce RTX 4070 Ti", memTotal: 12 * gb, usage: full || withGpu ? mock.gpu : null, engine: "3D", memUsed: 2.9 * gb, temp: all.temps ? 54 + mock.gpu / 5 : null, fan: all.temps ? Math.round(900 + mock.gpu * 12) : null },
+    { key: "luid_b", name: "Radeon Graphics", memTotal: 0.5 * gb, usage: full || withGpu ? 2 : null, engine: "VideoDecode", memUsed: 0.2 * gb, temp: null, fan: null },
   ];
   return Promise.resolve({
     at: mock.at,
@@ -232,7 +258,7 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
           disks: [{ number: 0, model: "Samsung SSD 990 PRO 1TB", bus: 17, removable: false, ssd: true, temp: [41, 82, 85] }, { number: 1, model: "WD Blue SN580 2TB", bus: 17, removable: false, ssd: true, temp: [38, 0, 0] }],
         }
       : null,
-    processes: full
+    processes: full || want?.processes
       ? [
           { id: "chrome.exe", name: "Google Chrome", path: null, count: 24, cpu: mock.cpu * 2, mem: 3.1 * gb },
           { id: "code.exe", name: "Visual Studio Code", path: null, count: 11, cpu: 22, mem: 1.4 * gb },
@@ -251,6 +277,7 @@ export function fetchSystem(full: boolean, withGpu = false, want?: SystemWant): 
     gpuMemUsed: full || withGpu ? 2.9 * gb + (mock.gpu / 100) * 3 * gb : 0,
     gpuMemTotal: 12 * gb,
     ping: full ? Math.round(mock.ping) : null,
+    localIp: full ? "192.168.1.23" : null,
   });
 }
 
@@ -341,11 +368,17 @@ function samplePicture(path: string): string {
 
 // ---------- Updates ----------
 
-let buildInfo: Promise<{ store: boolean }> | undefined;
+/** `taskbar`: the build offers Crest's taskbar, every Windows build but the Store one. */
+interface BuildInfo {
+  store: boolean;
+  taskbar: boolean;
+}
+
+let buildInfo: Promise<BuildInfo> | undefined;
 
 /** Which build runs, asked once: the Microsoft Store build (Cargo feature `store`) is updated by the Store only. */
 export const build = {
-  info: (): Promise<{ store: boolean }> => (buildInfo ??= isNative ? invoke<{ store: boolean }>("build_info") : Promise.resolve({ store: false })),
+  info: (): Promise<BuildInfo> => (buildInfo ??= isNative ? invoke<BuildInfo>("build_info") : Promise.resolve({ store: false, taskbar: false })),
 };
 
 export interface SystemDiagnostics {
@@ -354,13 +387,15 @@ export interface SystemDiagnostics {
   arch: string;
   machine: string | null;
   scales: number[];
+  /** Windows' Text size, 1 = 100 % (text_scale.rs). */
+  textScale: number;
 }
 
-/** Windows, architecture and monitor scales for Copy diagnostics (lib.rs diagnostics_info). */
+/** Windows, architecture, monitor scales and Text size for Copy diagnostics (lib.rs diagnostics_info). */
 export const systemDiagnostics = (): Promise<SystemDiagnostics> =>
   isNative
     ? invoke<SystemDiagnostics>("diagnostics_info")
-    : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1] });
+    : Promise.resolve({ os: "Windows 11 Pro", build: "26100", arch: "x86_64", machine: "x86_64", scales: [1.5, 1], textScale: 1 });
 
 export interface DoctorCheck {
   name: string;
@@ -405,8 +440,11 @@ export interface UpdateHandle {
 export interface ChangelogEntry {
   version: string;
   date: string;
-  /** `highlight`: shown in bold and bright (e.g. an announcement). Older versions ignore it. */
-  items: { en: string; highlight?: boolean }[];
+  /**
+   * `highlight`: shown in bold and bright (e.g. an announcement). `section`: the line links to that settings section
+   * (a key of `sectionPage`). Older versions ignore both.
+   */
+  items: { en: string; highlight?: boolean; section?: string }[];
 }
 
 /** In the browser, `?update` in the URL fakes an update for testing. */
@@ -489,8 +527,8 @@ export const autostart = {
 
 // ---------- Display ----------
 
-/** The closed notch as markup (mirror.rs Picture): the page's theme variables, and the `data:` images by index (null = unchanged). */
-export interface MirrorPicture { html: string; root: string; theme: string; lang: string; dir: string; images: string[] | null }
+/** The closed notch as markup (mirror.rs Picture): the page's theme variables and style, and the `data:` images by index (null = unchanged). */
+export interface MirrorPicture { html: string; root: string; theme: string; design: string; lang: string; dir: string; images: string[] | null }
 
 export interface MonitorInfo {
   name: string;
@@ -535,6 +573,10 @@ export const display = {
   }) => {
     if (isNative) void invoke("display_apply", { config });
   },
+  /** The page's scale changed: Rust reads Windows' Text size again and, when it changed, resizes and moves the window (display_rescale). */
+  rescale: () => {
+    if (isNative) void invoke("display_rescale");
+  },
   /** With "follow" or "all", the monitor Rust last reported for the pointer (mirror.rs): where it stayed, or whose copy it is over. */
   cursorMonitor: (): Promise<string | null> => (isNative ? invoke<string | null>("display_cursor_monitor") : Promise.resolve(null)),
   onCursorMonitor: (handler: (name: string | null) => void): (() => void) => {
@@ -555,6 +597,13 @@ export const display = {
   setHidden: (hidden: boolean): Promise<void> => (isNative ? invoke("display_set_hidden", { hidden }) : Promise.resolve()),
   taskbarRestore: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_restore") : Promise.resolve(true)),
   fullscreen: (): Promise<boolean> => (isNative ? invoke<boolean>("display_fullscreen") : Promise.resolve(false)),
+  /**
+   * While an indicator shows everywhere (status alerts), brings out the window that a rule or the hide shortcut keeps hidden, without
+   * taking the focus or the pointer; false hides it again. Nothing happens while the window shows anyway.
+   */
+  alert: (on: boolean) => {
+    if (isNative && !isMac) void invoke("display_alert", { on }).catch(() => {});
+  },
   /** true while an app covers the notch's monitor in fullscreen. */
   onFullscreen: (handler: (on: boolean) => void): (() => void) => {
     if (!isNative) return () => {};
@@ -565,9 +614,15 @@ export const display = {
 
 // ---------- Status alerts (sysevents.rs) ----------
 
-/** State at start, so what is already true (charger in, headphones on) does not alert. */
-export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[] }
-export interface StatusHandlers { seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void }
+/**
+ * State at start, so what is already true (charger in, headphones on) does not alert; `network` and `sound` only while a bar shows Stato,
+ * `sound` and `microphone` while a bar shows the Microphone widget.
+ */
+export interface StatusSeed { power: PowerState | null; online: boolean | null; devices: string[]; network: NetworkState | null; sound: SoundState | null; microphone: boolean | null }
+export interface StatusHandlers {
+  seed(s: StatusSeed): void; power(s: PowerState): void; net(online: boolean): void; bt(e: BluetoothEvent): void; level(e: LevelEvent): void; lock(e: LockEvent): void; mic(e: MicEvent): void;
+  output(e: OutputEvent): void; focus(e: FocusEvent): void; mode(e: ModeEvent): void; airplane(on: boolean): void; display(e: DisplayEvent): void;
+}
 
 export const status = {
   seed: (): Promise<StatusSeed> => (isNative ? invoke<StatusSeed>("status_seed") : Promise.resolve(mockStatus.seed())),
@@ -581,14 +636,70 @@ export const status = {
       listen<LevelEvent>("status://level", (e) => h.level(e.payload)),
       listen<LockEvent>("status://lock", (e) => h.lock(e.payload)),
       listen<MicEvent>("status://mic", (e) => h.mic(e.payload)),
+      listen<OutputEvent>("status://output", (e) => h.output(e.payload)),
+      listen<FocusEvent>("status://focus", (e) => h.focus(e.payload)),
+      listen<ModeEvent>("status://mode", (e) => h.mode(e.payload)),
+      listen<{ on: boolean }>("status://airplane", (e) => h.airplane(e.payload.on)),
+      listen<DisplayEvent>("status://display", (e) => h.display(e.payload)),
     ];
     return () => offs.forEach((off) => void off.then((f) => f()));
   },
-  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`: keep the Bluetooth watcher and the volume callback;
-   *  `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
-  configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; hideOsd: boolean; osdArmed: boolean }) => {
+  /**
+   * The power state alone, from the seed on, for the bar's page: its glass stops in Energy saver. The alerts run only in the notch.
+   * A seed read before a change came is the older one, so it is dropped once a change has.
+   */
+  onPower: (handler: (s: PowerState) => void): (() => void) => {
+    if (!isNative) return () => {};
+    let heard = false;
+    const seed = (s: StatusSeed) => {
+      if (s.power && !heard) handler(s.power);
+    };
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => seed(e.payload)),
+      listen<PowerState>("status://power", (e) => {
+        heard = true;
+        handler(e.payload);
+      }),
+    ];
+    void invoke<StatusSeed>("status_seed").then(seed, () => {});
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+  /**
+   * The power, the network and the volume for the bar's Stato item, and the microphone for its Microphone widget, each as it changes,
+   * as onPower does for one: the seed passes only what it knows and no change has said since. Rust sends the network and the volume
+   * only while the notch says a bar shows Stato, the microphone and the volume while it says a bar shows the Microphone widget.
+   */
+  onBar: (handler: (patch: Partial<BarStatus>) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const keys = ["power", "network", "sound", "microphone"] as const;
+    const heard = new Set<string>();
+    const seed = (s: StatusSeed) => {
+      // A null microphone is news as well (none, or the widget not on the bar yet): a face mounted again dims instead of keeping the last state.
+      const fresh = keys.filter((k) => (s[k] !== null || k === "microphone") && !heard.has(k));
+      if (fresh.length) handler(Object.fromEntries(fresh.map((k) => [k, s[k]])));
+    };
+    const offs = [
+      listen<StatusSeed>("status://seed", (e) => seed(e.payload)),
+      ...keys.map((k) =>
+        listen<BarStatus[typeof k]>(`status://${k}`, (e) => {
+          heard.add(k);
+          handler({ [k]: e.payload });
+        }),
+      ),
+    ];
+    void invoke<StatusSeed>("status_seed").then(seed, () => {});
+    return () => offs.forEach((off) => void off.then((f) => f()));
+  },
+  /** `ddc`: read external monitors over DDC/CI (the Brightness alert is on); `locks`: watch Caps Lock and Num Lock; `insert`: watch Insert presses; `bt`, `volume`, `mic`: keep the Bluetooth watcher and the volume and microphone callbacks;
+   *  `focus`: read Do not disturb; `hideOsd`: hide the Windows indicator now (status.ts osdHidden); `osdArmed`: the option is in force, also while it is not hiding. */
+  configure: (c: { ddc: boolean; locks: boolean; insert: boolean; bt: boolean; volume: boolean; mic: boolean; focus: boolean; hideOsd: boolean; osdArmed: boolean }) => {
     if (isNative) void invoke("status_configure", c);
   },
+  /**
+   * Whether Rust follows the network and the volume for the bar's Stato (model.ts statusWanted), and the microphone and the volume for
+   * its Microphone widget (`mic`, model.ts micWanted); sent by the notch only.
+   */
+  barOn: (on: boolean, mic = false): Promise<void> => (isNative ? invoke("status_bar", { on, mic }) : Promise.resolve()),
 };
 
 // ---------- Downloads in progress (downloads.rs) ----------
@@ -639,10 +750,11 @@ const MOCK_BT = ["Audio.Headphone", "Input.Mouse", "Input.Keyboard", "Input.Gami
 
 /** Browser: each dev button toggles one source. Unplugging drops the mock percent by 9, so the low tones show too. */
 export const mockStatus = (() => {
-  let power: PowerState = { ac: true, percent: 64, battery: true, charging: true }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
+  let power: PowerState = { ac: true, percent: 64, battery: true, charging: true, saver: false }, online = true, buds = false, volume = 40, bright = 70, kind = 0, caps = false;
+  let output = 0, dnd = false, mode = 2, airplane = false, monitor = false;
   const listeners = new Set<StatusHandlers>();
   return {
-    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [] }),
+    seed: (): StatusSeed => ({ power, online, devices: buds ? ["Buds"] : [], network: null, sound: null, microphone: null }),
     subscribe(h: StatusHandlers) {
       listeners.add(h);
       return () => void listeners.delete(h);
@@ -682,6 +794,35 @@ export const mockStatus = (() => {
       mockQuick.micMuted = !mockQuick.micMuted;
       listeners.forEach((h) => h.mic({ muted: mockQuick.micMuted === true }));
     },
+    /** Energy saver flips with each call; the glass turns off with it, as on Windows. */
+    saver() {
+      power = { ...power, saver: !power.saver };
+      listeners.forEach((h) => h.power(power));
+    },
+    /** Each call is the next output: headphones, speakers, a monitor's speakers. */
+    output() {
+      const all: OutputEvent[] = [{ name: "Headphones (WH-1000XM5)", form: "headphones" }, { name: "Speakers (Realtek(R) Audio)", form: "speakers" }, { name: "DELL U2720Q (NVIDIA High Definition Audio)", form: "display" }];
+      const next = all[output++ % all.length];
+      listeners.forEach((h) => h.output(next));
+    },
+    focus() {
+      dnd = !dnd;
+      listeners.forEach((h) => h.focus({ on: dnd, focus: false }));
+    },
+    /** Best power efficiency, balanced, best performance, round. */
+    mode() {
+      mode = mode === 1 ? 2 : mode === 2 ? 4 : 1;
+      listeners.forEach((h) => h.mode({ mode }));
+    },
+    airplane() {
+      airplane = !airplane;
+      listeners.forEach((h) => h.airplane(airplane));
+    },
+    /** A monitor comes and goes. */
+    display() {
+      monitor = !monitor;
+      listeners.forEach((h) => h.display({ name: "DELL U2720Q", hz: monitor ? 60 : null, connected: monitor, builtin: false }));
+    },
   };
 })();
 
@@ -705,6 +846,8 @@ export interface PrivacyState {
   mic: boolean;
   camera: boolean;
   screen: boolean;
+  /** Read for the bar's privacy button; the notch's dots leave it out. */
+  location: boolean;
   mic_apps?: string[];
   camera_apps?: string[];
   screen_apps?: string[];
@@ -715,6 +858,7 @@ export const mockPrivacy: PrivacyState = {
   mic: false,
   camera: false,
   screen: false,
+  location: false,
   mic_apps: [],
   camera_apps: [],
   screen_apps: [],
@@ -868,6 +1012,49 @@ export interface QuickState {
 }
 export type PowerAction = "lock" | "sleep" | "restart" | "shutdown";
 const mockQuick: QuickState = { wifi: true, bluetooth: true, dark: true, micMuted: false };
+/** The quick panel's Wi-Fi page in the dev server: one network of each kind. */
+const SAMPLE_WIFI: WifiList = {
+  state: "allowed",
+  networks: [
+    { ssid: "Home", bars: 4, kind: "personal", saved: true, connected: true },
+    { ssid: "Cafe Rosa", bars: 3, kind: "open", saved: false, connected: false },
+    { ssid: "Office", bars: 3, kind: "enterprise", saved: false, connected: false },
+    { ssid: "Flat 4B", bars: 1, kind: "personal", saved: false, connected: false },
+  ],
+};
+/** The Recently opened menu in the dev server: a document, a folder and a text file. */
+const SAMPLE_RECENT: JumpList = {
+  token: 0,
+  groups: [
+    {
+      kind: "recent",
+      title: "",
+      items: [
+        { id: 0, title: "Quarterly report.docx", icon: null, separator: false },
+        { id: 1, title: "Holiday photos", icon: null, separator: false },
+        { id: 2, title: "notes.txt", icon: null, separator: false },
+      ],
+    },
+  ],
+};
+/** The quick panel's Bluetooth page in the dev server: headphones with their battery, a mouse without, a controller away. */
+const SAMPLE_BT: BtDevice[] = [
+  { id: "1", name: "WH-1000XM5", categories: ["Audio.Headphone"], connected: true, battery: 80 },
+  { id: "2", name: "MX Master 3S", categories: ["Input.Mouse"], connected: true, battery: null },
+  { id: "3", name: "Xbox Wireless Controller", categories: ["Input.Gaming"], connected: false, battery: null },
+];
+/** Scan now in the dev server: a system drive's root, the same at every level. */
+const SAMPLE_SCAN: DiskScan = {
+  folders: [
+    { id: 0, name: "Users", size: 182 * 1024 ** 3 },
+    { id: 1, name: "Windows", size: 31 * 1024 ** 3 },
+    { id: 2, name: "Program Files", size: 24 * 1024 ** 3 },
+    { id: 3, name: "ProgramData", size: 9 * 1024 ** 3 },
+  ],
+  more: 3.1 * 1024 ** 3,
+  files: 18 * 1024 ** 3,
+  partial: false,
+};
 
 /** One program in the volume mixer (all its audio sessions together). */
 export interface AppVolume {
@@ -928,7 +1115,7 @@ export const systemControls = {
     Object.assign(mockVolume, patch, patch.level !== undefined && patch.level > 0 && patch.muted === undefined ? { muted: false } : {});
     return Promise.resolve({ ...mockVolume });
   },
-  /** The notch's monitor, 0..100; null when Cupcake can't set it (src-tauri brightness.rs, macos/brightness.rs). */
+  /** The calling window's monitor, 0..100; null when Cupcake can't set it (src-tauri brightness.rs, macos/brightness.rs). */
   brightness: (): Promise<number | null> =>
     isNative ? invoke<number | null>("brightness_get").catch(() => null) : Promise.resolve(mockBrightness.percent),
   setBrightness: (percent: number): Promise<void> => {
@@ -1008,8 +1195,8 @@ export const powerPlans = {
 // ---------- Detached timer window (src-tauri/src/timer_window.rs) ----------
 
 /** Opens the small always-on-top timer window at a saved position (physical px), if it is still on a monitor. */
-export function openTimerWindow(pos: { x: number; y: number } | null): Promise<void> {
-  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null }) : Promise.resolve();
+export function openTimerWindow(pos: { x: number; y: number; dpr?: number } | null): Promise<void> {
+  return isNative ? invoke("timer_window_open", { x: pos?.x ?? null, y: pos?.y ?? null, dpr: pos?.dpr ?? null }) : Promise.resolve();
 }
 
 export function closeTimerWindow(): Promise<void> {
@@ -1020,6 +1207,13 @@ export function closeTimerWindow(): Promise<void> {
 export function onTimerWindow(handler: (open: boolean) => void): () => void {
   if (!isNative) return () => {};
   const off = listen<boolean>("timer-window://open", (e) => handler(e.payload));
+  return () => void off.then((f) => f());
+}
+
+/** Where Crest is about to move the timer window itself, as it follows Windows' Text size: a move not to save. */
+export function onTimerPlaced(handler: (x: number, y: number) => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen<[number, number]>("timer-window://placed", (e) => handler(e.payload[0], e.payload[1]));
   return () => void off.then((f) => f());
 }
 
@@ -1178,6 +1372,33 @@ const mockThemeFiles: ThemeFileText[] = [
   },
 ];
 
+/** The system's accent colour and its light or dark side (src-tauri/src/accent.rs), for the System theme card. */
+export interface SystemAccent {
+  accent: string;
+  dark: boolean;
+}
+
+/**
+ * The dev server's answer, outside the demo, to try the card without Rust: Windows' default blue on the browser's side,
+ * `?accent=none` for no reading, `?accent=%23rrggbb` for another colour. The published demo and any other browser have none.
+ */
+function mockAccent(): SystemAccent | null {
+  if (!import.meta.env.DEV || demo) return null;
+  const asked = new URLSearchParams(location.search).get("accent");
+  if (asked === "none") return null;
+  return { accent: asked ?? "#0078d4", dark: matchMedia("(prefers-color-scheme: dark)").matches };
+}
+
+export const systemAccent = {
+  get: (): Promise<SystemAccent | null> => (isNative ? invoke<SystemAccent | null>("system_accent") : Promise.resolve(mockAccent())),
+  /** Each change of the reading, sent only when it differs. */
+  listen(cb: (a: SystemAccent | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = listen<SystemAccent | null>("theme://system-accent", (e) => cb(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
 export const themeFiles = {
   folder: (): Promise<string> => (isNative ? invoke<string>("themes_folder") : Promise.resolve("")),
   read: (): Promise<ThemeFileText[]> => (isNative ? invoke<ThemeFileText[]>("themes_read") : Promise.resolve(mockThemeFiles)),
@@ -1215,14 +1436,293 @@ export const launcher = {
   apps: (refresh = false): Promise<LauncherAppEntry[]> => (isNative ? invoke<LauncherAppEntry[]>("launcher_apps", { refresh }) : Promise.resolve(mockLauncherApps)),
   icons: (ids: string[]): Promise<Record<string, string | null>> =>
     isNative ? invoke("launcher_icons", { ids }) : Promise.resolve(Object.fromEntries(ids.map((id) => [id, mockLauncherIcon(id.split("\\").pop() ?? "?")]))),
-  /** Errors: not-found (no longer installed), failed. */
-  open: (id: string): Promise<void> => (isNative ? invoke("launcher_open", { id }) : Promise.resolve()),
+  /** As administrator with `admin`, after Windows asks. With `reuse`, an app already open comes forward instead of a new copy.
+   * Errors: not-found (no longer installed), cancelled (the prompt was declined), failed. */
+  open: (id: string, admin = false, reuse = false): Promise<void> => (isNative ? invoke("launcher_open", { id, admin, reuse }) : Promise.resolve()),
   /** Registers Alt+1.. for these ids; per slot whether Windows gave the key. */
   shortcuts: (ids: string[]): Promise<boolean[]> => (isNative ? invoke<boolean[]>("launcher_shortcuts", { ids }) : Promise.resolve(ids.map((_, i) => i !== 2))),
+  /** The system's picker for an exe, a shortcut or an internet shortcut, which Rust pins as its own (taskbar/ownpins.rs): the entry to pin, null when cancelled. Errors: unknown (no app on this PC). The notch only. */
+  addFile: (): Promise<Favorite | null> => (isNative ? invoke<Favorite | null>("launcher_add_file") : Promise.resolve(null)),
+  /** Apps among the files dropped on the open Launcher, which Rust pinned (drop.rs), in drop order; to the notch only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("launcher://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
   /** A hotkey was pressed for an app that did not start (code as in `open`). */
   onMissing: (handler: (id: string, code: string) => void): (() => void) => {
     if (!isNative) return () => {};
     const off = listen<{ id: string; code: string }>("launcher://missing", (e) => handler(e.payload.id, e.payload.code));
+    return () => void off.then((f) => f());
+  },
+};
+
+// ---------- Taskbar ----------
+
+/** Windows' pins as `taskbar.windowsPins` reads them (src-tauri/src/taskbar/pins.rs `WindowsPins`). */
+export interface WindowsPins {
+  ok: boolean;
+  now: string[];
+  added: Favorite[];
+  removed: string[];
+}
+
+/** Where the bar's Windows keys stand (taskbar/keys.rs). */
+export type KeysStatus = "off" | "busy" | "on" | "partial" | "held" | "failed";
+/** What the Recycle Bin holds, by Windows' count (taskbar/recycle.rs). */
+export type RecycleBin = { items: number; bytes: number };
+
+/** The input language as Windows' indicator by the tray writes it: "ITA" over "IT" (taskbar/input.rs). */
+export type InputLang = { lang: string; region: string };
+
+/**
+ * The mobile hotspot (taskbar/toggles.rs): on, off, switching, or why it cannot be used (no internet, a policy, the system, this PC);
+ * how many devices use it and how many may. Never the network's name or password, nor the devices' names.
+ */
+export type Hotspot = { state: "on" | "off" | "turning" | "offline" | "policy" | "denied" | "unsupported"; clients: number; max: number };
+
+/**
+ * Crest's bar on Windows (src-tauri/src/taskbar). The notch turns it on and sets its height; the bar's own window reads the open
+ * windows and acts on clicks (the command filter keeps each window to its part). In the browser nothing happens: the demo has no bar.
+ */
+export const taskbar = {
+  /** On or off, `height` CSS px tall, docked to the screen's edge (no gaps) or not, on the bottom or the top edge. The notch only. */
+  apply: (enabled: boolean, height: number, docked: boolean, edge: "bottom" | "top"): Promise<void> => (isNative ? invoke("taskbar_apply", { enabled, height, docked, edge }) : Promise.resolve()),
+  /** The Start entries pinned on Windows' taskbar, in Windows' order; empty when none is pinned or none can be read, an error only when the Start list cannot be read. The notch and the settings only. */
+  importPins: (): Promise<Favorite[]> => (isNative ? invoke<Favorite[]>("taskbar_import_pins") : Promise.resolve([])),
+  /** The ids to remember (those pinned on Windows' taskbar now, then those the read missed but kept), the apps pinned there and the ids unpinned since `last` (the `now` of the answer before; null the first time, which changes nothing); `ok` false with all else empty when that cannot be read, and nothing is to change. The notch only. */
+  windowsPins: (last: string[] | null): Promise<WindowsPins> => (isNative ? invoke<WindowsPins>("taskbar_windows_pins", { last }) : Promise.resolve({ ok: false, now: [], added: [], removed: [] })),
+  /** Windows' pins changed (Rust watches them while the bar runs); to the notch only. */
+  onWindowsPins(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen("taskbar://windows-pins", () => handler());
+    return () => void off.then((f) => f());
+  },
+  /** The open windows as Rust last listed them. */
+  windows: (): Promise<WindowList> => (isNative ? invoke<WindowList>("taskbar_windows") : Promise.resolve({ groups: [], active: null })),
+  /** The list each time it changes; Rust sends it to the bar's window only. */
+  onWindows(handler: (list: WindowList) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<WindowList>("taskbar://windows", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Files dropped on this bar that Rust pinned, in drop order; Rust sends them to this bar only. */
+  onPinned(handler: (apps: Favorite[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Favorite[]>("taskbar://pinned", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The pointer came onto the bar or an open menu, or left them; from the Rust poll, since the page sees no pointerleave once the window lets the pointer through. */
+  onHover(handler: (inside: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hover", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Acts on a listed window; "end" is End task, which ends its process. An error (a window of an app run as administrator) changes nothing. */
+  window: (id: number, action: "activate" | "toggle" | "minimize" | "close" | "end" | "restore" | "maximize" | "move" | "size"): Promise<void> => (isNative ? invoke("taskbar_window", { id, action }) : Promise.resolve()),
+  /** What listed window `id`'s menu enables. */
+  windowMenu: (id: number): Promise<WindowState> =>
+    isNative ? invoke<WindowState>("taskbar_window_menu", { id }) : Promise.resolve({ minimized: false, maximized: false, canMinimize: true, canMaximize: true, canSize: true }),
+  /** An app's windows in this order on the bar, until Crest restarts (a preview dragged in its card). The bar only. */
+  windowOrder: (ids: number[]): Promise<void> => (isNative ? invoke("taskbar_window_order", { ids }) : Promise.resolve()),
+  /** An app's windows arranged on the calling bar's monitor, or all restored or minimized. The bar only. */
+  arrange: (ids: number[], how: "cascade" | "stack" | "side" | "restore" | "minimize"): Promise<void> => (isNative ? invoke("taskbar_arrange", { ids, how }) : Promise.resolve()),
+  /** Pins listed window `id`: the entry to put in `pinned`. Errors: not-found, prevented, unknown. The bar only. */
+  pinWindow: (id: number): Promise<Favorite> => (isNative ? invoke<Favorite>("taskbar_pin_window", { id }) : Promise.resolve({ id: `demo:${id}`, name: "App" })),
+  /** A new instance from listed window `id`, as administrator with `admin`. Errors: not-found, unknown, cancelled, failed. The bar only. */
+  launchWindow: (id: number, admin: boolean): Promise<void> => (isNative ? invoke("taskbar_launch_window", { id, admin }) : Promise.resolve()),
+  /** File Explorer with the exe of listed window `id` selected. The bar only. */
+  reveal: (id: number): Promise<void> => (isNative ? invoke("taskbar_reveal", { id }) : Promise.resolve()),
+  /** The notch, once per start: Rust forgets its own pins that are not in `ids`. */
+  keepPins: (ids: string[]): Promise<void> => (isNative ? invoke("taskbar_own_pins_keep", { ids }) : Promise.resolve()),
+  /** The preview card's live thumbnails in its slots (CSS px of this page), each call the whole set: `[]` takes them all away. Each answer is where that thumbnail shows, or null where none does (in the browser, always). */
+  preview: (slots: { id: number; x: number; y: number; w: number; h: number }[]): Promise<({ x: number; y: number; w: number; h: number } | null)[]> => (isNative ? invoke("taskbar_preview", { slots }) : Promise.resolve(slots.map(() => null))),
+  /** The bar's Windows keys wanted or not (keysWanted); Rust writes Explorer's value, restarts Explorer when needed and answers the status. The notch only. */
+  keys: (on: boolean): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys", { on }) : Promise.resolve("off")),
+  /** Where the keys stand: "busy" while Explorer restarts. The settings only. */
+  keysStatus: (): Promise<KeysStatus> => (isNative ? invoke<KeysStatus>("taskbar_keys_status") : Promise.resolve("off")),
+  /** The keys' status each time it changes; Rust sends it to every window. */
+  onKeys(handler: (s: KeysStatus) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<KeysStatus>("taskbar://keys", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of the bar's Windows keys, to this bar only. */
+  onKey(handler: (k: BarKey) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<BarKey>("taskbar://key", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** This bar takes the keyboard after one of its keys; Windows may refuse. */
+  focus: (): Promise<void> => (isNative ? invoke("taskbar_focus") : Promise.resolve()),
+  /** Gives the keyboard back to the app in front, or the last one if only Start came after it (none after the desktop or a Crest window), after a menu or panel closed from the bar. */
+  release: (): Promise<void> => (isNative ? invoke("taskbar_release") : Promise.resolve()),
+  /** The Start button: "start" opens Windows' Start (a click that closed it leaves it closed and gives the keyboard back, as `release`), "winx" its Win+X menu, "quick" its quick settings (Win+A), "taskmgr" Task Manager; the Windows buttons: "search" Search, "taskview" Task view, "widgets" Windows' widgets, "input" Windows' input language switcher (Win+Space), "desktop" shows or hides the desktop, "keyboard" Windows' On-Screen Keyboard; the quick panel's "cast" Windows' Cast panel (Win+K). */
+  shell: (action: "start" | "winx" | "quick" | "taskmgr" | "search" | "taskview" | "widgets" | "input" | "desktop" | "keyboard" | "cast"): Promise<void> => (isNative ? invoke("taskbar_shell", { action }) : Promise.resolve()),
+  /** The keyboard language of the window in front, as Windows' indicator writes it; null with one layout installed. */
+  input: (): Promise<InputLang | null> => (isNative ? invoke<InputLang | null>("taskbar_input") : Promise.resolve(null)),
+  /** The input language each time it changes; Rust sends it to the primary bar only. */
+  onInput(handler: (lang: InputLang | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<InputLang | null>("taskbar://input", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One wheel step on an app's button: its audio moves by `step` (-1..1); its new level in percent, null when it plays nothing. */
+  appVolume: (id: number, step: number): Promise<number | null> => (isNative ? invoke<number | null>("taskbar_app_volume", { id, step }) : Promise.resolve(null)),
+  /** Icons of the groups without an entry, by group key (PNG data URL, null = none). */
+  icons: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_icons", { keys }) : Promise.resolve({})),
+  /** The jump list of the app behind button `key` (a listed group's key or a Start entry's id); "none" for an app Windows keeps none for under an id Crest knows. */
+  jumpList: (key: string): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_jump_list", { key }) : Promise.reject("none")),
+  /** Opens row `id` of the list `token` with its app. */
+  jumpOpen: (token: number, id: number): Promise<void> => (isNative ? invoke("taskbar_jump_open", { token, id }) : Promise.resolve()),
+  /** The files and folders Windows recorded as opened last, newest first, each opened with jumpOpen; rejects "off" while Windows keeps no list, "failed". The bar only. */
+  recent: (): Promise<JumpList> => (isNative ? invoke<JumpList>("taskbar_recent") : Promise.resolve(SAMPLE_RECENT)),
+  /** The tray's icons as Rust last listed them: none while Crest's tray does not run. */
+  tray: (): Promise<TrayState> => (isNative ? invoke<TrayState>("taskbar_tray") : Promise.resolve({ yielded: false, icons: [] })),
+  /** The tray's icons each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onTray(handler: (state: TrayState) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<TrayState>("taskbar://tray", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The tray icons' pictures by their `img` key (PNG data URL, null = no icon shows it any more). */
+  trayImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_tray_images", { keys }) : Promise.resolve({})),
+  /** A click on the tray icon `key` (`TrayIcon.key`) drawn at `rect` (this page's CSS px): its app gets it as from Windows' tray. Errors: gone, unknown-button. */
+  trayClick: (key: string, button: "left" | "right" | "double" | "hover" | "leave", rect: { x: number; y: number; w: number; h: number }): Promise<void> =>
+    isNative ? invoke("taskbar_tray_click", { key, button, rect }) : Promise.resolve(),
+  /** The badges and progress apps report to the taskbar, as Rust last sent them: none while Crest's tray does not run. */
+  decor: (): Promise<Decor[]> => (isNative ? invoke<Decor[]>("taskbar_decor") : Promise.resolve([])),
+  /** Those decorations each time they change, at most every 250 ms; Rust sends them to every bar. */
+  onDecor(handler: (list: Decor[]) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Decor[]>("taskbar://decor", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** The overlays' pictures by their key (PNG data URL, null = no window shows it any more). */
+  decorImages: (keys: string[]): Promise<Record<string, string | null>> => (isNative ? invoke("taskbar_decor_images", { keys }) : Promise.resolve({})),
+  /** Where the page draws (the bar, an open menu) in its CSS px; clicks pass through the rest of the window. */
+  hitRects: (rects: { x: number; y: number; w: number; h: number }[]): Promise<void> => (isNative ? invoke("taskbar_hit_rects", { rects }) : Promise.resolve()),
+  /** Tells the notch the tool the bar's panel shows, or null once it closes or shows the tray, the apps or the quick panel. */
+  panel: (open: string | null): Promise<void> => (isNative ? invoke("taskbar_panel", { open }) : Promise.resolve()),
+  /** "Hide when a window touches it" on or off; only while it is on does Rust send each bar the window in front of its monitor. The notch only. */
+  autoHide: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_auto_hide", { on }) : Promise.resolve()),
+  /** How many bars cannot slide away: their work area ends above the monitor's bottom edge, or another monitor lies below. 0 while the bar is off. The settings only. */
+  slideBlocked: (): Promise<number> => (isNative ? invoke<number>("taskbar_slide_blocked") : Promise.resolve(0)),
+  /** Whether a docked bar with auto-hide off can reserve its strip: false while another program stands in for Windows' taskbar. The settings only. */
+  reserveReachable: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_reserve_reachable") : Promise.resolve(true)),
+  /** Whether the other monitors get a bar, and where the apps' buttons show; the notch sends it, the bars follow at once. */
+  spread: (all: boolean, apps: "own" | "main" | "all"): Promise<void> => (isNative ? invoke("taskbar_spread", { all, apps }) : Promise.resolve()),
+  /** Whether a zone of the bar holds the tray (trayOnBar), sent on or off; Rust adds whether the bar runs and runs Crest's tray (the spy that records the notification area's icons) while both hold. The notch only. */
+  trayOn: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_tray_on", { on }) : Promise.resolve()),
+  /** This bar slid off the screen (useAutoHide) or back up: Rust tells this bar that it is hidden while down (onShown), and the notch the primary's slide (onBarSeen). */
+  slid: (down: boolean): Promise<void> => (isNative ? invoke("taskbar_slid", { down }) : Promise.resolve()),
+  /** The frame of the window in front of this bar's monitor, in the page's CSS px, as Rust last sent it: null without one and while the option is off. */
+  front: (): Promise<Rect | null> => (isNative ? invoke<Rect | null>("taskbar_front") : Promise.resolve(null)),
+  /** That frame each time it changes, while the option is on; Rust sends each bar its own. */
+  onFront(handler: (r: Rect | null) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<Rect | null>("taskbar://front", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of Windows' own surfaces (Start, Win+X, the calendar, a tray menu) holds the bar up, or no longer does; on a change, while the option is on, and false once it turns off. */
+  onHold(handler: (held: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://hold", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Ends Crest (the Crest menu's Quit). */
+  quit: (): Promise<void> => (isNative ? invoke("app_quit") : Promise.resolve()),
+  /** In the primary bar, has the notch send the widgets' data (`bar://hello`); call it once the page listens. Whether this bar shows now, so the page starts paused or not. */
+  hello: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_hello") : Promise.resolve(true)),
+  /** The click on a clock on the other monitors' bars and on the Notification centre button: Windows' notification centre, with the calendar (the main bar's clock opens Crest's own). */
+  calendar: (): Promise<void> => (isNative ? invoke("taskbar_calendar") : Promise.resolve()),
+  /** The Wi-Fi page's networks, after a fresh scan when `scan` (the page's first read and its refresh); only the state until Windows' location consent is given. */
+  wifiScan: (scan: boolean): Promise<WifiList> => (isNative ? invoke<WifiList>("taskbar_wifi_scan", { scan }) : Promise.resolve(SAMPLE_WIFI)),
+  /** The click on "Show nearby networks": Windows' location prompt, the only call that may show it. */
+  wifiAllow: (): Promise<"allowed" | "denied"> => (isNative ? invoke("taskbar_wifi_allow") : Promise.resolve("allowed")),
+  /** After the prompt, while the page still waits with the panel open: the bar takes the focus back, unless Windows refuses it (the user went to another app). */
+  wifiFocus: (): Promise<void> => (isNative ? invoke("taskbar_wifi_focus") : Promise.resolve()),
+  /** Joins a network, with Windows' saved profile when `password` is null; rejects with a fixed word ("password", "unavailable", "timeout", "settings", "denied", "failed"). */
+  wifiConnect: (ssid: string, password: string | null): Promise<void> => (isNative ? invoke("taskbar_wifi_connect", { ssid, password }) : Promise.resolve()),
+  /** Leaves the network in use. */
+  wifiDisconnect: (): Promise<void> => (isNative ? invoke("taskbar_wifi_disconnect") : Promise.resolve()),
+  /** The Bluetooth page's paired devices, connected first, read once from Windows' device store (no radio search). */
+  btDevices: (): Promise<BtDevice[]> => (isNative ? invoke<BtDevice[]>("taskbar_bt_devices") : Promise.resolve(SAMPLE_BT)),
+  /** A paired device connected or left (`status://bt`, which Rust sends only while the Bluetooth alerts are on); returns the stop. */
+  onBluetooth: (handler: () => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen("status://bt", () => handler());
+    return () => void off.then((f) => f());
+  },
+  /** Whether the bars list the windows of every virtual desktop. The notch only. */
+  allDesktops: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_all_desktops", { on }) : Promise.resolve()),
+  /** Whether Rust lets a bar end an app (End task in the app menu). The notch only. */
+  endTask: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_end_task", { on }) : Promise.resolve()),
+  /** The Recycle Bin's count, null when Windows could not say. */
+  recycle: (): Promise<RecycleBin | null> => (isNative ? invoke<RecycleBin | null>("taskbar_recycle") : Promise.resolve(null)),
+  /** A new count each time the shell reports a change in the bin; to the primary bar. */
+  onRecycle(handler: (r: RecycleBin) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<RecycleBin>("taskbar://recycle", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Opens the bin in Explorer, or empties it after Windows' own confirmation. The bar only. */
+  recycleDo: (action: "open" | "empty"): Promise<void> => (isNative ? invoke("taskbar_recycle_do", { action }) : Promise.resolve()),
+  /** The lettered drives and their free space (taskbar/disks.rs), read now; null in the browser and where it fails. */
+  disks: (): Promise<DiskDrive[] | null> => (isNative ? invoke<DiskDrive[] | null>("taskbar_disks").catch(() => null) : Promise.resolve(null)),
+  /** Opens a drive of the last listing in File Explorer, by its letter, or a folder a scan of it listed, by its id. The bar only. */
+  diskOpen: (letter: string, folder: number | null = null): Promise<void> => (isNative ? invoke("taskbar_disk_open", { letter, folder }) : Promise.resolve()),
+  /**
+   * Scan now (taskbar/disks.rs): the largest folders of a listed drive (`folder` null) or of a folder a scan of it listed, from what
+   * an earlier walk kept unless `fresh`, else walked on a thread of Rust's; `token` is what diskScanStop stops it by. "busy" while
+   * another scan runs, on any bar, "failed" for anything else. In the browser, a sample after a moment.
+   */
+  diskScan: (letter: string, folder: number | null, token: number, fresh: boolean): Promise<DiskScan | "busy" | "failed"> =>
+    isNative
+      ? invoke<DiskScan>("taskbar_disk_scan", { letter, folder, token, fresh }).catch((e: unknown): "busy" | "failed" => (e === "busy" ? "busy" : "failed"))
+      : new Promise((resolve) => setTimeout(() => resolve(SAMPLE_SCAN), 1200)),
+  /** Ends the scan `token` names, or with none the one running on any bar, and then waits a moment for it to end. */
+  diskScanStop: (token: number | null = null): Promise<void> => (isNative ? invoke<void>("taskbar_disk_scan_stop", { token }).catch(() => {}) : Promise.resolve()),
+  /** The bytes this bar's running scan has counted, every 250 ms at most; returns the stop. */
+  onDiskScan(handler: (counted: number) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<number>("taskbar://disk-scan", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** One of Windows' settings pages, by name (Rust maps it to its URI). */
+  settings: (page: "home" | "saver" | "airplane" | "ethernet" | "wifi" | "bluetooth" | "location" | "microphone" | "camera" | "mixer" | "night" | "dnd" | "access" | "hotspot"): Promise<void> => (isNative ? invoke("taskbar_settings", { page }) : Promise.resolve()),
+  /**
+   * In a bar: it shows or hides (a full-screen app, the hide hotkey, slid off the screen); Rust sends each bar its own, which pauses
+   * its widgets. On this window only: a listener for any target would also hear the other bars'.
+   */
+  onShown(handler: (shown: boolean) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<boolean>("taskbar://shown", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /**
+   * In the notch: the primary bar's window shows or hides (a full-screen app, the hide hotkey), or its page slides it away or back
+   * (`bar://shown`, bar.rs `tell_notch`), so the widgets' sources run through a short slide and stop at once on a hide.
+   */
+  onBarSeen(handler: (seen: BarSeen) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<BarSeen>("bar://shown", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Whether the desktop shows its icons; rejects with "desktop" while Explorer's desktop cannot be found. Shown in the browser. */
+  desktopIcons: (): Promise<boolean> => (isNative ? invoke<boolean>("taskbar_desktop_icons") : Promise.resolve(true)),
+  /** Shows or hides the desktop's icons; rejects with "desktop" or "failed". */
+  desktopIconsSet: (show: boolean): Promise<void> => (isNative ? invoke("taskbar_desktop_icons_set", { show }) : Promise.resolve()),
+  /** Ejects a removable drive of the last listing by its letter; rejects with "busy", "app:<file>", "rights", "fixed", "unknown" or "failed". The bar only. */
+  eject: (letter: string): Promise<void> => (isNative ? invoke("taskbar_eject", { letter }) : Promise.resolve()),
+  /** The mobile hotspot now; off with room for 8 in the browser. */
+  hotspot: (): Promise<Hotspot> => (isNative ? invoke<Hotspot>("taskbar_hotspot") : Promise.resolve({ state: "off", clients: 0, max: 8 })),
+  /** Turns the mobile hotspot on or off; rejects with "wifi-off", "bt-off", "limited", "busy", "operator", "offline" or "failed". */
+  hotspotSet: (on: boolean): Promise<void> => (isNative ? invoke("taskbar_hotspot_set", { on }) : Promise.resolve()),
+  /** In the notch: a bar ejected a drive (`bar://disks`), so the disk widget's drives are read again at once. */
+  onDisks(handler: () => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen("bar://disks", () => handler());
     return () => void off.then((f) => f());
   },
 };
@@ -1363,6 +1863,8 @@ export interface NoticeSourceStatus {
   pipe: boolean;
   /** The cupcake-notify channel could not be opened. */
   pipeFailed: boolean;
+  /** The toasts waiting per app as `notices://count` last said, so a notch that reloads has them before the next change (the bar's Unread widget). */
+  counts?: Record<string, number> | null;
 }
 
 /** In the browser there is no source; `mockNotice` stands in (from the dev tools console). */
@@ -1396,10 +1898,10 @@ export const noticeSource = {
   pickSound: (): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_sound_pick") : Promise.resolve(null)),
   /** The kept sound file's bytes; rejects with "none" when there is no copy. */
   readSound: (): Promise<ArrayBuffer> => (isNative && !isMac ? invoke<ArrayBuffer>("notices_sound_read") : Promise.reject(new Error("none"))),
-  /** Opens the app a Windows notice came from, on its start page. */
-  openApp: (appId: string) => {
-    if (isNative) void invoke("notices_open_app", { appId }).catch(() => {});
-  },
+  /** Opens the app a Windows notice came from, on its start page; false when Windows has no app by that id (a system notification, a tray icon's balloon). */
+  openApp: (appId: string): Promise<boolean> => (isNative ? invoke("notices_open_app", { appId }).then(() => true, () => false) : Promise.resolve(true)),
+  /** An app's icon by its AppUserModelID as a PNG data URL, for the bar's Unread widget; null where Windows has none, on a Mac and in the browser. */
+  icon: (appId: string): Promise<string | null> => (isNative && !isMac ? invoke<string | null>("notices_icon", { appId }).catch(() => null) : Promise.resolve(null)),
   /** A notice's one-time code on the clipboard, kept out of every clipboard history and emptied after 30 s unless something else was copied (the Vault's way). The browser has only the plain clipboard. */
   copyCode: (code: string): Promise<void> => (isNative ? invoke<void>("notices_copy_code", { code }) : navigator.clipboard.writeText(code)),
   onNotice: (handler: (n: IncomingNotice) => void): (() => void) => {
@@ -1408,6 +1910,15 @@ export const noticeSource = {
       return () => void mockNoticeHandlers.delete(handler);
     }
     const off = listen<IncomingNotice>("notices://in", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /**
+   * How many toasts wait in Windows' notification centre while Notices reads them, by lower-case app id, for the bar's Unread widget;
+   * null once it stops reading.
+   */
+  onCount: (handler: (counts: Record<string, number> | null) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<Record<string, number> | null>("notices://count", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
   onStatus: (handler: (s: NoticeSourceStatus) => void): (() => void) => {
@@ -1557,9 +2068,12 @@ export const windowShell = {
   hideFromCapture: (on: boolean) => {
     if (isNative) void invoke("sharing_hide", { on }).catch(() => {});
   },
-  /** The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. */
+  /**
+   * The window was hidden (hide shortcut or a rule) or shown again; the notch may stay open meanwhile. Never in a bar's window: its
+   * tools (Camera, Agents, Clocks) keep going while the notch hides, and its panel closes with its own bar (BarPanel.tsx).
+   */
   onHidden: (handler: (hidden: boolean) => void): (() => void) => {
-    if (!isNative) return () => {};
+    if (!isNative || isTaskbarWindow) return () => {};
     const off = listen<boolean>("notch://hidden", (e) => handler(e.payload));
     return () => void off.then((f) => f());
   },
@@ -1607,6 +2121,69 @@ export const windowShell = {
     if (isNative) void invoke("crash_log", { text });
   },
 };
+// ---------- Screen Time (src-tauri/src/screentime.rs) ----------
+
+/** One app's day: its name, its exe's path (null on a Mac) and its seconds in front for each local hour, 24 of them. */
+export interface ScreenApp { name: string; path: string | null; h: number[] }
+/** A local day ("YYYY-MM-DD") of Screen Time, its apps by the exe's lower-case file name ("" for the others past 300). */
+export interface ScreenDay { date: string; apps: Record<string, ScreenApp> }
+
+/** A sample day in the browser: three apps from 8 to 14. */
+const sampleScreenDay = (date: string): ScreenDay => {
+  const hours = (secs: number[]) => Array.from({ length: 24 }, (_, i) => (i >= 8 && i < 8 + secs.length ? secs[i - 8] : 0));
+  return {
+    date,
+    apps: {
+      "code.exe": { name: "Visual Studio Code", path: null, h: hours([1200, 3100, 2900, 1800, 0, 2400]) },
+      "chrome.exe": { name: "Google Chrome", path: null, h: hours([900, 400, 600, 1500, 1200, 700]) },
+      "spotify.exe": { name: "Spotify", path: null, h: hours([300, 0, 0, 0, 900, 0]) },
+    },
+  };
+};
+
+/** Screen Time's recording (screentime.rs): errors are short codes ("bad-range", "app-data", "unsupported"). */
+export const screenTime = {
+  /** Starts or stops recording; also deletes the days past the 30 kept. The notch only. */
+  set: (on: boolean): Promise<void> => (isNative ? invoke("screentime_set", { on }) : Promise.resolve()),
+  /** The days from `from` to `to` ("YYYY-MM-DD", 31 at most), the days without a record left out; in the browser the last day as a sample. */
+  days: (from: string, to: string): Promise<ScreenDay[]> => (isNative ? invoke<ScreenDay[]>("screentime_days", { from, to }) : Promise.resolve([sampleScreenDay(to)])),
+  /** Deletes every day kept; the count goes on from now while it records. */
+  clear: (): Promise<void> => (isNative ? invoke("screentime_clear") : Promise.resolve()),
+};
+
+// ---------- Wallpapers (src-tauri/src/wallpaper.rs) ----------
+
+/** A screen as the wallpaper sees it, from the left: its id, the main one, its picture's path ("" for a plain colour) and the collection's id when the picture is one of Crest's. */
+export interface WallScreen { id: string; primary: boolean; path: string; crest: string | null }
+/** The screens' wallpapers and the main screen's as a small PNG data URL (null without one). */
+export interface WallNow { screens: WallScreen[]; thumb: string | null }
+
+/** The desktop's pictures (wallpaper.rs): errors are short codes ("folder", "empty", "busy", "unavailable", "checksum", "unsupported"). Nothing changes in the browser. */
+export const wallpapers = {
+  current: (): Promise<WallNow> => (isNative ? invoke<WallNow>("wallpaper_current") : Promise.resolve({ screens: [], thumb: null })),
+  /** The collection's ids present on the PC, or a folder's pictures by path; in the browser the whole collection, as if downloaded. */
+  list: (source: WallSource, folder: string): Promise<string[]> =>
+    isNative ? invoke<string[]>("wallpaper_list", { source, folder }) : Promise.resolve(source === "crest" ? COLLECTION.map((p) => p.id) : []),
+  /** A picture of the collection (`crest`) or a file (`path`) on one screen, or on every screen with `screen` null. */
+  set: (pick: { crest?: string; path?: string }, screen: string | null, fit: WallFit): Promise<void> =>
+    isNative ? invoke("wallpaper_set", { crest: pick.crest ?? null, path: pick.path ?? null, screen, fit }) : Promise.resolve(),
+  /** The next (1) or the previous (-1) picture of the source after the main screen's, on every screen. */
+  step: (by: 1 | -1, source: WallSource, folder: string, fit: WallFit): Promise<void> => (isNative ? invoke("wallpaper_step", { by, source, folder, fit }) : Promise.resolve()),
+  fit: (fit: WallFit): Promise<void> => (isNative ? invoke("wallpaper_fit", { fit }) : Promise.resolve()),
+  /** Asks for a folder over the calling window; null when cancelled. */
+  folder: (): Promise<string | null> => (isNative ? invoke<string | null>("wallpaper_folder") : Promise.resolve(null)),
+  /** Downloads the collection's full pictures once; their size in bytes. */
+  download: (): Promise<number> => (isNative ? invoke<number>("wallpaper_pack_download") : Promise.resolve(0)),
+  /** Deletes the downloaded pictures. */
+  remove: (): Promise<void> => (isNative ? invoke("wallpaper_pack_remove") : Promise.resolve()),
+  /** The wallpaper changed, by Crest or by Windows (`wallpaper://changed`); returns the stop. */
+  onChanged: (handler: (now: WallNow) => void): (() => void) => {
+    if (!isNative) return () => {};
+    const off = listen<WallNow>("wallpaper://changed", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+};
+
 // ---------- Colour ----------
 
 /**
@@ -1628,6 +2205,8 @@ export const backupFiles = {
   open: (): Promise<string | null> => (isNative ? invoke<string | null>("backup_open") : Promise.resolve(null)),
   /** Restarts Cupcake, which applies a pending restore before anything reads the saved data. */
   restart: async () => {
+    // The notch's window holds the permission to restart: another window asks it.
+    if (!isNotchWindow) return askNotch({ kind: "restart" });
     const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
   },
@@ -1809,3 +2388,65 @@ export const capture = {
     return () => void off.then((f) => f());
   },
 };
+
+export interface LeetcodeSolved {
+  all: number;
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export interface LeetcodeStats {
+  user: string;
+  ranking: number | null;
+  solved: LeetcodeSolved;
+  days: { date: string; count: number; level: number }[];
+  fetchedAt: number;
+}
+
+export function openLeetcodeProfile(user: string) {
+  if (isNative) invoke("leetcode_open_profile", { user }).catch(() => {});
+  else
+    window.open(
+      `https://leetcode.com/u/${encodeURIComponent(user)}`,
+      "_blank",
+      "noopener",
+    );
+}
+
+export function fetchLeetcode(
+  user: string,
+  force: boolean,
+): Promise<LeetcodeStats> {
+  if (isNative) return invoke<LeetcodeStats>("leetcode_stats", { user, force });
+  const trimmed = user.trim();
+  if (!trimmed) return Promise.reject("no-user");
+
+  const today = new Date();
+  const days = Array.from({ length: 371 }, (_, i) => {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - 370 + i);
+    const count = Math.max(
+      0,
+      Math.round(Math.sin(i * 0.5) * 3 + (i % 5 === 0 ? 2 : -1)),
+    );
+    return {
+      date: d.toISOString().slice(0, 10),
+      count,
+      level: count === 0 ? 0 : Math.min(4, count),
+    };
+  });
+  return new Promise((r) =>
+    setTimeout(
+      () =>
+        r({
+          user: trimmed,
+          ranking: 142050,
+          solved: { all: 412, easy: 180, medium: 192, hard: 40 },
+          days,
+          fetchedAt: Date.now(),
+        }),
+      300,
+    ),
+  );
+}

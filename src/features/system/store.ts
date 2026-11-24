@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
-import { rowVisible } from "../../notch/row/visibility";
+import { barParts, rowVisible } from "../../notch/row/visibility";
 import { fetchSystem, type GpuReading, type ProcReading, type SystemStats, type SystemWant } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
+import { variantOf } from "../taskbar/model";
+import { systemWant } from "../taskbar/systemWidgets";
 import { fullscreen, gamingLive } from "./gaming";
 import { buildBattery, discharge, type BatterySample } from "./battery";
 import { pickGpu } from "./levels";
@@ -12,6 +15,7 @@ import { SteadyRanking } from "./ranking";
 import { netRates, type NetSample } from "./rates";
 import { groupDrives, type Drive } from "./storage";
 import { plausible, SteadyZones } from "./temps";
+import { addTemps, fansOf, NO_FANS, NO_TEMPS, TEMP_STEP_MS, type Fans, type TempLine } from "./thermals";
 
 /** 60 values = one minute of history at one value per second. */
 export const HISTORY = 60;
@@ -30,14 +34,18 @@ export interface SystemState {
   /** CPU from a thermal zone that moves (frozen-sensor guard), GPU of the adapter shown; °C. */
   cpuTemp: number | null;
   gpuTemp: number | null;
-  /** The program a temperature came from (HWiNFO, LibreHardwareMonitor); null for Windows' own sensors. */
+  /** The program a temperature came from (HWiNFO, LibreHardwareMonitor, Core Temp); null for Windows' own sensors. */
   cpuTempFrom: string | null;
   gpuTempFrom: string | null;
   power: PowerSample | null;
   battery: BatterySample | null;
   drives: Drive[];
-  /** Ranked steadily; only while the tool is shown. */
+  /** Ranked steadily; only while the tool is shown or the bar's Top apps widget is on the bar. */
   processes: { cpu: ProcReading[]; mem: ProcReading[] } | null;
+  /** The last 10 minutes of cpuTemp and gpuTemp, for the bar's Temperatures widget; kept in memory only, gaps while nothing reads them. */
+  tempLine: TempLine;
+  /** The fans that widget shows; none while the temperatures are not read. */
+  fans: Fans;
 }
 
 const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu: [], ping: [], down: [], up: [], power: [] });
@@ -45,12 +53,14 @@ const emptyHistory = (): Record<SystemKey, number[]> => ({ cpu: [], mem: [], gpu
 /**
  * Runs in the background from app start (not only while the tool is open), so the
  * history is a minute long when opened and gaming mode shares the same values.
- * Only pauses when neither the Hardware tool, gaming mode nor readings in the closed row are on.
+ * Only pauses when neither the Hardware tool, a bar's panel showing it, gaming mode nor readings in the closed row or on Crest's
+ * bar are on. The process list is also kept for the bar's Top apps widget, on the background rhythm and fresh at most every 5 s.
  *
  * Three rhythms, slow ones filled in linearly so the history keeps one value per second:
- * - shown (Hardware tool open): everything once a second;
- * - GPU reading in the closed row (or gaming there): CPU, RAM and GPU every 2 s, without waking the ping;
- * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part).
+ * - shown (Hardware tool open, here or in a bar's panel): everything once a second;
+ * - GPU reading in the closed row (or gaming there) or on the bar: CPU, RAM and GPU every 2 s, without waking the ping;
+ * - background: CPU and RAM every 3 s; GPU and ping stay gaps (their counters are the expensive part);
+ * - only the bar's Temperatures widget asks: every 15 s, a point of its line each.
  * The closed row's opt-in readings (network, power, battery, temperature) ride on the 2 s / 3 s rhythms, and only
  * the ones switched on are read.
  */
@@ -68,6 +78,8 @@ export const system = createStore<SystemState>({
   battery: null,
   drives: [],
   processes: null,
+  tempLine: NO_TEMPS,
+  fans: NO_FANS,
 });
 
 const SHOWN_MS = 1000;
@@ -75,7 +87,7 @@ const GPU_MS = 2000;
 const BACKGROUND_MS = 3000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
-/** Mounted views that show the values (see `useSystemShown`). */
+/** Mounted views that show the values (see `useSystemShown`), plus one while a bar's panel shows Hardware (startSystemPolling). */
 const shown = createStore(0);
 /** The pointer is over the process list: rows keep their rank. */
 export const holdProcesses = createStore(false);
@@ -85,17 +97,19 @@ let lastAnswer: number | null = null;
 let lastNet: NetSample | null = null;
 let lastProcesses: number | null = null;
 const zones = new SteadyZones();
+/** The adapters whose driver has reported a fan above 0 since Crest started (thermals.ts fansOf). */
+const spun = new Set<string>();
 const byCpu = SteadyRanking.cpu(), byMem = SteadyRanking.memory();
 
-/** What the closed row reads besides CPU, RAM and GPU. */
+/** What the closed row, or the bar's readings, network line and Top apps widgets, read besides CPU, RAM and GPU. */
 function rowWant(): SystemWant {
-  const s = settings.get(), on = s.closed.parts.readings && rowVisible.get(), r = s.closed.readings;
-  return { net: on && r.net, temps: on && r.temp, power: on && r.power, battery: on && (r.battery || r.power) };
+  const s = settings.get();
+  return systemWant(s.closed.parts.readings && rowVisible.get(), s.closed.readings, barParts.get(), variantOf(s.taskbar.variants, "readings"));
 }
 
 function poll(ms: number) {
   const full = ms === SHOWN_MS, gpuRhythm = ms === GPU_MS;
-  const want = full ? { net: true, temps: true, power: true, battery: true } : rowWant();
+  const want = full ? { net: true, temps: true, power: true, battery: true, processes: true } : rowWant();
   void fetchSystem(full, gpuRhythm, want).then((raw) => {
     // Seconds since the last answer, at most one poll's worth: a rhythm switch right after an answer adds nothing, a long pause no more than one poll.
     const at = performance.now(), steps = lastAnswer === null ? 1 : Math.min(ms / SHOWN_MS, Math.round((at - lastAnswer) / SHOWN_MS));
@@ -112,11 +126,12 @@ function poll(ms: number) {
     const zone = want.temps ? (zones.choose(raw.zones, raw.at / 1000)?.celsius ?? null) : null;
     const same = (n: { name: string }) => gpu != null && n.name !== "" && (n.name.includes(gpu.name) || gpu.name.includes(n.name));
     const nv = raw.nvml.find(same);
-    // HWiNFO or LibreHardwareMonitor, while one runs, before Windows' own sensors.
+    // HWiNFO, LibreHardwareMonitor or Core Temp, while one runs, before Windows' own sensors.
     const ext = raw.external, extGpu = ext?.gpus.find(same);
     const extCpuTemp = want.temps ? plausible(ext?.cpuTemp) : null, extGpuTemp = want.temps ? plausible(extGpu?.temp) : null;
     const cpuTemp = extCpuTemp ?? zone;
     const gpuTemp = want.temps ? (extGpuTemp ?? plausible(gpu?.temp ?? nv?.temp ?? null)) : null;
+    const fans = want.temps ? fansOf(ext && { cpu: ext.cpuFan, case: ext.caseFan, gpu: extGpu?.fan ?? null }, gpu, nv?.fan ?? null, spun) : NO_FANS;
     const battery = want.battery ? buildBattery(raw.battery) : null;
     const power = want.power ? resolvePower({ energy: raw.energy, meter: raw.meter, battery: discharge(battery, raw.battery?.ac ?? null), gpus: raw.nvml.map((n) => n.watts), external: ext && { source: ext.source, cpu: ext.cpuWatts, gpu: extGpu?.watts ?? null } }) : null;
 
@@ -141,7 +156,8 @@ function poll(ms: number) {
       const gaps = Array<number>(steps).fill(Number.NaN);
       const add = (prev: number[], v: number | null | undefined, read: boolean) => push(prev, read ? fill(prev, v ?? Number.NaN) : gaps);
       // Another adapter shown (picked, or automatic moved on): its line starts fresh rather than continuing the other's.
-      const gpuHistory = counted && cur.gpu && gpu && cur.gpu.key !== gpu.key ? [] : h.gpu;
+      const gpuMoved = counted && cur.gpu && gpu && cur.gpu.key !== gpu.key;
+      const gpuHistory = gpuMoved ? [] : h.gpu;
       return {
         // Slower rhythms: keep the last numbers they skip for the first frame when opened.
         stats: full || !stats ? next : counted ? { ...next, ping: stats.ping } : { ...next, gpu: stats.gpu, gpuMemUsed: stats.gpuMemUsed, ping: stats.ping },
@@ -156,6 +172,9 @@ function poll(ms: number) {
         battery,
         drives: raw.drives ? groupDrives(raw.drives) : cur.drives,
         processes,
+        // Without a read the line stays, and the next read fills the buckets passed with gaps.
+        tempLine: want.temps ? addTemps(gpuMoved ? { ...cur.tempLine, gpu: cur.tempLine.gpu.map(() => null) } : cur.tempLine, raw.at, cpuTemp, gpuTemp) : cur.tempLine,
+        fans,
         history: {
           cpu: push(h.cpu, fill(h.cpu, next.cpu)),
           mem: push(h.mem, fill(h.mem, mem)),
@@ -172,19 +191,25 @@ function poll(ms: number) {
   });
 }
 
-function wanted(): boolean {
-  // system_stats has no Mac backend.
-  if (isMac) return false;
+/** Whether anything but the bar's Temperatures widget asks for the values. */
+function wantedBesidesTemps(): boolean {
+  // A bar's panel can show Hardware while the tool is off here.
+  if (shown.get() > 0) return true;
   const s = settings.get();
   // The nest's pet runs with the CPU load, so it reads the background rhythm too.
-  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get());
+  return s.tools.some((x) => x.id === "system" && x.enabled) || s.gaming.mode !== "off" || ((s.closed.parts.readings || s.closed.pet.id !== null) && rowVisible.get()) || barParts.get().includes("readings") || barParts.get().includes("processes");
 }
+
+// system_stats has no Mac backend.
+const wanted = () => !isMac && (wantedBesidesTemps() || barParts.get().includes("temps"));
 
 function rhythm(): number {
   if (shown.get() > 0) return SHOWN_MS;
+  // Temperatures alone: one read per point of its line, a fifth of the background's reads.
+  if (!wantedBesidesTemps()) return TEMP_STEP_MS;
   const s = settings.get();
   // Gaming puts the GPU in the row even with the readings part off.
-  const gpu = rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()));
+  const gpu = (rowVisible.get() && ((s.closed.parts.readings && s.closed.readings.gpu) || gamingLive(s.gaming.mode, fullscreen.get()))) || (barParts.get().includes("readings") && s.closed.readings.gpu);
   return gpu ? GPU_MS : BACKGROUND_MS;
 }
 
@@ -213,7 +238,11 @@ export function startSystemPolling() {
   settings.subscribe(apply);
   shown.subscribe(apply);
   rowVisible.subscribe(apply);
+  barParts.subscribe(apply);
   fullscreen.subscribe(apply);
+  // A bar's panel showing Hardware counts as one more shown view: the notch reads for it as for its own, once a second with the
+  // process list, since the bar may not read system_stats itself and gets these values from the notch.
+  onBarShows("system", (on) => shown.set((n) => n + (on ? 1 : -1)));
 }
 
 /** For views that show the values: full polling once a second while mounted. */

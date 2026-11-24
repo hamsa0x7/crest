@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChatTeardropText, PaperPlaneRight, X, Check } from "@phosphor-icons/react";
+import { ChatTeardropText, PaperPlaneRight, X, Check } from "../../ui/iconset";
 import { t } from "../../i18n";
 import { noticeHover } from "../../notch/useNotchState";
 import { noticeSource } from "../../platform/services";

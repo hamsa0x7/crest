@@ -1,5 +1,6 @@
-//! System status for the closed notch's alerts: charger and battery, internet,
-//! Bluetooth devices, and the volume of the default output device for the HUD (brightness is in brightness.rs).
+//! System status for the closed notch's alerts: charger and battery, internet, Bluetooth devices, the volume of the default output
+//! device for the HUD (brightness is in brightness.rs), the sound output itself, the microphone's mute, Do Not Disturb, airplane mode
+//! and the power mode (monitors are in mirror.rs).
 //!
 //! One thread with a message-only window. Power settings arrive as WM_POWERBROADCAST and are
 //! handled in the GetMessageW loop, so the thread sleeps at idle. The network, Bluetooth and audio
@@ -9,19 +10,29 @@
 //! so registering it is silent too; changes Crest makes itself carry `controls::OWN_CHANGE` and are skipped.
 //! Caps Lock and Num Lock have no change event short of a keyboard hook, so a small thread reads them every `LOCK_POLL` while their alert is on and can show;
 //! the Insert alert reads that key's toggle bit on the same thread.
-//! The Bluetooth watcher and the volume callback run only while their alerts are on (`status_configure`).
+//! The Bluetooth watcher and the volume and microphone callbacks run only while their alerts are on (`status_configure`).
+//! The bar's Stato item reads the network in use, the Wi-Fi radio and the volume only while a bar shows it (`status_bar`): the radios
+//! are watched then, and the volume callback runs for it even with its alert off (`status://network`, `status://sound`).
+//! Likewise the bar's Microphone widget: the microphone and the volume callbacks run for it while a bar shows it, and it hears every
+//! change, Crest's own included (`status://microphone`, `status://sound`).
+//! Then too, once Windows' location consent for Crest reads allowed (wifi.rs `checked`), the Wi-Fi in use's signal is followed
+//! through wlanapi's signal quality notification (`watch_signal`); without it the bars move with network events only.
+//! Do Not Disturb has no public change event either: a thread reads it every `FOCUS_POLL` while its alert is on and can show. Airplane
+//! mode has none that is documented: a thread waits on its registry key. The power mode and the battery's report call back on their own.
+//! Changes Crest makes itself (the output device, Do Not Disturb, the power plan) are marked with `own` and not told back.
 //! The session's lock and its move to a remote client or away from the console come as WM_WTSSESSION_CHANGE; with the
 //! screen and sleep state they go to the page as `status://session`, which the glass's live copy waits on.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
+use std::ffi::c_void;
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use windows::core::{implement, w, GUID, PCWSTR, PWSTR};
+use windows::core::{implement, s, w, BOOL, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_GETIDLIST_FILTER_ENUMERATOR,
     CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
@@ -29,20 +40,34 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
 use windows::Win32::Devices::Properties::{DEVPKEY_Device_ContainerId, DEVPROPTYPE, DEVPROP_TYPE_BYTE, DEVPROP_TYPE_GUID};
 use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl};
 use windows::Win32::Media::Audio::{
-    eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE,
+    eCapture, eConsole, eRender, EDataFlow, ERole, IMMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, DEVICE_STATE,
 };
-use windows::core::{Array, Interface, Ref, HSTRING};
+use windows::core::{Array, IInspectable, Interface, Ref, HSTRING};
+use windows::Devices::Power::Battery;
+use windows::Devices::Radios::{Radio, RadioKind};
 use windows::Devices::Enumeration::{DeviceInformation, DeviceInformationKind, DeviceInformationUpdate, DeviceWatcher};
 use windows_collections::IIterable;
 use windows::Foundation::{IPropertyValue, TypedEventHandler};
 use windows::Networking::Connectivity::{NetworkConnectivityLevel, NetworkInformation, NetworkStatusChangedEventHandler};
+use windows::Win32::NetworkManagement::WiFi::{
+    wlan_notification_msm_signal_quality_change, L2_NOTIFICATION_DATA, WLAN_API_VERSION_2_0, WLAN_NOTIFICATION_CALLBACK, WLAN_NOTIFICATION_SOURCES,
+    WLAN_NOTIFICATION_SOURCE_MSM,
+};
 use windows::Win32::Foundation::{DEVPROPKEY, HANDLE, HWND, LPARAM, LRESULT, PROPERTYKEY, WPARAM};
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
-use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::Com::StructuredStorage::{PropVariantToStringAlloc, PropVariantToUInt32};
+use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ};
+use windows::Win32::System::Registry::{
+    RegNotifyChangeKeyValue, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_NOTIFY, KEY_QUERY_VALUE, REG_DWORD, REG_NOTIFY_CHANGE_LAST_SET, REG_VALUE_TYPE,
+};
+use windows::Win32::System::SystemInformation::GetTickCount64;
+use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, GetKeyState, VIRTUAL_KEY, VK_CAPITAL, VK_CONTROL, VK_INSERT, VK_LWIN, VK_MENU, VK_NUMLOCK, VK_RWIN, VK_SHIFT,
 };
-use windows::Win32::System::Power::{GetSystemPowerStatus, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS};
+use windows::Win32::System::Power::{
+    GetSystemPowerStatus, PowerRegisterForEffectivePowerModeNotifications, RegisterPowerSettingNotification, RegisterSuspendResumeNotification, EFFECTIVE_POWER_MODE,
+    EFFECTIVE_POWER_MODE_V1, EFFECTIVE_POWER_MODE_V2, POWERBROADCAST_SETTING, SYSTEM_POWER_STATUS,
+};
 use windows::Win32::System::RemoteDesktop::{
     WTSFreeMemory, WTSQuerySessionInformationW, WTSRegisterSessionNotification, WTSSessionInfoEx, NOTIFY_FOR_THIS_SESSION, WTSINFOEXW,
     WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
@@ -66,7 +91,7 @@ const DEVPKEY_BLUETOOTH_BATTERY: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u12
 /// with an address), read from its device store without the radio. Audio endpoints cannot tell them apart: with an offload
 /// driver (AMD's) their enumerator is the driver's GUID, not BTHENUM, and mice or controllers have none. A watcher on the
 /// association endpoints kept the radio searching for devices, which broke Bluetooth audio up on some PCs (issue #48).
-const BT_PAIRED: &str = r#"System.Devices.ClassGuid:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" AND System.Devices.Aep.DeviceAddress:<>[]"#;
+pub(crate) const BT_PAIRED: &str = r#"System.Devices.ClassGuid:="{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}" AND System.Devices.Aep.DeviceAddress:<>[]"#;
 /// True while the device is connected; Windows gives this property of a Bluetooth device node no public name.
 const BT_CONNECTED: &str = "{83DA6326-97A6-4088-9453-A1923F573B29} 15";
 const BT_CATEGORY: &str = "System.Devices.CategoryIds";
@@ -89,12 +114,44 @@ const BT_SETTLE_MS: u32 = 1000;
 const WM_VOL: u32 = WM_APP + 4;
 /// The default output device changed: the volume callback moves to the new one.
 const WM_VOLDEV: u32 = WM_APP + 5;
-/// `status_configure` switched the Bluetooth or the volume source; the loop reads `SOURCES`.
+/// `status_configure` switched the Bluetooth, the volume or the microphone source; the loop reads `SOURCES`.
 const WM_SOURCES: u32 = WM_APP + 6;
 const SRC_BT: usize = 1;
 const SRC_VOLUME: usize = 2;
-/// The sources the settings want on; both until the frontend says otherwise.
-static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME);
+const SRC_MIC: usize = 4;
+/// Posted from the audio service thread on a change of the default microphone's volume or mute, as WM_VOL.
+const WM_MIC: u32 = WM_APP + 8;
+/// The default microphone changed: its callback moves to the new one.
+const WM_MICDEV: u32 = WM_APP + 9;
+/// Windows' effective power mode changed (wParam the mode), from its own callback thread.
+const WM_MODE: u32 = WM_APP + 10;
+/// The Wi-Fi in use's signal quality changed (`watch_signal`), from wlanapi's notification thread.
+const WM_SIGNAL: u32 = WM_APP + 11;
+/// The sources the settings want on; all until the frontend says otherwise.
+static SOURCES: AtomicUsize = AtomicUsize::new(SRC_BT | SRC_VOLUME | SRC_MIC);
+
+/// Crest's own switches, whose result the status alerts do not tell back: the output device and Do Not Disturb (controls.rs), the
+/// power plan (power.rs).
+#[derive(Clone, Copy)]
+pub(crate) enum Own {
+    Output,
+    Focus,
+    Plan,
+}
+/// Until when (GetTickCount64, ms) a change of each counts as Crest's own: Windows tells of it within moments.
+static OWN_UNTIL: [AtomicU64; 3] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
+const OWN_MS: u64 = 3000;
+
+/// Crest is about to switch `what`: the change that follows is no alert.
+pub(crate) fn own(what: Own) {
+    OWN_UNTIL[what as usize].store(unsafe { GetTickCount64() } + OWN_MS, Ordering::SeqCst);
+}
+
+fn is_own(what: Own) -> bool {
+    let now = unsafe { GetTickCount64() };
+    now < OWN_UNTIL[what as usize].load(Ordering::SeqCst)
+}
+
 /// The loop's window, 0 until it exists.
 static LOOP: AtomicIsize = AtomicIsize::new(0);
 /// The session was locked or unlocked, moved to or from a remote client, or the screen or sleep state changed.
@@ -160,9 +217,55 @@ pub struct Seed {
     online: Option<bool>,
     /// Names of the Bluetooth devices connected now.
     devices: Vec<String>,
+    /// The bar's Stato item, `null` while no bar shows it.
+    network: Option<Network>,
+    sound: Option<Sound>,
+    /// The bar's Microphone widget: muted or not, null while no bar shows it or without a microphone.
+    microphone: Option<bool>,
 }
 
-static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new() });
+static SEED: Mutex<Seed> = Mutex::new(Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None, microphone: None });
+
+/// The kind of the network in use; any internet profile that is not WLAN counts as wired, a cellular modem included.
+#[derive(Serialize, Clone, Copy, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+enum Link {
+    Wired,
+    Wireless,
+    None,
+}
+
+/// The network in use for the bar's Stato item (`status://network`).
+#[derive(Serialize, Clone, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Network {
+    kind: Link,
+    /// The Wi-Fi radio is on; None: no Wi-Fi radio on this PC.
+    wifi: Option<bool>,
+    /// Signal bars 0..5, only on Wi-Fi.
+    bars: Option<u8>,
+    /// The Wi-Fi's name, only on Wi-Fi and only when Windows gives it.
+    ssid: Option<String>,
+}
+
+/// The default output's volume for the bar's Stato item (`status://sound`), every change, Crest's own included.
+#[derive(Serialize, Clone, Copy, PartialEq, Debug)]
+pub struct Sound {
+    level: u8,
+    muted: bool,
+}
+
+/// One read of the internet profile.
+struct Profile {
+    wlan: bool,
+    ssid: Option<String>,
+    bars: Option<u8>,
+}
+
+/// While a bar shows Stato (`status_bar`).
+static BAR_STATUS: AtomicBool = AtomicBool::new(false);
+/// While a bar shows the Microphone widget (`status_bar`).
+static BAR_MIC: AtomicBool = AtomicBool::new(false);
 
 /// A panic elsewhere must not take the alerts down with it: the seed stays readable.
 fn seed() -> MutexGuard<'static, Seed> {
@@ -253,12 +356,55 @@ fn run(app: AppHandle) {
         let mut connected: Option<HashMap<String, BtDevice>> = None;
         let mut enumerated = false;
 
-        let volume_client: IAudioEndpointVolumeCallback = VolumeWatch(h).into();
-        let mut volume_on = sources & SRC_VOLUME != 0;
-        let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_volume(d, &volume_client));
+        let volume_client: IAudioEndpointVolumeCallback = LevelWatch(h, WM_VOL).into();
+        // The callback runs for the HUD's alert, for the bar's Stato or for its Microphone widget's speaker; `bar_on` and `bar_mic`
+        // turn on through WM_SOURCES, posted below.
+        let mut volume_alert = sources & SRC_VOLUME != 0;
+        let mut bar_on = false;
+        let mut radios: Vec<(Radio, i64)> = Vec::new();
+        let mut signal: Option<Signal> = None;
+        let mut volume_on = volume_alert;
+        let mut volume = devices.as_ref().filter(|_| volume_on).and_then(|d| watch_level(d, eRender, &volume_client));
         let mut last_volume = volume.as_ref().map(|v| v.1);
+        // The default microphone's mute, the same way: a key on the laptop, Windows' settings or another app muting it. For the
+        // alert, or for the bar's Microphone widget, which hears Crest's own mutes too.
+        let mic_client: IAudioEndpointVolumeCallback = LevelWatch(h, WM_MIC).into();
+        let mut mic_alert = sources & SRC_MIC != 0;
+        let mut bar_mic = false;
+        let mut mic_on = mic_alert;
+        let mut mic = devices.as_ref().filter(|_| mic_on).and_then(|d| watch_level(d, eCapture, &mic_client));
+        let mut last_mic = mic.as_ref().map(|m| m.1 .1);
+        // The sound output now is the baseline: the alert says where the sound goes next.
+        let mut output = devices.as_ref().and_then(default_output).map(|o| o.id);
+
+        // The charging flag has no power setting of its own: the battery's report says when it changes (a full battery, a charge
+        // limit), and the loop reads the state again. A PC without a battery reports nothing.
+        let report = TypedEventHandler::<Battery, IInspectable>::new(move |_, _| {
+            let _ = PostMessageW(Some(HWND(h as _)), WM_POWER, WPARAM(0), LPARAM(0));
+            Ok(())
+        });
+        let _battery = Battery::AggregateBattery()
+            .and_then(|b| b.ReportUpdated(&report).map(|_| b))
+            .inspect_err(|e| eprintln!("sysevents: battery report failed: {e}"))
+            .ok();
+        // The power mode; its first callback is the mode now, the baseline (`user_mode`). Version 2 knows game mode, which
+        // version 1 (before Windows 10 2004) does not.
+        let mut registration: *mut c_void = std::ptr::null_mut();
+        let context = Some(hwnd.0 as *const c_void);
+        if [EFFECTIVE_POWER_MODE_V2, EFFECTIVE_POWER_MODE_V1]
+            .into_iter()
+            .all(|version| PowerRegisterForEffectivePowerModeNotifications(version, Some(mode_changed), context, &mut registration).is_err())
+        {
+            eprintln!("sysevents: power mode notification failed");
+        }
+        let mut last_mode = None;
+        watch_airplane(app.clone());
 
         let _ = app.emit("status://seed", status_seed());
+        // `status_bar` may have come before the loop's window existed.
+        if BAR_STATUS.load(Ordering::SeqCst) || BAR_MIC.load(Ordering::SeqCst) {
+            let _ = PostMessageW(Some(hwnd), WM_SOURCES, WPARAM(0), LPARAM(0));
+        }
 
         // Runs for the app's lifetime; process exit releases the registrations.
         let mut msg = MSG::default();
@@ -285,6 +431,9 @@ fn run(app: AppHandle) {
                     if seed().online != now {
                         seed().online = now;
                         let _ = app.emit("status://net", serde_json::json!({ "online": now }));
+                    }
+                    if bar_on {
+                        send_network(&app, &radios);
                     }
                 }
                 WM_SESSION => session_changed(hwnd, &mut session, &to_page),
@@ -328,20 +477,69 @@ fn run(app: AppHandle) {
                     let now = (msg.wParam.0.min(100) as u8, msg.lParam.0 & 1 != 0);
                     let own = msg.lParam.0 & 2 != 0;
                     // Windows may bring its flyout up for a key that changes nothing (the level already at an end): hide that one too.
-                    if !own {
+                    if volume_alert && !own {
                         crate::osd::after_change();
                     }
                     // Crest's own change still moves the baseline, so the next outside change compares against it.
-                    if volume_changed(&mut last_volume, now) && !own {
-                        emit_level(&app, "volume", now.0, now.1);
+                    if volume_changed(&mut last_volume, now) {
+                        let (level, sound) = sound_events(volume_alert, bar_on || bar_mic, own);
+                        if level {
+                            emit_level(&app, "volume", now.0, now.1);
+                        }
+                        if sound {
+                            send_sound(&app, Some(now));
+                        }
                     }
                 }
-                WM_VOLDEV if volume_on => {
-                    if let Some((endpoint, _)) = &volume {
-                        let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
+                WM_VOLDEV => {
+                    if volume_on {
+                        if let Some((endpoint, _)) = &volume {
+                            let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
+                        }
+                        volume = devices.as_ref().and_then(|d| watch_level(d, eRender, &volume_client));
+                        last_volume = volume.as_ref().map(|v| v.1);
+                        if bar_on || bar_mic {
+                            send_sound(&app, last_volume);
+                        }
                     }
-                    volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
-                    last_volume = volume.as_ref().map(|v| v.1);
+                    // Where the sound went, unless Crest moved it; none at all is a new start, so the next device alerts.
+                    let now = devices.as_ref().and_then(default_output);
+                    if now.as_ref().map(|o| &o.id) != output.as_ref() {
+                        output = now.as_ref().map(|o| o.id.clone());
+                        if let Some(o) = now.filter(|_| !is_own(Own::Output)) {
+                            let _ = app.emit("status://output", serde_json::json!({ "name": o.name, "form": o.form }));
+                        }
+                    }
+                }
+                WM_MIC if mic_on => {
+                    let muted = msg.lParam.0 & 1 != 0;
+                    let own = msg.lParam.0 & 2 != 0;
+                    // Crest's own mute reaches the bar's widget but not the alert: the shortcut says it itself, Overview's switch shows it.
+                    if last_mic.replace(muted).is_some_and(|before| before != muted) {
+                        let (alert, bar) = sound_events(mic_alert, bar_mic, own);
+                        if alert {
+                            let _ = app.emit("status://mic", serde_json::json!({ "muted": muted }));
+                        }
+                        if bar {
+                            send_microphone(&app, Some(muted));
+                        }
+                    }
+                }
+                WM_MICDEV if mic_on => {
+                    if let Some((endpoint, _)) = &mic {
+                        let _ = endpoint.UnregisterControlChangeNotify(&mic_client);
+                    }
+                    mic = devices.as_ref().and_then(|d| watch_level(d, eCapture, &mic_client));
+                    last_mic = mic.as_ref().map(|m| m.1 .1);
+                    // The new default microphone's state, or none left at all.
+                    if bar_mic {
+                        send_microphone(&app, last_mic);
+                    }
+                }
+                WM_MODE => {
+                    if let Some(mode) = user_mode(&mut last_mode, msg.wParam.0 as i32).filter(|_| !is_own(Own::Plan)) {
+                        let _ = app.emit("status://mode", serde_json::json!({ "mode": mode }));
+                    }
                 }
                 WM_SOURCES => {
                     let sources = SOURCES.load(Ordering::SeqCst);
@@ -360,17 +558,69 @@ fn run(app: AppHandle) {
                         connected = None;
                         enumerated = false;
                     }
-                    if (sources & SRC_VOLUME != 0) != volume_on {
+                    volume_alert = sources & SRC_VOLUME != 0;
+                    let bar = BAR_STATUS.load(Ordering::SeqCst);
+                    let mic_bar = BAR_MIC.load(Ordering::SeqCst);
+                    if (volume_alert || bar || mic_bar) != volume_on {
                         volume_on = !volume_on;
                         if let Some((endpoint, _)) = volume.take() {
                             let _ = endpoint.UnregisterControlChangeNotify(&volume_client);
                         }
                         if volume_on {
-                            volume = devices.as_ref().and_then(|d| watch_volume(d, &volume_client));
+                            volume = devices.as_ref().and_then(|d| watch_level(d, eRender, &volume_client));
                         }
                         last_volume = volume.as_ref().map(|v| v.1);
                     }
+                    if bar != bar_on {
+                        bar_on = bar;
+                        if bar_on {
+                            radios = watch_radios(h);
+                            send_network(&app, &radios);
+                            send_sound(&app, last_volume);
+                        } else {
+                            unwatch_radios(std::mem::take(&mut radios));
+                            signal = None;
+                            let mut s = seed();
+                            s.network = None;
+                            // The Microphone widget's speaker still shows it.
+                            if !mic_bar {
+                                s.sound = None;
+                            }
+                        }
+                    }
+                    // The Wi-Fi signal while Stato shows, from the moment the location consent reads allowed: looked at on each
+                    // WM_SOURCES, which the Wi-Fi page's consent posts too (`consent_changed`).
+                    if bar_on && signal.is_none() {
+                        signal = watch_signal(h);
+                    }
+                    mic_alert = sources & SRC_MIC != 0;
+                    if (mic_alert || mic_bar) != mic_on {
+                        mic_on = !mic_on;
+                        if let Some((endpoint, _)) = mic.take() {
+                            let _ = endpoint.UnregisterControlChangeNotify(&mic_client);
+                        }
+                        if mic_on {
+                            mic = devices.as_ref().and_then(|d| watch_level(d, eCapture, &mic_client));
+                        }
+                        last_mic = mic.as_ref().map(|m| m.1 .1);
+                    }
+                    // After the callbacks above, so the widget starts from what they read.
+                    if mic_bar != bar_mic {
+                        bar_mic = mic_bar;
+                        if bar_mic {
+                            send_microphone(&app, last_mic);
+                            send_sound(&app, last_volume);
+                        } else {
+                            let mut s = seed();
+                            s.microphone = None;
+                            if !bar_on {
+                                s.sound = None;
+                            }
+                        }
+                    }
                 }
+                // The Wi-Fi's signal changed: read at once, not through the network's 2 s settle, which a steady run of these would keep pushing back.
+                WM_SIGNAL if bar_on => send_bars(&app),
                 _ => {
                     DispatchMessageW(&msg);
                 }
@@ -487,7 +737,153 @@ fn online() -> bool {
         .is_ok_and(|level| level == NetworkConnectivityLevel::InternetAccess)
 }
 
-/// Runs on an audio service thread: it only tells the loop that the default output changed.
+/// The internet profile in use, None without one. The name comes only from `GetConnectedSsid`: `ProfileName`, wlanapi.h and
+/// Windows.Devices.WiFi ask for the location permission.
+fn profile() -> Option<Profile> {
+    let p = NetworkInformation::GetInternetConnectionProfile().ok()?;
+    let wlan = p.IsWlanConnectionProfile().unwrap_or(false);
+    let ssid = wlan.then(|| p.WlanConnectionProfileDetails().and_then(|d| d.GetConnectedSsid()).ok().map(|s| s.to_string())).flatten();
+    let bars = p.GetSignalBars().and_then(|b| b.Value()).ok();
+    Some(Profile { wlan, ssid, bars })
+}
+
+/// What the bar shows: no profile is no network, WLAN gives its bars and its name when not empty, anything else is wired.
+fn network(profile: Option<Profile>, wifi: Option<bool>) -> Network {
+    match profile {
+        None => Network { kind: Link::None, wifi, bars: None, ssid: None },
+        Some(p) if p.wlan => Network { kind: Link::Wireless, wifi, bars: p.bars, ssid: p.ssid.filter(|s| !s.is_empty()) },
+        Some(_) => Network { kind: Link::Wired, wifi, bars: None, ssid: None },
+    }
+}
+
+/// The radios, each waking the loop on a switch so it goes through the network's settle. Removed with `unwatch_radios`.
+fn watch_radios(h: isize) -> Vec<(Radio, i64)> {
+    let handler = TypedEventHandler::<Radio, IInspectable>::new(move |_, _| {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_NET, WPARAM(0), LPARAM(0)) };
+        Ok(())
+    });
+    crate::quick::radios()
+        .inspect_err(|e| eprintln!("sysevents: radios failed: {e}"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|r| r.StateChanged(&handler).ok().map(|token| (r, token)))
+        .collect()
+}
+
+fn unwatch_radios(radios: Vec<(Radio, i64)>) {
+    for (r, token) in radios {
+        let _ = r.RemoveStateChanged(token);
+    }
+}
+
+/// Seeds the network for the bar and tells it, only on a change.
+fn send_network(app: &AppHandle, radios: &[(Radio, i64)]) {
+    let list: Vec<Radio> = radios.iter().map(|(r, _)| r.clone()).collect();
+    let now = network(profile(), crate::quick::radio_on(&list, RadioKind::WiFi));
+    if seed().network.as_ref() != Some(&now) {
+        seed().network = Some(now.clone());
+        let _ = app.emit("status://network", now);
+    }
+}
+
+/// A signal change: only the bars, read again and sent on a change. The name stays the one `send_network` last read, as
+/// `GetConnectedSsid` asks the location permission and the signal moves every few seconds. A profile that is no longer WLAN
+/// waits for the network's own event.
+fn send_bars(app: &AppHandle) {
+    let Some(p) = NetworkInformation::GetInternetConnectionProfile().ok().filter(|p| p.IsWlanConnectionProfile().unwrap_or(false)) else {
+        return;
+    };
+    // No value (a roam, a failed read) is no news: the shown bars stay until a real reading or the network's own event.
+    let Ok(bars) = p.GetSignalBars().and_then(|b| b.Value()) else {
+        return;
+    };
+    let now = rebar(seed().network.as_ref(), Some(bars));
+    if let Some(now) = now {
+        seed().network = Some(now.clone());
+        let _ = app.emit("status://network", now);
+    }
+}
+
+/// The shown network with new bars: only a Wi-Fi shown already, and only when they moved.
+fn rebar(shown: Option<&Network>, bars: Option<u8>) -> Option<Network> {
+    shown.filter(|n| n.kind == Link::Wireless && n.bars != bars).map(|n| Network { bars, ..n.clone() })
+}
+
+/// Seeds the volume for the bar and tells it, only on a change; None (no output device) tells nothing.
+fn send_sound(app: &AppHandle, level: Option<Level>) {
+    let now = level.map(|(level, muted)| Sound { level, muted });
+    if now.is_some() && seed().sound != now {
+        seed().sound = now;
+        let _ = app.emit("status://sound", now);
+    }
+}
+
+/// Seeds the microphone's mute for the bar's Microphone widget and tells it, only on a change; None (no microphone) too, so it dims.
+fn send_microphone(app: &AppHandle, muted: Option<bool>) {
+    if seed().microphone != muted {
+        seed().microphone = muted;
+        let _ = app.emit("status://microphone", muted);
+    }
+}
+
+type WlanOpen = unsafe extern "system" fn(u32, *const c_void, *mut u32, *mut HANDLE) -> u32;
+type WlanRegister = unsafe extern "system" fn(HANDLE, WLAN_NOTIFICATION_SOURCES, BOOL, WLAN_NOTIFICATION_CALLBACK, *const c_void, *const c_void, *mut u32) -> u32;
+type WlanClose = unsafe extern "system" fn(HANDLE, *const c_void) -> u32;
+
+/// The signal watch: its WLAN client handle, whose closing ends the notification, with wlanapi's close.
+struct Signal {
+    handle: HANDLE,
+    close: WlanClose,
+}
+
+impl Drop for Signal {
+    /// On the loop's thread, never in the callback, where closing would wait on itself.
+    fn drop(&mut self) {
+        unsafe { (self.close)(self.handle, std::ptr::null()) };
+    }
+}
+
+/// The Wi-Fi in use's signal for Stato, from wlanapi's signal quality notification (MSM source). Windows lets an app register for
+/// that source only with its location consent (the `wiFiControl` capability) and may bring up its one-time prompt for one without
+/// it, which only the Wi-Fi page's click may: so nothing is looked up until that consent reads allowed (wifi.rs `checked`, which
+/// never prompts). wlanapi.dll is looked up at run time, as hw.rs looks up nvml.dll, so a Windows without it still starts Crest.
+/// None without the consent, the DLL or a running WLAN service.
+fn watch_signal(h: isize) -> Option<Signal> {
+    if crate::taskbar::wifi::checked() != "allowed" {
+        return None;
+    }
+    unsafe {
+        // Stays loaded: the close and the notification's caller live in it.
+        let lib = LoadLibraryExW(w!("wlanapi.dll"), None, LOAD_LIBRARY_SEARCH_SYSTEM32).ok()?;
+        let open: WlanOpen = std::mem::transmute(GetProcAddress(lib, s!("WlanOpenHandle"))?);
+        let register: WlanRegister = std::mem::transmute(GetProcAddress(lib, s!("WlanRegisterNotification"))?);
+        let close: WlanClose = std::mem::transmute(GetProcAddress(lib, s!("WlanCloseHandle"))?);
+        let (mut version, mut handle) = (0u32, HANDLE::default());
+        if open(WLAN_API_VERSION_2_0, std::ptr::null(), &mut version, &mut handle) != 0 {
+            return None;
+        }
+        let signal = Signal { handle, close };
+        // Duplicates ignored: one change, one message. A refusal drops `signal`, which closes the handle.
+        (register(handle, WLAN_NOTIFICATION_SOURCE_MSM, true.into(), Some(on_wlan), h as *const c_void, std::ptr::null(), std::ptr::null_mut()) == 0).then_some(signal)
+    }
+}
+
+/// wlanapi's notification thread: only a change of the connected network's signal quality wakes the loop.
+unsafe extern "system" fn on_wlan(data: *mut L2_NOTIFICATION_DATA, context: *mut c_void) {
+    if let Some(d) = unsafe { data.as_ref() } {
+        if is_signal(d.NotificationSource, d.NotificationCode) {
+            let _ = unsafe { PostMessageW(Some(HWND(context)), WM_SIGNAL, WPARAM(0), LPARAM(0)) };
+        }
+    }
+}
+
+/// The signal quality notification (wlanapi.h `wlan_notification_msm_signal_quality_change`), told apart from the other MSM codes and
+/// from the same number in another source.
+fn is_signal(source: WLAN_NOTIFICATION_SOURCES, code: u32) -> bool {
+    source == WLAN_NOTIFICATION_SOURCE_MSM && code == wlan_notification_msm_signal_quality_change.0 as u32
+}
+
+/// Runs on an audio service thread: it only tells the loop that the default output or microphone changed.
 #[implement(IMMNotificationClient)]
 struct Endpoints(isize);
 
@@ -501,10 +897,11 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
     fn OnDeviceRemoved(&self, _: &PCWSTR) -> windows::core::Result<()> {
         Ok(())
     }
-    // The volume keys and the taskbar act on the console role of the default output.
+    // The volume keys and the taskbar act on the console role of the default output; the microphone's mute likewise.
     fn OnDefaultDeviceChanged(&self, flow: EDataFlow, role: ERole, _: &PCWSTR) -> windows::core::Result<()> {
-        if flow == eRender && role == eConsole {
-            let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), WM_VOLDEV, WPARAM(0), LPARAM(0)) };
+        let msg = if flow == eRender { WM_VOLDEV } else if flow == eCapture { WM_MICDEV } else { return Ok(()) };
+        if role == eConsole {
+            let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), msg, WPARAM(0), LPARAM(0)) };
         }
         Ok(())
     }
@@ -513,18 +910,18 @@ impl IMMNotificationClient_Impl for Endpoints_Impl {
     }
 }
 
-/// A connected Bluetooth device, as its device node describes it.
-struct BtDevice {
-    name: String,
+/// A paired Bluetooth device, as its device node describes it.
+pub(crate) struct BtDevice {
+    pub(crate) name: String,
     /// Windows' device categories ("Audio.Headphone", "Input.Mouse"), for the icon.
-    categories: Vec<String>,
+    pub(crate) categories: Vec<String>,
     /// "c0:e5:79:36:e7:c6".
-    address: String,
+    pub(crate) address: String,
     /// Missing on some LE devices.
-    container: Option<GUID>,
+    pub(crate) container: Option<GUID>,
 }
 
-fn bt_props() -> IIterable<HSTRING> {
+pub(crate) fn bt_props() -> IIterable<HSTRING> {
     IIterable::from([BT_CONNECTED, BT_CATEGORY, BT_ADDRESS, BT_CONTAINER].map(HSTRING::from).to_vec())
 }
 
@@ -572,30 +969,30 @@ fn bt_watch(h: isize, paired: Paired) -> Option<DeviceWatcher> {
         .ok()
 }
 
+/// A paired device as its node describes it, and whether it is connected now (the alerts and the bar's Bluetooth page).
+pub(crate) fn read_device(d: &DeviceInformation) -> Option<(bool, BtDevice)> {
+    let props = d.Properties().ok()?;
+    let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
+    let connected = value(BT_CONNECTED).and_then(|v| v.GetBoolean().ok()).unwrap_or(false);
+    let name = d.Name().ok()?.to_string();
+    let mut categories = Array::<HSTRING>::new();
+    let categories = match value(BT_CATEGORY) {
+        Some(v) if v.GetStringArray(&mut categories).is_ok() => categories.iter().map(|c| c.to_string()).collect(),
+        _ => Vec::new(),
+    };
+    let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
+    let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
+    Some((connected, BtDevice { name, categories, address, container }))
+}
+
 /// The paired devices connected now, by device instance id.
 fn bluetooth(paired: &Paired) -> HashMap<String, BtDevice> {
-    lock(paired).iter().filter_map(|(id, d)| {
-        let props = d.Properties().ok()?;
-        let value = |key: &str| props.Lookup(&key.into()).ok().and_then(|v| v.cast::<IPropertyValue>().ok());
-        if !value(BT_CONNECTED)?.GetBoolean().ok()? {
-            return None;
-        }
-        let name = d.Name().ok()?.to_string();
-        let mut categories = Array::<HSTRING>::new();
-        let categories = match value(BT_CATEGORY) {
-            Some(v) if v.GetStringArray(&mut categories).is_ok() => categories.iter().map(|c| c.to_string()).collect(),
-            _ => Vec::new(),
-        };
-        let address = value(BT_ADDRESS).and_then(|v| v.GetString().ok()).map(|a| a.to_string()).unwrap_or_default();
-        let container = value(BT_CONTAINER).and_then(|v| v.GetGuid().ok());
-        Some((id.clone(), BtDevice { name, categories, address, container }))
-    })
-    .collect()
+    lock(paired).iter().filter_map(|(id, d)| read_device(d).filter(|(c, _)| *c).map(|(_, dev)| (id.clone(), dev))).collect()
 }
 
 /// Battery from the device's Bluetooth nodes, found by its address in the instance id or by its container; read once at
 /// connection, `None` when the device does not report it.
-fn battery(address: &str, container: Option<GUID>) -> Option<u8> {
+pub(crate) fn battery(address: &str, container: Option<GUID>) -> Option<u8> {
     let address = address.replace(':', "").to_ascii_uppercase();
     let flags = CM_GETIDLIST_FILTER_ENUMERATOR | CM_GETIDLIST_FILTER_PRESENT;
     for enumerator in [w!("BTHENUM"), w!("BTHHFENUM"), w!("BTHLE")] {
@@ -639,28 +1036,81 @@ unsafe fn node_prop<T: Default>(node: u32, key: &DEVPROPKEY, kind: DEVPROPTYPE) 
 /// Volume and mute in percent, as the taskbar shows them.
 type Level = (u8, bool);
 
-/// The default output's volume callback; returns its endpoint (kept to unregister) and the level now, the baseline.
-unsafe fn watch_volume(devices: &IMMDeviceEnumerator, client: &IAudioEndpointVolumeCallback) -> Option<(IAudioEndpointVolume, Level)> {
+/// The volume callback of the default output (`eRender`) or microphone (`eCapture`); returns its endpoint (kept to unregister) and the
+/// level now, the baseline.
+unsafe fn watch_level(devices: &IMMDeviceEnumerator, flow: EDataFlow, client: &IAudioEndpointVolumeCallback) -> Option<(IAudioEndpointVolume, Level)> {
     unsafe {
-        // No output device at all is not an error: the next default change registers.
-        let endpoint: IAudioEndpointVolume = devices.GetDefaultAudioEndpoint(eRender, eConsole).and_then(|d| d.Activate(CLSCTX_ALL, None)).ok()?;
+        // No such device at all is not an error: the next default change registers.
+        let endpoint: IAudioEndpointVolume = devices.GetDefaultAudioEndpoint(flow, eConsole).and_then(|d| d.Activate(CLSCTX_ALL, None)).ok()?;
         endpoint.RegisterControlChangeNotify(client).inspect_err(|e| eprintln!("sysevents: volume notification failed: {e}")).ok()?;
         let now = (percent(endpoint.GetMasterVolumeLevelScalar().unwrap_or(0.0)), endpoint.GetMute().is_ok_and(|m| m.as_bool()));
         Some((endpoint, now))
     }
 }
 
-/// Runs on an audio service thread: it only posts the new level to the loop.
+/// Runs on an audio service thread: it only posts the new level to the loop as its message (WM_VOL for the output, WM_MIC for the
+/// microphone).
 #[implement(IAudioEndpointVolumeCallback)]
-struct VolumeWatch(isize);
+struct LevelWatch(isize, u32);
 
-impl IAudioEndpointVolumeCallback_Impl for VolumeWatch_Impl {
+impl IAudioEndpointVolumeCallback_Impl for LevelWatch_Impl {
     fn OnNotify(&self, data: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> windows::core::Result<()> {
         let Some(d) = (unsafe { data.as_ref() }) else { return Ok(()) };
         let flags = d.bMuted.as_bool() as isize | ((d.guidEventContext == crate::controls::OWN_CHANGE) as isize) << 1;
-        let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), WM_VOL, WPARAM(percent(d.fMasterVolume) as usize), LPARAM(flags)) };
+        let _ = unsafe { PostMessageW(Some(HWND(self.0 as _)), self.1, WPARAM(percent(d.fMasterVolume) as usize), LPARAM(flags)) };
         Ok(())
     }
+}
+
+/// The default output: its id, its name as the sound menu shows it, and what kind of device it is (`form_name`).
+struct Output {
+    id: String,
+    name: String,
+    form: &'static str,
+}
+
+/// PKEY_AudioEndpoint_FormFactor, defined here so one key does not need the FunctionDiscovery feature.
+const FORM_FACTOR: PROPERTYKEY = PROPERTYKEY { fmtid: GUID::from_u128(0x1da5d803_d492_4edd_8c23_e0c0ffee7f0e), pid: 0 };
+
+fn default_output(devices: &IMMDeviceEnumerator) -> Option<Output> {
+    unsafe {
+        let device = devices.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+        let id = crate::controls::take(device.GetId().ok()?)?;
+        let store = device.OpenPropertyStore(STGM_READ).ok();
+        let value = |key: &PROPERTYKEY| store.as_ref().and_then(|s| s.GetValue(key).ok());
+        let name = value(&crate::controls::FRIENDLY_NAME).and_then(|v| PropVariantToStringAlloc(&v).ok()).and_then(|p| crate::controls::take(p));
+        let form = value(&FORM_FACTOR).and_then(|v| PropVariantToUInt32(&v).ok());
+        Some(Output { id, name: name.unwrap_or_default(), form: form_name(form) })
+    }
+}
+
+/// The endpoint's EndpointFormFactor as the alert's icon: headphones and headsets, speakers, a monitor's speakers over HDMI or
+/// DisplayPort, anything else.
+fn form_name(form: Option<u32>) -> &'static str {
+    match form {
+        Some(3 | 5) => "headphones",
+        Some(1) => "speakers",
+        Some(9) => "display",
+        _ => "other",
+    }
+}
+
+/// Windows' callback thread: it only tells the loop the effective power mode now.
+unsafe extern "system" fn mode_changed(mode: EFFECTIVE_POWER_MODE, context: *const c_void) {
+    let _ = unsafe { PostMessageW(Some(HWND(context as _)), WM_MODE, WPARAM(mode.0 as usize), LPARAM(0)) };
+}
+
+/// The power mode the user chose, from Windows' effective one: 1 best power efficiency, 2 balanced, 4 best performance (high, 3, is
+/// told as that too). Energy saver (0), game mode (5) and mixed reality (6) pass over it and leave it as it was, so they say nothing.
+/// The first reading is the baseline; a change gives the new mode.
+fn user_mode(last: &mut Option<i32>, effective: i32) -> Option<i32> {
+    let mode = match effective {
+        1 | 2 => effective,
+        3 | 4 => 4,
+        _ => return None,
+    };
+    let before = last.replace(mode)?;
+    (before != mode).then_some(mode)
 }
 
 /// A scalar 0..1 as the whole percent Windows shows.
@@ -675,6 +1125,12 @@ fn volume_changed(last: &mut Option<Level>, now: Level) -> bool {
     changed
 }
 
+/// Which events a volume or a microphone change sends, (status://level, status://sound) or (status://mic, status://microphone): the
+/// HUD's alert only with it on and only for an outside change, the bar every change while it shows Stato or the Microphone widget.
+fn sound_events(alert: bool, bar: bool, own: bool) -> (bool, bool) {
+    (alert && !own, bar)
+}
+
 /// One HUD reading for the frontend (status://level): `kind` "volume" or "brightness", `level` 0..100.
 pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
     let _ = app.emit("status://level", serde_json::json!({ "kind": kind, "level": level, "muted": muted }));
@@ -682,15 +1138,38 @@ pub fn emit_level(app: &AppHandle, kind: &str, level: u8, muted: bool) {
 }
 
 /// From the settings: external monitors are read over DDC/CI only while the Brightness alert is on, Caps Lock and Num Lock only
-/// while theirs is on and can show, Insert likewise with its own, the Bluetooth watcher and the volume callback only while their alerts are, and the Windows
-/// indicator is hidden only while the frontend says Crest's HUD replaces it (`osd_armed`: the option is on, even if it is not hiding just now).
+/// while theirs is on and can show, Insert likewise with its own, Do Not Disturb likewise, the Bluetooth watcher and the volume and
+/// microphone callbacks only while their alerts are, and the Windows indicator is hidden only while the frontend says Crest's HUD
+/// replaces it (`osd_armed`: the option is on, even if it is not hiding just now).
 #[tauri::command]
-pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt: bool, volume: bool, hide_osd: bool, osd_armed: bool) {
+#[allow(clippy::too_many_arguments)]
+pub fn status_configure(app: AppHandle, ddc: bool, locks: bool, insert: bool, bt: bool, volume: bool, mic: bool, focus: bool, hide_osd: bool, osd_armed: bool) {
     crate::brightness::set_ddc(ddc);
     INSERT_ON.store(insert, Ordering::SeqCst);
     watch_locks(&app, locks || insert);
+    watch_focus(&app, focus);
     crate::osd::set(hide_osd, osd_armed);
-    SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 }, Ordering::SeqCst);
+    SOURCES.store(if bt { SRC_BT } else { 0 } | if volume { SRC_VOLUME } else { 0 } | if mic { SRC_MIC } else { 0 }, Ordering::SeqCst);
+    let h = LOOP.load(Ordering::SeqCst);
+    if h != 0 {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
+    }
+}
+
+/// From the notch: a bar shows Stato (on), or none does (off), and a bar shows the Microphone widget (`mic`). The loop then watches
+/// the radios and the volume for Stato, the microphone and the volume for the widget.
+#[tauri::command]
+pub fn status_bar(on: bool, mic: bool) {
+    BAR_STATUS.store(on, Ordering::SeqCst);
+    BAR_MIC.store(mic, Ordering::SeqCst);
+    let h = LOOP.load(Ordering::SeqCst);
+    if h != 0 {
+        let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
+    }
+}
+
+/// The Wi-Fi page's consent prompt answered (wifi.rs `taskbar_wifi_allow`): the loop looks again whether it may follow the Wi-Fi signal.
+pub(crate) fn consent_changed() {
     let h = LOOP.load(Ordering::SeqCst);
     if h != 0 {
         let _ = unsafe { PostMessageW(Some(HWND(h as _)), WM_SOURCES, WPARAM(0), LPARAM(0)) };
@@ -765,9 +1244,159 @@ fn insert_pressed(last: &mut Option<Insert>, now: Insert) -> bool {
     before.0 != now.0 && !before.1 && !now.1
 }
 
+const FOCUS_POLL: Duration = Duration::from_millis(500);
+/// The first readings after the poll starts only set the baseline: it also starts as a fullscreen app ends, for which Windows may
+/// have switched Do Not Disturb on by itself and switches it off again just then.
+const FOCUS_SETTLE: Duration = Duration::from_secs(3);
+static FOCUS_ON: AtomicBool = AtomicBool::new(false);
+/// Bumped on every switch, as `LOCKS_RUN`.
+static FOCUS_RUN: AtomicUsize = AtomicUsize::new(0);
+
+/// A focus session running, and Do Not Disturb on.
+type FocusNow = (bool, bool);
+
+fn watch_focus(app: &AppHandle, on: bool) {
+    if FOCUS_ON.swap(on, Ordering::SeqCst) == on {
+        return;
+    }
+    let run = FOCUS_RUN.fetch_add(1, Ordering::SeqCst) + 1;
+    if !on {
+        return;
+    }
+    let app = app.clone();
+    thread::spawn(move || {
+        // The focus session is WinRT.
+        let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+        let manager = crate::controls::sessions();
+        let (mut last, started) = (None, Instant::now());
+        while FOCUS_RUN.load(Ordering::SeqCst) == run {
+            if crate::standby::asleep() {
+                // What changed while the screen was off is a new baseline, not a change.
+                last = None;
+            } else {
+                let now = crate::controls::focus_now(manager.as_ref());
+                // A change switched in Crest's Overview, whose switch shows it, only moves the baseline.
+                if started.elapsed() < FOCUS_SETTLE {
+                    last = Some(now);
+                } else if let Some((on, focus)) = focus_change(&mut last, now).filter(|_| !is_own(Own::Focus)) {
+                    let _ = app.emit("status://focus", serde_json::json!({ "on": on, "focus": focus }));
+                }
+            }
+            thread::sleep(FOCUS_POLL);
+        }
+    });
+}
+
+/// Do Not Disturb or a focus session went on or off: `on` either of them, `focus` the session, the one starting or the one that ended.
+/// The first reading is the baseline; one going on while the other is (a session that brings Do Not Disturb) changes nothing.
+fn focus_change(last: &mut Option<FocusNow>, now: FocusNow) -> Option<(bool, bool)> {
+    let before = last.replace(now)?;
+    let (was, is) = (before.0 || before.1, now.0 || now.1);
+    (was != is).then_some((is, if is { now.0 } else { before.0 }))
+}
+
+/// Airplane mode as Settings and the radio switch keep it: 1 on, 0 off.
+const RADIO_STATE: PCWSTR = w!(r"SYSTEM\CurrentControlSet\Control\RadioManagement\SystemRadioState");
+
+/// Airplane mode has no documented change event: a thread waits on its registry key for the app's lifetime and tells each change. The
+/// state at start is the baseline.
+fn watch_airplane(app: AppHandle) {
+    thread::spawn(move || unsafe {
+        let mut key = HKEY::default();
+        if let Err(e) = RegOpenKeyExW(HKEY_LOCAL_MACHINE, RADIO_STATE, None, KEY_NOTIFY | KEY_QUERY_VALUE, &mut key).ok() {
+            return eprintln!("sysevents: airplane mode key failed: {e}");
+        }
+        let mut last = airplane(key);
+        loop {
+            // Waits here until the key changes.
+            if let Err(e) = RegNotifyChangeKeyValue(key, false, REG_NOTIFY_CHANGE_LAST_SET, None, false).ok() {
+                return eprintln!("sysevents: airplane mode notification failed: {e}");
+            }
+            let now = airplane(key);
+            if now.is_some() && now != last {
+                if last.is_some() {
+                    let _ = app.emit("status://airplane", serde_json::json!({ "on": now }));
+                }
+                last = now;
+            }
+        }
+    });
+}
+
+/// The key's default value, a DWORD; None when it is not one.
+unsafe fn airplane(key: HKEY) -> Option<bool> {
+    let (mut kind, mut value, mut size) = (REG_VALUE_TYPE::default(), 0u32, 4u32);
+    unsafe { RegQueryValueExW(key, PCWSTR::null(), None, Some(&mut kind), Some(&mut value as *mut u32 as *mut u8), Some(&mut size)) }.ok().ok()?;
+    (kind == REG_DWORD && size == 4).then_some(value != 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_signal_quality_notification_wakes_the_loop() {
+        use windows::Win32::NetworkManagement::WiFi::{wlan_notification_acm_scan_fail, wlan_notification_msm_disconnected, WLAN_NOTIFICATION_SOURCE_ACM};
+        let quality = wlan_notification_msm_signal_quality_change.0 as u32;
+        assert!(is_signal(WLAN_NOTIFICATION_SOURCE_MSM, quality));
+        assert_eq!(wlan_notification_acm_scan_fail.0 as u32, quality); // the same number from the ACM source is a failed scan
+        assert!(!is_signal(WLAN_NOTIFICATION_SOURCE_ACM, quality));
+        assert!(!is_signal(WLAN_NOTIFICATION_SOURCE_MSM, wlan_notification_msm_disconnected.0 as u32));
+    }
+
+    #[test]
+    fn the_signal_is_registered_only_once_the_location_consent_reads_allowed() {
+        // The module's code above its tests, read as text: watch_signal reads the consent before it looks up the registration, and the
+        // loop is its only caller (Windows may prompt for the MSM source; only the Wi-Fi page's click may bring that prompt up).
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let body = &code[code.find("fn watch_signal").unwrap()..];
+        assert!(body.find("checked() != \"allowed\"").unwrap() < body.find("s!(\"WlanRegisterNotification\")").unwrap());
+        assert_eq!(code.matches("watch_signal(").count(), 2); // its definition and the loop's one call
+    }
+
+    #[test]
+    fn the_output_icon_follows_the_form_factor() {
+        assert_eq!(form_name(Some(3)), "headphones");
+        assert_eq!(form_name(Some(5)), "headphones");
+        assert_eq!(form_name(Some(1)), "speakers");
+        assert_eq!(form_name(Some(9)), "display");
+        assert_eq!(form_name(Some(2)), "other");
+        assert_eq!(form_name(None), "other");
+    }
+
+    #[test]
+    fn the_power_mode_tells_only_the_chosen_one() {
+        let mut last = None;
+        // Game mode first says nothing and is no baseline; balanced is.
+        assert_eq!(user_mode(&mut last, 5), None);
+        assert_eq!(user_mode(&mut last, 2), None);
+        assert_eq!(user_mode(&mut last, 2), None);
+        assert_eq!(user_mode(&mut last, 4), Some(4));
+        // High performance is best performance too.
+        assert_eq!(user_mode(&mut last, 3), None);
+        // Energy saver passes over and comes back to the same mode.
+        assert_eq!(user_mode(&mut last, 0), None);
+        assert_eq!(user_mode(&mut last, 4), None);
+        assert_eq!(user_mode(&mut last, 1), Some(1));
+        assert_eq!(last, Some(1));
+    }
+
+    #[test]
+    fn focus_tells_on_and_off_and_which_one() {
+        let mut last = None;
+        assert_eq!(focus_change(&mut last, (false, false)), None);
+        // Do Not Disturb alone.
+        assert_eq!(focus_change(&mut last, (false, true)), Some((true, false)));
+        assert_eq!(focus_change(&mut last, (false, false)), Some((false, false)));
+        // A session that brings Do Not Disturb a reading later is one change.
+        assert_eq!(focus_change(&mut last, (true, false)), Some((true, true)));
+        assert_eq!(focus_change(&mut last, (true, true)), None);
+        assert_eq!(focus_change(&mut last, (false, false)), Some((false, true)));
+        // Do Not Disturb kept after the session: still on.
+        assert_eq!(focus_change(&mut last, (true, true)), Some((true, true)));
+        assert_eq!(focus_change(&mut last, (false, true)), None);
+    }
 
     #[test]
     fn percent_rounds_and_clamps() {
@@ -787,6 +1416,66 @@ mod tests {
         assert!(volume_changed(&mut last, (40, true)));
         assert!(volume_changed(&mut last, (42, true)));
         assert_eq!(last, Some((42, true)));
+    }
+
+    #[test]
+    fn the_network_in_use_names_its_kind_and_only_wifi_has_a_name_and_bars() {
+        assert_eq!(network(None, Some(true)), Network { kind: Link::None, wifi: Some(true), bars: None, ssid: None });
+        assert_eq!(network(None, Some(false)).wifi, Some(false));
+        assert_eq!(network(None, None).wifi, None);
+        let wired = network(Some(Profile { wlan: false, ssid: Some("x".into()), bars: Some(3) }), Some(true));
+        assert_eq!((wired.kind, wired.ssid, wired.bars), (Link::Wired, None, None));
+        let wifi = network(Some(Profile { wlan: true, ssid: Some("Home".into()), bars: Some(4) }), Some(true));
+        assert_eq!((wifi.kind, wifi.ssid.as_deref(), wifi.bars), (Link::Wireless, Some("Home"), Some(4)));
+        assert_eq!(network(Some(Profile { wlan: true, ssid: Some(String::new()), bars: None }), Some(true)).ssid, None);
+    }
+
+    #[test]
+    fn a_signal_change_moves_only_the_bars_of_the_wifi_already_shown() {
+        let home = network(Some(Profile { wlan: true, ssid: Some("Home".into()), bars: Some(4) }), Some(true));
+        assert_eq!(rebar(Some(&home), Some(2)), Some(Network { bars: Some(2), ..home.clone() }));
+        assert_eq!(rebar(Some(&home), Some(4)), None);
+        assert_eq!(rebar(Some(&network(None, Some(true))), Some(2)), None);
+        assert_eq!(rebar(None, Some(2)), None);
+        // The signal's path reads no name: GetConnectedSsid is one of the location-gated Wi-Fi reads.
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        let body = &code[code.find("fn send_bars").unwrap()..];
+        assert!(!body[..body.find("\n}").unwrap()].contains("Ssid"));
+    }
+
+    #[test]
+    fn the_network_reaches_the_page_in_lower_case() {
+        let sent = serde_json::to_value(network(None, None)).unwrap();
+        assert_eq!(sent["kind"], "none");
+        assert_eq!(sent["wifi"], serde_json::Value::Null);
+        assert_eq!(serde_json::to_value(Sound { level: 40, muted: true }).unwrap(), serde_json::json!({ "level": 40, "muted": true }));
+    }
+
+    #[test]
+    fn a_volume_change_tells_the_hud_only_from_outside_and_the_bar_always() {
+        // (alert, bar, own) -> (status://level, status://sound)
+        assert_eq!(sound_events(true, false, false), (true, false));
+        assert_eq!(sound_events(true, true, true), (false, true));
+        assert_eq!(sound_events(false, true, false), (false, true));
+        assert_eq!(sound_events(false, false, false), (false, false));
+    }
+
+    #[test]
+    fn the_seed_carries_the_bar_microphone_or_null() {
+        let seed = |microphone| Seed { power: None, online: None, devices: Vec::new(), network: None, sound: None, microphone };
+        assert_eq!(serde_json::to_value(seed(Some(true))).unwrap()["microphone"], true);
+        assert_eq!(serde_json::to_value(seed(None)).unwrap()["microphone"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn a_mute_tells_the_bar_every_change_and_the_alert_only_outside_ones() {
+        // The module's code above its tests, read as text: the microphone goes through the volume's rule, and its callback runs for
+        // the alert or for the bar's Microphone widget.
+        let src = include_str!("sysevents.rs");
+        let code = &src[..src.find("#[cfg(test)]").unwrap()];
+        assert!(code.contains("sound_events(mic_alert, bar_mic, own)"));
+        assert!(code.contains("if (mic_alert || mic_bar) != mic_on"));
     }
 
     #[test]

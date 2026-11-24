@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectLanguage, modelCode, pairsFor, targetOf, translationLrc } from "./offline.ts";
+import { detectLanguage, lacksPair, lostPair, modelCode, pairsFor, targetOf, translationLrc } from "./offline.ts";
 
 test("models go through English unless one side is English", () => {
   assert.deepEqual(pairsFor("ja", "it"), [["ja", "en"], ["en", "it"]]);
@@ -32,4 +32,20 @@ test("translations as LRC on the lines' stamps", () => {
   const lines = [{ time: 1.43, text: "夜に" }, { time: 65.2, text: "" }, { time: 70, text: "駆ける" }];
   assert.equal(translationLrc(lines, ["At night", null, "Run"]), "[00:01.43]At night\n[01:10.00]Run\n");
   assert.equal(translationLrc(lines, [null, null, null]), null);
+});
+
+test("the notch's translator closes only when a pair it loaded was removed", () => {
+  // A download in the settings window must not end a translation running in the notch.
+  assert.equal(lostPair(new Set(["ja-en"]), [["ja-en", 1, false], ["en-it", 1, false]]), false);
+  assert.equal(lostPair(new Set(["ja-en", "en-it"]), [["ja-en", 1, false]]), true);
+  assert.equal(lostPair(new Set<string>(), []), false);
+});
+
+test("the translator starts afresh only for a song that needs a pair it lacks", () => {
+  // The next song in a language already loaded keeps the worker, the engine and the models.
+  assert.equal(lacksPair(new Set(["ja-en", "en-it"]), [["ja", "en"], ["en", "it"]]), false);
+  assert.equal(lacksPair(new Set(["ja-en", "en-it"]), [["en", "it"]]), false);
+  // Another language: a new worker with only that song's models, so they don't pile up while it lives.
+  assert.equal(lacksPair(new Set(["ja-en", "en-it"]), [["ko", "en"], ["en", "it"]]), true);
+  assert.equal(lacksPair(new Set<string>(), [["en", "it"]]), true);
 });

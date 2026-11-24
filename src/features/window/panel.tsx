@@ -1,18 +1,21 @@
 import { useEffect, useRef } from "react";
 import { createStore } from "../../lib/store";
+import { activeTool } from "../../notch/header";
 import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
-import { settings, updateSettings } from "../../settings/store";
+import { isMac } from "../../platform/native";
+import { settings } from "../../settings/store";
 import { t } from "../../i18n";
-import { dragSize, limits, sizeFor, stepSize, type Direction, type Edge, type Size } from "./panelSize";
+import { textStep } from "./hotkeys";
+import { dragSize, fromShown, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
+import { stripScroll } from "./model";
+import { updateBehavior } from "./store";
 
 /** The size while an edge is being dragged; saved on release. */
 const live = createStore<({ tabId: string } & Size) | null>(null);
-
-export function useLiveSize(): Size | null {
-  return live.use();
-}
+/** An edge of the open panel is being dragged. */
+export const useResizing = () => live.use() !== null;
 
 /** The open size of a tool: dragging, else saved, else its default, within its limits on this monitor. */
 export function useToolSize(id: string, def: Size): Size {
@@ -23,26 +26,40 @@ export function useToolSize(id: string, def: Size): Size {
   return sizeFor(def, saved, monitorMetrics().height);
 }
 
-function save(_id: string, size: Size | null) {
-  updateSettings((cur) => ({
-    display: {
-      ...cur.display,
-      panelWidth: size ? Math.max(640, size.w) : 640,
-      panelHeight: size ? Math.max(350, size.h) : 350,
-      panelMinWidth: size ? Math.max(640, size.w) : 640,
-      panelMaxHeight: size ? Math.max(350, size.h) : 350,
-    },
-  }));
+/**
+ * A tool's text size as a factor (1 = 100 %): Ctrl + and Ctrl - step it, Ctrl 0 resets it. Heard on the window, not the tool's own
+ * elements, so it works wherever the focus is: a tool opened from the dock or a shortcut has none inside it yet. Only the tool shown
+ * answers (activeTool), not one fading out after a switch.
+ */
+export function useToolText(id: string): number {
+  const size = settings.use().behavior.textSizes[id] ?? 100;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || activeTool.get() !== id) return;
+      const step = textStep(e, isMac);
+      if (step === null) return;
+      e.preventDefault();
+      updateBehavior((b) => ({ textSizes: stepTextSize(b.textSizes, id, step) }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [id]);
+  return size / 100;
 }
 
-/** One press of the resize shortcut on the open tool. */
-export function stepToolSize(id: string, _def: Size, dir: Direction) {
-  const lim = limits({ w: 640, h: 350 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
-  const current = {
-    w: settings.get().display.panelWidth ?? 640,
-    h: settings.get().display.panelHeight ?? 350,
-  };
-  save(id, stepSize(current, dir, lim));
+function save(id: string, size: Size | null) {
+  updateBehavior((b) => {
+    const sizes = { ...b.sizes };
+    if (size) sizes[id] = size;
+    else delete sizes[id];
+    return { sizes };
+  });
+}
+
+/** One press of the resize shortcut on the open tool, from the width on screen (`shownW`, which the tool bar can hold wider: fromShown). */
+export function stepToolSize(id: string, def: Size, dir: Direction, shownW: number) {
+  const own = sizeFor(def, settings.get().behavior.sizes[id], monitorMetrics().height);
+  save(id, fromShown(stepSize({ ...own, w: shownW }, dir, limits(def, monitorMetrics().height)), own, shownW));
 }
 
 const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
@@ -55,9 +72,10 @@ const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
 
 /**
  * Grips at the open panel's side and bottom edges and bottom corners: dragging sets this tool's size (both sides
- * move, the panel stays centred), a double click goes back to the default. Held open while dragging.
+ * move, the panel stays centred), a double click goes back to the default. Held open while dragging. A drag starts from the width on
+ * screen (`shownW`, which the tool bar can hold wider than the tool's `size`: fromShown).
  */
-export function ResizeHandles({ id, def: _def, size }: { id: string; def: Size; size: Size }) {
+export function ResizeHandles({ id, def, size, shownW }: { id: string; def: Size; size: Size; shownW: number }) {
   // Ends a drag in progress; also on unmount (tab switch, panel closed), so the hold can't stick.
   const end = useRef<(() => void) | null>(null);
   useEffect(() => () => end.current?.(), []);
@@ -70,7 +88,7 @@ export function ResizeHandles({ id, def: _def, size }: { id: string; def: Size; 
     const el = e.currentTarget, pointer = e.pointerId;
     el.setPointerCapture(pointer);
     holdOpen(true);
-    const start = size, x0 = e.clientX, y0 = e.clientY, lim = limits({ w: 640, h: 350 }, monitorMetrics().height, { minW: 640, maxW: 880, maxH: 800 });
+    const own = size, start = { ...size, w: shownW }, x0 = e.clientX, y0 = e.clientY, lim = limits(def, monitorMetrics().height);
     let current = start;
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointer) return;
@@ -86,7 +104,7 @@ export function ResizeHandles({ id, def: _def, size }: { id: string; def: Size; 
       el.removeEventListener("pointercancel", onUp);
       el.removeEventListener("lostpointercapture", onUp);
       holdOpen(false);
-      if (current !== start) save(id, current);
+      if (current !== start) save(id, fromShown(current, own, shownW));
       live.set(null);
     };
     el.addEventListener("pointermove", onMove);
@@ -125,4 +143,19 @@ export function wheelTaken(target: EventTarget | null, root: Element, dx: number
     if (vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1) return true;
   }
   return false;
+}
+
+/** A horizontal strip's ref (or call it from an effect): the vertical wheel scrolls it sideways. Returns the cleanup. */
+export function wheelSideways(el: HTMLElement | null) {
+  if (!el) return;
+  const onWheel = (e: WheelEvent) => {
+    if (wheelTaken(e.target, el, e.deltaX, e.deltaY)) return;
+    const dx = stripScroll(e.deltaX, e.deltaY, el.scrollWidth - el.clientWidth, getComputedStyle(el).direction === "rtl");
+    if (!dx) return;
+    // Also keeps the notch from switching tools with this wheel (Notch.tsx reads defaultPrevented).
+    e.preventDefault();
+    el.scrollLeft += dx;
+  };
+  el.addEventListener("wheel", onWheel, { passive: false });
+  return () => el.removeEventListener("wheel", onWheel);
 }

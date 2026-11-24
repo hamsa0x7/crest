@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BoundingBox, Camera, Check, Clock, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, PencilSimple, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "@phosphor-icons/react";
+import { BoundingBox, Camera, Check, Clock, Crop, FilmStrip, FolderOpen, ImageSquare, Microphone, MicrophoneSlash, Pause, PencilSimple, Play, Record, SpeakerHigh, SpeakerSlash, Stop, Trash, Tray, type Icon } from "../../ui/iconset";
 import { fade, pulse, springs } from "../../design/motion";
 import { formatBytes, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -9,6 +9,7 @@ import { settings, updateSettings, type Settings } from "../../settings/store";
 import { Button, Empty, Segmented, Select } from "../../ui/controls";
 import { useSecondTick } from "../timer/store";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 import { locale, t } from "../../i18n";
 import { elapsedAt, formatElapsed } from "./clock";
 import { libraryEpoch, pauseRecording, recording, startRecording, stopRecording, takeShot } from "./store";
@@ -112,7 +113,7 @@ export function CaptureView() {
               options={sources.map((s) => ({ value: s.id, label: label(s) }))}
               onChange={(v) => setCapture({ source: v })}
             />
-            <Segmented id="capture-fps" size="sm" value={String(cfg.fps)} options={[{ value: "30", label: "30" }, { value: "60", label: "60" }]} onChange={(v) => setCapture({ fps: v === "60" ? 60 : 30 })} />
+            <Segmented label={t("Video")} id="capture-fps" size="sm" value={String(cfg.fps)} options={[{ value: "30", label: "30" }, { value: "60", label: "60" }]} onChange={(v) => setCapture({ fps: v === "60" ? 60 : 30 })} />
             <Toggle on={cfg.mic} icons={[Microphone, MicrophoneSlash]} labels={[t("Mit Mikrofon"), t("Ohne Mikrofon")]} onChange={(mic) => setCapture({ mic })} />
             <Toggle on={cfg.system} icons={[SpeakerHigh, SpeakerSlash]} labels={[t("Mit Systemton"), t("Ohne Systemton")]} onChange={(system) => setCapture({ system })} />
             <Button icon={Record} primary disabled={busy || !source || !idle} onClick={record}>
@@ -196,7 +197,7 @@ export function Toggle(props: { on: boolean; icons: [Icon, Icon]; labels: [strin
       aria-pressed={props.on}
       title={label}
       onClick={() => props.onChange(!props.on)}
-      className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${props.on ? "bg-fill-3 text-label" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
+      className={`pressable flex size-7 shrink-0 items-center justify-center rounded-full ${props.on ? "bg-secondary-container text-on-secondary-container" : "bg-fill-1 text-label-3 hover:text-label-2"}`}
     >
       <I size={14} weight="bold" />
     </button>
@@ -250,6 +251,7 @@ function Library() {
       <div className="flex items-center justify-between">
         <Segmented
           id="capture-filter"
+          label={t("Erfassen")}
           size="sm"
           value={filter}
           options={[{ value: "all", label: t("Alle") }, { value: "shot", label: t("Bildschirmfotos") }, { value: "video", label: t("Videos") }]}
@@ -264,7 +266,7 @@ function Library() {
           <Empty icon={filter === "video" ? FilmStrip : ImageSquare} title={t("Noch nichts aufgenommen")} text={t("Bildschirmfotos und Videos erscheinen hier")} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+<div ref={wheelSideways} className="flex min-h-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
           <AnimatePresence initial={false} mode="popLayout">
             {shown.map((f) => (
               <motion.div

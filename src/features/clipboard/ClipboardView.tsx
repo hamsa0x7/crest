@@ -22,7 +22,7 @@ import {
   Trash,
   X,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { content, fade, springs } from "../../design/motion";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { MAX_SIZE, requestSize } from "../../notch/size";
@@ -31,6 +31,7 @@ import { clipboard, useClipboard, type ClipItem, type ClipPreview } from "../../
 import { Redacted, Segmented } from "../../ui/controls";
 import { settings } from "../../settings/store";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 import { t } from "../../i18n";
 import { clickAction } from "./click";
 import { isCode } from "./code";
@@ -95,19 +96,8 @@ export function ClipboardView() {
     if (previewId !== null && (hidden || !all.some((i) => i.id === previewId))) setPreviewId(null);
   }, [all, previewId, hidden]);
 
-  // Vertical wheel → horizontal scroll.
-  useEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      // Right to left, scrollLeft runs from 0 down to negative values.
-      el.scrollLeft += getComputedStyle(el).direction === "rtl" ? -e.deltaY : e.deltaY;
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [all.length === 0]);
+  // Vertical wheel → horizontal scroll; the strip comes and goes with an empty history.
+  useEffect(() => wheelSideways(scroller.current), [all.length === 0]);
 
   const pick = async (id: number, paste: boolean) => {
     let pasted = false;
@@ -136,7 +126,7 @@ export function ClipboardView() {
   return (
     <div className="flex h-full flex-col">
       <HeaderActions>
-        <Segmented id="clip-filter" size="sm" value={filter} onChange={setFilter} options={filters.map((f) => ({ ...f, label: t(f.label) }))} />
+        <Segmented label={t("Zwischenablage")} id="clip-filter" size="sm" value={filter} onChange={setFilter} options={filters.map((f) => ({ ...f, label: t(f.label) }))} />
         <HeaderButton
           label={t("Alle löschen")}
           onClick={() => {

@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { AnimatePresence, animate, frame, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue, type Transition } from "motion/react";
-import { GearSix, PushPin } from "@phosphor-icons/react";
+import { GearSix, PushPin } from "../ui/iconset";
 import { content, springs } from "../design/motion";
 import { livePosition, useNowPlaying } from "../platform/media";
-import { isMac, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow } from "../platform/native";
+import { isMac, isNative, keyboardFocus, onNativeBlur, onNativeHover, onNativeHoverAt, onShortcut, onTrayOpen, setHitRect, setMemoryLow, setPassthrough } from "../platform/native";
 import { PrivacyDots, usePrivacyDots } from "../features/privacy/PrivacyDots";
 import { privacy, usePresenting } from "../features/privacy/store";
 import { fullscreen, useGamingLive } from "../features/system/gaming";
+import { focusMode, setFocusMode } from "./focus";
+import { clickOpens, focusLine, startsOnNotch, togglesFocus } from "./focusRules";
 import { dragArea, edgeOf, placementKey, useDragToMove, viewLine, windowLength, windowY } from "./drag";
 import { useLiveActivity } from "./live";
 import { CompactRow } from "./row/CompactRow";
@@ -17,10 +19,10 @@ import { Nest } from "./pet/Nest";
 import { powerState, statusAlert, chargerEvent } from "../features/status/store";
 import { BlackHoleCharger } from "./BlackHoleCharger";
 import { effectiveIdleStyle, screen } from "../features/window/store";
-import { ResizeHandles, stepToolSize, useLiveSize, wheelTaken } from "../features/window/panel";
+import { ResizeHandles, stepToolSize, useResizing, useToolSize, wheelTaken } from "../features/window/panel";
 import { cycle } from "../features/window/model";
-import { windowShell } from "../platform/services";
-import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, peekGeometry, peekHudGeometry, type NotchGeometry, type PresentationState } from "./geometry";
+import { display, windowShell } from "../platform/services";
+import { DOCK_HEIGHT, HEADER_HEIGHT, closedGeometry, columnGeometry, lineGeometry, openGeometry, openWidth, peekGeometry, peekHudGeometry, type NotchGeometry, type PresentationState } from "./geometry";
 import { HoverPeek } from "./HoverPeek";
 import { SatelliteBubble, type ActiveActivity } from "./SatelliteBubble";
 import { downloads } from "../features/downloads/store";
@@ -31,9 +33,9 @@ import { contentScale, sideLength } from "./collapsed";
 import { monitor, monitorMetrics, monitors, notchBusy, sharedSpan } from "./monitor";
 import { useMirror } from "./mirror";
 import { ROW, rowRoom, surfaceWidth } from "./row/layout";
-import { toPageCss } from "../features/window/panelSize";
+import { limits, toPageCss } from "../features/window/panelSize";
 import { HeaderButton, ToolScope, activeTool, headerSlot } from "./header";
-import { sizeOverride } from "./size";
+import { sizeExtra, sizeOverride } from "./size";
 import { NotchShape } from "./NotchShape";
 import { calculateFerrofluidStretch, calculateIdleSag } from "./ferrofluid";
 import { subscribeSpectrum } from "../platform/audio";
@@ -41,15 +43,24 @@ import { lastGood } from "../features/weather/store";
 import { notchLocked, lockFeedback, pulseLockFeedback, toggleLock } from "./lock";
 import { CompanionEyes } from "./CompanionEyes";
 import type { GlassMode } from "./glass/GlassLayer";
-import { barInk, useBarDrop, usePlainDrop } from "./glass/bar";
-import { CLOSE_SETTLE_MS, SNAPSHOT_STALE_MS, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
+import { barInk, barRect, useBarDrop, usePlainDrop } from "./glass/bar";
+import { CLOSE_SETTLE_MS, HUD_LIVE_LINGER_MS, SNAPSHOT_STALE_MS, dockNeed, dropLens, glassAllowed, glassShape, liveNeed, snapshotLead } from "./glass/params";
 import { contrastMore, dropSnapshot, glassBroken, reducedTransparency, requestSnapshot, snapshot } from "./glass/snapshot";
-import { dropLive, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
+import { dropLive, liveForDock, liveForHud, liveFrame, liveSession, liveSupport, restartLive, wantLive } from "./glass/live";
 import { ClosedResize, ClosedResizeBar, closedEdit, closedLive } from "./ClosedResize";
-import { drop, takeDropped } from "../platform/drop";
-import { hoverDelayMs, settings } from "../settings/store";
+import { appDrop, drop, takeDropped } from "../platform/drop";
+import { hoverDelayMs, settings, updateSettings } from "../settings/store";
+import { toolOff } from "../settings/tools";
+import { createStore } from "../lib/store";
+import { barLook } from "../features/taskbar/look";
+import { dragThreshold } from "../features/taskbar/panelModel";
+import { inBox, type Box } from "../features/taskbar/position";
+import { pressDragged, startPress } from "../features/taskbar/window/press";
+import { DropTrash, useTrashArmed } from "../features/taskbar/window/DropTrash";
 import { useUnseen } from "../lib/changelog";
 import { nav, navigate, openOn, takeOpenTarget } from "./nav";
+import { navRoute } from "./navRoute";
+import { windowKind } from "../lib/windowKind";
 import { update } from "../lib/update";
 import { findOnScreenTab, findTab, pageTabs, settingsTab, setupTab, tabs, type NotchTab } from "./tabs";
 import { scanScreens } from "../features/find/store";
@@ -60,6 +71,7 @@ import { dueTasks } from "../features/todos/store";
 import { asks, popping } from "../features/notices/store";
 import { activeTheme, forcedColors, refreshTheme, useClosedGlassInk, useClosedInk, useThemedAccent } from "../features/themes/store";
 import { useHue, useIconColors, type Hue } from "../features/themes/hues";
+import { HUE_PILL, plusInk } from "../features/themes/themes";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
 import { viewMetrics, viewZoom } from "./viewZoom";
@@ -76,10 +88,13 @@ const POINTED_MS = 1500;
 const MEMORY_LOW_AFTER_MS = 20_000;
 /** After a drag ends without files, the native drop's paths may still be on their way for this long. */
 const DROP_WAIT_MS = 500;
+/** A tool dragged off the open panel's tool bar (Dock), by its id, and the pointer, in client px; null while none is (DockDrop). */
+const toolDrag = createStore<{ id: string; x: number; y: number; pointerId: number } | null>(null);
 
 export function Notch() {
   const { status, open, close, dismiss, toggle, onPointerEnter, onPointerLeave } = useNotchState();
-  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings } = settings.use();
+  const focus = focusMode.use();
+  const { tools: toolSettings, display: displaySettings, behavior, closedSize: savedSizes, themes, closed: closedSettings, taskbar } = settings.use();
   const [shaking, setShaking] = useState(false);
   const lockFeedbackVal = lockFeedback.use();
   const isLocked = notchLocked.use() || displaySettings.notchLocked;
@@ -191,6 +206,8 @@ export function Notch() {
   const screenBehavior = screen.use();
   // The resize mode changes the chosen look, not the line a window rule turned it into for now.
   const idleStyle = editing ? displaySettings.idleStyle : effectiveIdleStyle(displaySettings.idleStyle, screenBehavior);
+  // Focus mode as a line: no live activity, no dots, only the thin strip at the edge.
+  const line = focus && displaySettings.focusStyle === "line";
   // Line as the normal closed look: hover and click work as usual, but nothing shows
   // while closed but the song's progress. Only an urgent notice opens it into the notch, until answered or for its time:
   // a finished timer, a due to-do reminder (the user asked to be told at that time), a running recording (its stop button stays in reach), a status alert,
@@ -204,7 +221,7 @@ export function Notch() {
   const urgent = timerFinished || tasksDue || recordingOn || asking;
   const statusOn = statusAlert.use() !== null;
   const pop = popping.use(), popped = pop !== null;
-  const idleLine = idleStyle === "line";
+  const idleLine = !focus && idleStyle === "line";
   const alert = idleLine && (urgent || statusOn || popped);
   // Plugin tools exist once their list has been read.
   plugins.use();
@@ -250,7 +267,7 @@ export function Notch() {
   useLayoutEffect(() => {
     if (status === "open" && prevStatus.current !== "open") {
       const resumed = Date.now() - closedAt.current < RESUME_MS;
-      const hovered = Date.now() - pointed.current.at < POINTED_MS ? pointed.current.tool : null;
+      const hovered = settings.get().behavior.hoverParts && Date.now() - pointed.current.at < POINTED_MS ? pointed.current.tool : null;
       const target = trayTab.current ?? takeOpenTarget() ?? hovered;
       if (target) navigate(target);
       // A fresh install opens on the setup until it is finished or skipped.
@@ -268,32 +285,35 @@ export function Notch() {
   useQuickDrop(status, open, dismiss);
 
   const override = sizeOverride.use();
+  const toolSize = useToolSize(tab.id, tab.size);
+  // A tool's own runtime request (e.g. the clipboard's image preview) wins over the dragged size.
   const overridden = override?.tabId === tab.id;
-  const dragging = useLiveSize();
-  const fixedW = Math.max(640, dragging?.w ?? displaySettings.panelWidth ?? displaySettings.panelMinWidth ?? 640);
-  const fixedH = Math.max(350, dragging?.h ?? displaySettings.panelHeight ?? displaySettings.panelMaxHeight ?? 350);
-  const monH = monitorMetrics().height;
-  const clampedH = Math.min(fixedH, Math.max(350, monH - 24));
-  const rawSize = { w: fixedW, h: clampedH };
-  // const rawSizeOverridden = overridden
-
-
+  // Held to the monitor like a saved size is.
+  const extra = sizeExtra.use();
+  const extraH = !overridden && extra?.tabId === tab.id ? extra.h : 0;
+  const maxH = limits(tab.size, monitorMetrics().height).maxH;
+  const own = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
+  // Never narrower than the tool bar at full size, where the monitor holds it (#82).
+  const rawSize = { w: openWidth(own.w, visible.length, monitorMetrics().width), h: own.h };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
+  // Focus mode as a line draws the line whatever the look; outside it, the look a window rule may have turned into the line.
+  const style = line ? "line" : idleStyle;
   // What opens a capsule that a window rule turned into the line comes as the capsule, the look that was chosen.
-  const surface = surfaceOf(idleStyle, displaySettings.idleStyle, alert);
-  // The row is on screen closed or peeking, not as a line, not while Rust hides the window for a window rule.
+  const surface = surfaceOf(style, displaySettings.idleStyle, alert);
+  // The row is on screen closed or peeking, not as a line, not in focus mode, not while Rust hides the window for a window rule.
   const hiddenForFullscreen = screenBehavior === "hide";
-  const showRow = status !== "open" && !idleLine && !hiddenForFullscreen && !editing;
+  const showRow = status !== "open" && !line && !idleLine && !focus && !hiddenForFullscreen && !editing;
   // Content width of the closed row, as it last reported it (kept while open, so closing goes straight to it).
   const [rowWidth, setRowWidth] = useState(0);
-  // Notices cover the row; on the idle line only urgent ones show (timer, reminder, a status alert). While one shows the shape takes its width.
+  // Notices cover the row; on the idle line only urgent ones show (timer, reminder, a status alert, an app's notice), in dimmed focus mode only a
+  // finished timer, a due reminder, a question or the recording. While one shows the shape takes its width.
   const earRadius = displaySettings.ears ? (displaySettings.earRadius ?? 13) : 0;
   // The capsule snaps with its closed shape, read when a drag moves (closedW and closedH are set below).
   const drag = useDragToMove(status, () => closedGeometry(surface, closedW, closedH, earRadius));
   // The edge it hangs from (the capsule floats on the top frame); on a side edge the row stands as a column, which shows notices as an icon line.
-  const edge = edgeOf(idleStyle, drag.dock);
+  const edge = edgeOf(style, drag.dock);
   const side = across(edge);
   // Glass (src/notch/glass): Windows, the capsule's open panel, or one hanging from the top edge from the notch or the line. The layer
   // stays mounted while the setting is on, whatever the shape: remounting it would build its context again (37-65 ms) on every change.
@@ -310,18 +330,35 @@ export function Notch() {
   // The hide shortcut (or a rule) hides the window and may leave the panel open meanwhile.
   const [windowHidden, setWindowHidden] = useState(false);
   useEffect(() => windowShell.onHidden(setWindowHidden), []);
-  // What turns any glass off. The cover only on a light theme: its veil is light, and the panel takes light text over the cover.
+  // What turns any glass off. The cover only on a light theme: its veil is light, and the panel takes light text over the cover. Focus mode
+  // counts as hidden: a notch put aside keeps no live copy of the screen running for itself.
   const blocks = {
     forcedColors: forcedColors.use(), contrastMore: contrastMore.use(), reducedTransparency: reducedTransparency.use(),
-    saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden,
+    saver: powerState.use()?.saver === true, fullscreen: fullscreen.use() || gaming, hidden: hiddenForFullscreen || windowHidden || focus,
     presenting, cover: backdrop && !darkTheme, dragging: drag.dragging, editing,
   };
   const allowed = glassAllowed({ on: themes.glass, windows: !isMac, fits: glassFits, webgl: !broken, ...blocks });
-  // The live glass (glass/live.ts): the closed notch on the top edge and the capsule, never the line; not while the session is locked,
-  // away on a remote client or asleep either.
+  // A status alert fills the closed shape (NoticeLayer.tsx, `exact`). With Glass and its "Status alerts" switch on it is clear glass over the live copy,
+  // which runs for it also with "Also the closed notch and capsule" off, and HUD_LIVE_LINGER_MS longer, so a run of keys keeps one session. With that
+  // switch off it takes the closed notch's colour, also where the closed notch is glass.
+  const [noticeSize, setNoticeSize] = useState<{ width: number; height: number; exact: boolean } | null>(null);
+  const hud = !side && status !== "open" && noticeSize?.exact === true;
+  const [hudLive, setHudLive] = useState(false);
+  useEffect(() => {
+    if (hud) {
+      setHudLive(true);
+      return;
+    }
+    const id = window.setTimeout(() => setHudLive(false), HUD_LIVE_LINGER_MS);
+    return () => window.clearTimeout(id);
+  }, [hud]);
+  const hudGlass = themes.glass && themes.glassAlerts;
+  useEffect(() => liveForHud(hudGlass && !themes.glassLive && (hud || hudLive)), [hudGlass, themes.glassLive, hud, hudLive]);
+  // The live glass (glass/live.ts): the closed notch on the top edge and the capsule, never the line (but the notch a status alert opens
+  // it into); not while the session is locked, away on a remote client or asleep either.
   const support = liveSupport.use(), session = liveSession.use();
   const liveAllowed =
-    glassAllowed({ on: themes.glass && themes.glassLive && support?.supported === true, windows: !isMac, fits: edge === "top" && !idleLine, webgl: !broken, ...blocks }) &&
+    glassAllowed({ on: themes.glass && (themes.glassLive || (hudGlass && (hud || hudLive))) && support?.supported === true, windows: !isMac, fits: edge === "top" && (!idleLine || hud), webgl: !broken, ...blocks }) &&
     !session.locked && !session.remote && !session.asleep;
   // The open panel draws over the copy taken as it opens (snapshot.ts) and keeps it as it closes, under the closed colour coming back;
   // the closed shapes and the peek draw over the live copy (live.ts). Whether a panel is closing is state set during render, React's way
@@ -342,17 +379,29 @@ export function Notch() {
   }, [shrinking]);
   const closedLook = status !== "open" && !shrinking;
   const liveReady = liveFrame.use();
-  const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
+  // With the closed notch's own glass off, only a status alert shows glass; the session that lingers after it draws nothing. A status alert follows
+  // its own switch, the rest of the closed look the closed notch's.
+  const glass: GlassMode = !armed ? "off" : closedLook ? (liveAllowed && liveReady && (hud ? themes.glassAlerts : themes.glassLive) ? "shown" : "armed") : allowed && shot.ready ? "shown" : "armed";
+  // The taskbar's Liquid Glass + (look.ts barLook), with the taskbar on and Glass on here, draws the open panel's tool bar its way too:
+  // its shape by the look, whether the glass shows or not, as on the bar. While the panel is open and its glass shows, over a live copy
+  // around the bar (glass/live.ts liveForDock), which also keeps the notch out of captures meanwhile; not under the Music tool's cover,
+  // which leaves little of the glass to see, nor while the session is locked, away on a remote client or asleep.
+  const plusDock = taskbar.enabled && themes.glass && barLook(taskbar, support?.supported === true) === "plus";
+  const dockLive = plusDock && behavior.toolBarFill && glass === "shown" && status === "open" && !backdrop && !session.locked && !session.remote && !session.asleep;
+  // The tool bar under the header or at the bottom of the open panel (#76): the same element either way, so it is built once.
+  const dockTop = behavior.toolBar === "top";
+  const dock = <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} top={dockTop} plus={plusDock} />;
   const reduced = useReducedMotion();
   // The closed row over the closed glass (themes.ts closedGlassInk); its colours change with --shape's fade while the switch is on,
   // where the live glass can run: elsewhere (a Mac with a Windows backup restored) the row keeps global.css's fade of the accent.
   const closedGlass = useClosedGlassInk(closedInk?.["--accent"] ?? accent, glass === "shown" && closedLook);
   const inkFade = themes.glass && themes.glassLive && support?.supported === true && !reduced;
-  const noticeTime = status !== "open" && (showRow || alert);
+  // Under a window rule that hides the window, a status alert still draws: an indicator shown everywhere brings the window out for it.
+  // In dimmed focus mode only what cannot wait comes up, as a card that takes the pointer (setPassthrough below).
+  const noticeTime = status !== "open" && (showRow || alert || (focus && !line && urgent && !hiddenForFullscreen) || (hiddenForFullscreen && statusOn));
   const showNotices = !side && noticeTime && !editing;
-  // On the idle line, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
+  // On the idle line or dimmed, only an urgent notice brings the column up: its icon alone, so the shape always has something to click.
   const showColumn = side && noticeTime && !editing;
-  const [noticeSize, setNoticeSize] = useState<{ width: number; height: number } | null>(null);
   const notice = showNotices ? noticeSize : null;
   // The chosen size (collapsed.ts): the content is drawn at the height over its designed 30, the width is a minimum the content widens,
   // and the monitor along the edge only narrows what is drawn. On a side edge the height is the column's depth, the width its length.
@@ -366,11 +415,16 @@ export function Notch() {
   // A card brings its own padding (NoticeCard.tsx), so the shape keeps a narrow margin; the privacy dots, when on, keep the row's beside it.
   const dotsOn = usePrivacyDots().length > 0;
   const cardInset = notice && notice.height >= CARD_H && !(showRow && dotsOn) ? CARD_INSET[surface] : undefined;
+  // A status alert (NoticeLayer.tsx, `exact`) keeps its own size whatever the notch's: no minimum from the chosen width, the designed scale
+  // and the row's 30 px, so the shape is just large enough for its icon, bar and text.
+  const exact = notice?.exact === true;
   const isChargerActive = charger.active && displaySettings.chargerAnimation !== "off";
   const contentWidth = isChargerActive ? Math.max(180, rowWidth) : notice?.width ?? (showRow || status === "open" ? rowWidth : 0);
-  const closedW = surfaceWidth(surface, contentWidth, surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span, cardInset);
+  const closedW = exact
+    ? surfaceWidth(surface, notice.width, 0, 1, span)
+    : surfaceWidth(surface, contentWidth, surface === "capsule" ? sizes.capsuleWidth : sizes.notchWidth, scale, span, cardInset);
   // A notice card (NoticeCard.tsx) is taller than the row: the closed shape grows to it, drawn at the same content scale.
-  const shapeH = notice ? Math.max(closedH, notice.height * scale) : closedH;
+  const shapeH = notice ? (exact ? notice.height : Math.max(closedH, notice.height * scale)) : closedH;
   const [column, setColumn] = useState({ length: 0, width: 0, notice: false });
   const columnShows = showColumn || status === "open";
   const sideSize = side ? columnSurface(columnShows ? column.length : 0, columnShows ? column.width : 0, scale, sideLength(sizes.notchWidth), span) : null;
@@ -380,10 +434,10 @@ export function Notch() {
   const workTop = monitorMetrics().workTop;
   const viewH = window.innerHeight / viewZoom(), viewW = window.innerWidth / viewZoom();
   const capY = capsuleY(drag.y, sizes.capsuleHeight, isNative ? monitorMetrics().height : viewH);
-  const bridged = hasBridge(idleStyle, capY, workTop);
-  const winTop = isNative ? windowY(capY) : windowYFor(idleStyle, capY, viewH, workTop);
-  const capsuleTop = idleStyle === "capsule" ? capY - winTop : surface === "capsule" ? lineCapsuleY(capY, workTop) - winTop : 0;
-  const lineShape = lineIdle && status !== "open";
+  const bridged = hasBridge(style, capY, workTop);
+  const winTop = isNative ? windowY(capY) : windowYFor(style, capY, viewH, workTop);
+  const capsuleTop = style === "capsule" ? capY - winTop : surface === "capsule" ? lineCapsuleY(capY, workTop) - winTop : 0;
+  const lineShape = line || (status !== "open" && (lineIdle || (focus && focusLine(displaySettings.focusStyle, idleStyle === "line", noticeTime))));
   // Open, a bridged capsule hangs from the edge like the notch; a floating one opens from its top, moved up as far as the panel needs (a notice card the same, so it stays in the window).
   // The line's distance from the edge is a place on the screen, saved at 100 % like display.y.
   const shapeTop = status !== "open" ? (lineShape ? toPageCss(sizes.lineTop, behavior.scale) : notice ? panelTop(capsuleTop, shapeH) : capsuleTop) : bridged ? 0 : panelTop(capsuleTop, size.h);
@@ -446,11 +500,11 @@ export function Notch() {
   const openW = side ? size.h : size.w;
   const openH = side ? size.w : size.h;
   const sticky = useStickyHitZone(status, openW, openH, edge);
-  const transition = useTransitionFor(status, shape);
+  const transition = useTransitionFor(status, shape, exact);
   const topValue = useSpringTop(top, transition, drag.dragging);
   // The pet's nest stands beside the closed shape, its top a little below the shape's (topValue: as padding or margin, the shape's top).
   const pet = closedSettings.pet;
-  const nestShown = !!pet.id && status !== "open" && !lineShape && !hiddenForFullscreen && !editing;
+  const nestShown = !!pet.id && status !== "open" && !lineShape && !hiddenForFullscreen && !editing && !focus;
   const nestTop = useTransform(topValue, (v) => v + 4);
 
   // "Follow the cursor" and "All monitors" (monitor.ts) move the notch only while it is closed, not dragged and not recording.
@@ -476,16 +530,45 @@ export function Notch() {
     };
   }, [dismiss]);
 
-  // Hover stays off while a question waits, or the card would vanish under the pointer, and while a Windows notice shows:
-  // a click on its card opens its app (issue #34), and the panel opening on the way there would take the card away first.
-  // Open, the enter still has to run: it cancels the close timer a leave started.
-  const hoverOff = editing || isLocked || ((asking || pop?.source === "windows") && status !== "open");
+  // Hover stays off in focus mode (a card there takes the pointer, see below), while a question waits, or the card would vanish under the
+  // pointer, and while a Windows notice shows: a click on its card opens its app (issue #34), and the panel opening on the way there would
+  // take the card away first. Open, the enter still has to run: it cancels the close timer a leave started.
+  const hoverOff = editing || focus || isLocked || ((asking || pop?.source === "windows") && status !== "open");
   useNativeBridge(hitRef, topValue, hoverOff ? NOOP : safeOnPointerEnter, safeOnPointerLeave, edge);
+  // Focus mode is click-through, except while a card with buttons shows (a question, a finished timer, a reminder, the recording): its buttons need the pointer.
+  useEffect(() => setPassthrough(focus && !noticeTime), [focus, noticeTime]);
   // Starting the resize mode from the settings closes the panel onto the closed shape it changes.
   useEffect(() => {
     if (editing) close();
   }, [editing, close]);
 
+  // Focus mode on → notch closes, no more hover.
+  useEffect(() => {
+    if (focus) close();
+  }, [focus, close]);
+  // Opened on purpose in focus mode (a shortcut, the tray, a card's link): the panel would ignore the pointer, so focus mode ends.
+  useEffect(() => {
+    if (focus && status === "open") setFocusMode(false);
+  }, [focus, status]);
+
+  // Three quick clicks toggle focus mode while its switch is on (natively Rust counts the ones that leave it). A series is judged by its
+  // first click (focusRules.ts): begun on the notch, its later clicks never reach the panel, and the third puts focus mode the other way
+  // from how the series found it, so a series that leaves cannot enter again.
+  const series = useRef({ onNotch: false, enter: true });
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (drag.moved() || editing) return;
+    if (e.detail <= 1) {
+      const onHeader = e.target instanceof Element && !!e.target.closest("[data-drag-handle]");
+      series.current = { onNotch: startsOnNotch(status === "open", onHeader, isInteractive(e.target)), enter: !focus };
+      return;
+    }
+    if (!displaySettings.focusClicks || !series.current.onNotch) return;
+    e.stopPropagation();
+    if (!togglesFocus(e.detail, true, true)) return;
+    // Closed first: the first click opened the panel, and an open panel ends focus mode (above).
+    if (series.current.enter) close();
+    setFocusMode(series.current.enter);
+  };
   const onClick = (e: React.MouseEvent) => {
     window.clearTimeout(pressHoldTimer.current);
     if (drag.moved() || editing) return;
@@ -496,6 +579,8 @@ export function Notch() {
       window.setTimeout(() => setShaking(false), 450);
       return;
     }
+    // In focus mode the closed notch takes no click, a card does: its click opens the notch, which ends focus mode.
+    if (!clickOpens(status === "open", focus, noticeTime)) return;
     if (status === "open") {
       const s = settings.get();
       if (s.openMode === "click") {
@@ -524,6 +609,8 @@ export function Notch() {
 
   /** Opens on `tab` (null = as usual). */
   const openOn = (tab: string | null) => {
+    // The settings open in their window, not in the notch; trayTab stays unset, so the next open does not go there again.
+    if (tab && navRoute(tab, windowKind, isNative) === "settings-window") return navigate(tab);
     // Only remember it while opening, otherwise it would stick for the next open.
     trayTab.current = status === "open" ? null : tab;
     if (tab) navigate(tab);
@@ -532,7 +619,7 @@ export function Notch() {
 
   // Right click on the notch opens the rich context menu; text fields keep their menu.
   const onContextMenu = (e: React.MouseEvent) => {
-    if (!behavior.rightClickSettings || editing || isTextField(e.target) || drag.moved()) return;
+    if (!behavior.rightClickSettings || focus || editing || isTextField(e.target) || drag.moved()) return;
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY });
@@ -609,9 +696,9 @@ export function Notch() {
         if (status !== "open") {
           open();
           keyboardFocus(true);
-        } else if (!overridden) stepToolSize(tab.id, tab.size, dir);
+        } else if (!overridden) stepToolSize(tab.id, tab.size, dir, size.w);
       }),
-    [open, status, tab, overridden],
+    [open, status, tab, overridden, size.w],
   );
   useEffect(() => {
     if (status === "closed") keyboardFocus(false);
@@ -621,7 +708,7 @@ export function Notch() {
 
   // Closed for a while → WebView2 may trim memory; back to normal on the first touch
   // (peek), so the hover delay covers paging it back in before the notch opens; not while the closed notch draws a live copy, which
-  // uploads and draws up to 10 times a second.
+  // uploads and draws up to 30 times a second (Frames per second).
   useEffect(() => {
     if (status !== "closed" || liveReady) return setMemoryLow(false);
     const id = window.setTimeout(() => setMemoryLow(true), MEMORY_LOW_AFTER_MS);
@@ -634,13 +721,25 @@ export function Notch() {
   // monitor with another scale they change after `place` has, and the zone, in physical px, is taken again for them.
   const view = viewMetrics.use();
   const reach = peekGeometry(surface, closedW, shapeH);
-  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr }) : null;
+  // Open, the tool bar's zone under Liquid Glass +, from its capsule as measured (glass/bar.ts). None while a grip resizes the panel:
+  // the bar moves with nearly every pointer move, and each new zone would be a new session; one for where it ends, on release.
+  const bar = barRect.use();
+  const resizing = useResizing();
+  const at = { mid: view.width / 2 + (isNative ? 0 : drag.offset * viewZoom()), zoom: viewZoom(), dpr: view.dpr };
+  const need = liveAllowed && status === "closed" ? liveNeed(reach, top, surface === "capsule", at) : dockLive && !resizing ? dockNeed(bar, top, at) : null;
   const needKey = need && `${need.x},${need.y},${need.w},${need.h}`;
+  // Before the zone: at a close the exclusion goes back first, and Rust stops the session with it.
+  useEffect(() => liveForDock(dockLive), [dockLive]);
   useEffect(() => wantLive(need), [needKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The last copy stays on the peek's glass; it goes once the panel opens, and at once when the live glass may not show at all.
+  // The last copy stays on the peek's glass; it goes once the panel opens, at once when the live glass may not show at all, and once
+  // the tool bar's is no longer wanted (the closed look never draws that one). The tool bar's stays while it is wanted, whatever the
+  // closed notch's switch does meanwhile.
   useEffect(() => {
-    if (!liveAllowed || status === "open") dropLive();
-  }, [liveAllowed, status]);
+    if (status === "open") dropLive();
+  }, [status]);
+  useEffect(() => {
+    if (!dockLive) dropLive();
+  }, [liveAllowed, dockLive]);
 
   // The glass's copy of the screen goes at once when presenting, moving or hidden: the full veil covers the panel until --shape is
   // opaque. Hidden, a new copy comes when the window shows again.
@@ -655,7 +754,7 @@ export function Notch() {
   }, [themes.glass]);
   // Moved, rescaled or on another monitor while open: the copy no longer lies under the window. Before the effect below, so a drag's
   // release asks once.
-  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}`;
+  const place = `${placementKey()}|${displaySettings.offset}|${behavior.scale}|${view.dpr}`;
   const lastPlace = useRef(place);
   useEffect(() => {
     if (lastPlace.current === place) return;
@@ -721,6 +820,7 @@ export function Notch() {
       // In the browser the notch moves inside the window; natively the whole window moves (display.rs).
       style={{
         ["--accent" as string]: accent,
+        opacity: focus && !line ? 0.5 : 1,
         transform: frame ? [frame, slide].filter(Boolean).join(" ") : slide,
         ...(frame && { right: "auto", width: isNative ? windowLength(drag.dock) : side ? viewH : viewW, transformOrigin: "0 0" }),
         // In the browser the layer stands in for the window Rust zooms natively.
@@ -766,7 +866,7 @@ export function Notch() {
             }
           }
         }}
-        onPointerDown={editing ? undefined : onPointerDown}
+        onPointerDown={focus || editing ? undefined : onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         // In Tauri, hover comes from the Rust poll (useNativeBridge), not the DOM.
@@ -778,6 +878,7 @@ export function Notch() {
           }
           safeOnPointerLeave();
         }}
+        onClickCapture={onClickCapture}
         onClick={onClick}
         onContextMenu={onContextMenu}
         onWheel={onWheel}
@@ -792,6 +893,8 @@ export function Notch() {
           look={closedLook ? "closed" : "panel"}
           top={topValue}
           hangs={bridged}
+          hud={hud && themes.glassAlerts}
+          plus={plusDock}
           birthAnimation={displaySettings.birthAnimation && status !== "open" && !lineShape}
           tinted={tinted}
           rimPreset={displaySettings.rimPreset}
@@ -844,16 +947,18 @@ export function Notch() {
                   : showRow && <CompactRow key="row" room={rowRoom(surface, scale, span)} scale={scale} covered={notice !== null} onWidth={setRowWidth} satellitePart={splitActive ? secondaryActivity?.id : null} />}
               </AnimatePresence>
               {/* The notch's insets are the larger ones, so a notice fits either surface. */}
-              <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} />}</AnimatePresence>
-              {/* Closed, the dots are the row's last part; under a notice the row is faded out, so they stand on their own (beside the notice, in the shape's inset). */}
-              {showRow && notice && <PrivacyDots centered={side} beside={notice.width / 2 + (surface === "capsule" ? ROW.insetCapsule : ROW.insetNotch) / 2} />}
+              <AnimatePresence>{showNotices && <NoticeLayer key="notices" max={rowRoom("notch", scale, span)} scale={scale} onSize={setNoticeSize} urgentOnly={!showRow} mono={hud && hudGlass && liveAllowed} />}</AnimatePresence>
+              {/* Closed, the dots are the row's last part; dimmed for focus there is no row, and under a notice the row is faded out, so they stand on their own (beside the notice, in the shape's inset). */}
+              {(focus || (showRow && notice)) && status !== "open" && !line && (
+                <PrivacyDots centered={side} beside={!focus && notice ? (notice.width / 2 + (surface === "capsule" ? ROW.insetCapsule : ROW.insetNotch) / 2) / (exact ? scale : 1) : undefined} />
+              )}
             </div>
             )}
             {lineIdle && status !== "open" && !hiddenForFullscreen && <LineProgress along={side ? "y" : "x"} />}
           </div>
-          {editing && status !== "open" && <ClosedResize style={idleStyle} edge={edge} widest={span} />}
+          {editing && status !== "open" && <ClosedResize style={style} edge={edge} widest={span} />}
           {/* Open they stand in the header. */}
-          {status === "open" && !idleLine && <PrivacyDots />}
+          {status === "open" && !line && !idleLine && <PrivacyDots />}
 
             </>
           )}
@@ -882,13 +987,12 @@ export function Notch() {
                 {/* Below the content (-z-10 in the panel's own stacking context), so it never sits over text. Off over the glass: the veil is
                     worked out without it, and the cover's colour on top would take text below its minimum. */}
                 <div aria-hidden data-ambience={tinted && glass !== "shown" ? "on" : "off"} className="pointer-events-none absolute inset-0 -z-10" style={tinted ? { ["--ambience" as string]: accent } : undefined} />
-                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the Dark theme's light text. */}
-                <CoverBackdrop glass={glass === "shown"} />
-                {side && (
-                  <SideDock tabs={visible} activeId={tab.id} edge={edge as "left" | "right"} />
-                )}
-                <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
-                  <Header title={t(tab.label)} />
+                {/* The Music tool's cover behind the whole panel; while it shows, the panel takes the closed notch's light ink (darkInk). On a dark
+                    theme it stays over the glass, see-through so the glass shows; on a light theme the glass turns off (blocks above). */}
+                <CoverBackdrop glass={glass === "shown"} top={dockTop} />
+                <Header title={t(tab.label)} />
+                {/* Moved in the tree, not by CSS order, so Tab reaches the tools in the order they show (#76). */}
+                {dockTop && dock}
                 <div className="relative min-h-0 flex-1 overflow-clip">
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.div
@@ -905,12 +1009,10 @@ export function Notch() {
                     </motion.div>
                   </AnimatePresence>
                 </div>
-                </div>
-
-                {!side && <Dock tabs={visible} activeId={tab.id} liquid={glass === "shown"} fades={glass !== "off"} />}
+                {!dockTop && dock}
                 {/* The grips and their sizes assume a panel hanging from the top edge. */}
                 {/* The grips size the user's own size; an extra height (sizeExtra) stays on top of it. */}
-                {!overridden && edge === "top" && <ResizeHandles id={tab.id} def={{ w: fixedW, h: clampedH }} size={{ w: fixedW, h: clampedH }} />}
+                {!overridden && edge === "top" && behavior.resizeEdges && <ResizeHandles id={tab.id} def={tab.size} size={toolSize} shownW={size.w} />}
               </motion.div>
 
                       )}
@@ -929,7 +1031,7 @@ export function Notch() {
           )}
         </AnimatePresence>
 
-        {editing && status !== "open" && <ClosedResizeBar style={idleStyle} edge={edge} />}
+        {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>
       {/* The pet's nest, beside the shape and outside its hit zone. */}
       <AnimatePresence>
@@ -1015,12 +1117,17 @@ function Header({ title }: { title: string }) {
 }
 
 /**
- * Tool bar at the bottom (like OmniNotch). The gear at the end opens settings like any tool, also when they are open (#49). A drop under the pointed or
- * the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the shader draws the bar as a
- * capsule of glass and the drop on it, and the Dock's own fills step aside.
- * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass.
+ * Tool bar at the bottom (like OmniNotch), or under the header (`top`, #76). The gear at the end opens settings like any tool, also when they are open
+ * (#49). A drop under the pointed or the current tool moves the same way with the glass and without (glass/bar.ts). Over the glass (`liquid`) the
+ * shader draws the bar as a capsule of glass and the drop on it, and the Dock's own fills step aside. With the background off (behavior.toolBarFill)
+ * there is no capsule, of glass or fill: the icons keep the panel's ink, and the plain drop shows only under the pointer or the keyboard's focus.
+ * `fades`: the glass is on, so the fills fade with it; without it they follow the theme's crossfade, as before the glass. `plus`: the
+ * taskbar's Liquid Glass + (Notch plusDock): a pill, and over the glass the closed notch's ink as on the bar, with the plain drop.
  */
-function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean }) {
+function Dock({ tabs, activeId, liquid, fades, top, plus }: { tabs: NotchTab[]; activeId: string; liquid: boolean; fades: boolean; top: boolean; plus: boolean }) {
+  const fill = settings.use().behavior.toolBarFill;
+  // The shader draws the capsule and its drop only with the background on (GlassLayer.tsx uBar); under Liquid Glass + the capsule alone.
+  const glassBar = liquid && fill;
   const inSettings = activeId === settingsTab.id;
   const updateReady = update.use().phase === "available";
   // Dot on the gear = update ready or unseen changes → jump straight to that section.
@@ -1030,41 +1137,78 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // A strip of its own: buttons share its width up to 42 px each and never go below 24 px (WCAG target size), so a crowded dock
-  // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools.
+  // scrolls. The gear stays outside the scrolling part, always in reach, and a fade marks the side with more tools. The panel is as
+  // wide as the bar at 42 px, up to the widest panel, where the monitor holds it (geometry.ts openWidth), whose sizes are this bar's:
+  // change both (geometry.test.ts checks these classes).
   const strip = useRef<HTMLDivElement>(null);
   const more = useScrollEdges(strip);
   const fade = more.start || more.end ? `linear-gradient(90deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
   const capsule = useRef<HTMLDivElement>(null);
-  const { pointed, handlers } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
-  useStripScroll(strip, "x", capsule);
+  const { pointed, handlers, settle } = useBarDrop(capsule, strip, activeId, tabs.map((tab) => tab.id).join());
+  const root = useRef<HTMLDivElement>(null);
+  // The tool dragged, only its id: the pointer's moves would draw the whole bar again (DockDrop follows them).
+  const dragged = useSyncExternalStore(toolDrag.subscribe, () => toolDrag.get()?.id ?? null);
+  /**
+   * A press on a tool: past dragThreshold it drags the tool off the bar (DockDrop), with the panel held open meanwhile. The last
+   * tool on the bar has no press, as its switch in Settings > Tools stays on. Esc ends the drag (press.ts) and, as the notch's own
+   * Esc does not ask whether it was taken, closes the panel too; nothing is written either way.
+   */
+  const dragFrom = (id: string) => (e: ReactPointerEvent<HTMLElement>) => {
+    let held = false;
+    startPress(e, {
+      threshold: dragThreshold(e.pointerType),
+      onDrag: (x, y) => {
+        if (!held) {
+          held = true;
+          holdOpen(true);
+        }
+        toolDrag.set({ id, x, y, pointerId: e.pointerId });
+      },
+      onEnd: () => {
+        if (!held) return;
+        holdOpen(false);
+        toolDrag.set(null);
+        settle();
+      },
+    });
+  };
   const pill = useRef<HTMLSpanElement>(null);
-  usePlainDrop(pill, !liquid);
+  usePlainDrop(pill, !glassBar || plus);
   // Each store hook runs on every render, as for `urgent` in Notch().
   const theme = activeTheme.use();
   const hues = useIconColors();
   const refraction = settings.use().themes.glassRefraction;
   const reduced = useReducedMotion() === true;
-  // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their default.
-  const mag = reduced ? 1 : dropLens(liquid ? refraction : 100)[1];
+  // Under the drop the pointed icon grows as much as the lens shows; without the glass, where its sliders do not show, as at their
+  // default; under Liquid Glass + the drop is the plain one.
+  const mag = reduced ? 1 : dropLens(glassBar && !plus ? refraction : 100)[1];
   return (
-    <div data-dock className="flex shrink-0 items-start justify-center px-3 pt-1" style={{ height: DOCK_HEIGHT }}>
+    <div ref={root} className="relative flex shrink-0 items-start justify-center px-3 pt-1" data-dock style={{ height: DOCK_HEIGHT }}>
       <div
         ref={capsule}
         {...handlers}
-        // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk).
-        style={liquid ? barInk(theme, hues) : undefined}
-        className={`relative flex h-10 max-w-full items-center rounded-[14px] p-0.5 ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-2"}`}
+        // Over the glass the icons, the mark and the dot take the one ink that reads best over the bar's clear veil (themes.ts glassInk);
+        // over Liquid Glass + the closed notch's, as on the taskbar (BarGlass.tsx), its hues and link flattened to its label (plusInk).
+        // Where the glass does not show, the theme's: an opaque light panel cannot take white.
+        style={glassBar && plus ? plusInk(darkInk(), hues) : glassBar ? barInk(theme, hues) : undefined}
+        // Round ends by the look, not by whether the glass shows, as on the taskbar (look.ts barRadius).
+        className={`relative flex h-10 max-w-full items-center ${plus && fill ? "rounded-full" : "rounded-[14px] material:rounded-[20px]"} p-0.5 ${fades ? FILL_FADE : ""} ${fill && !liquid ? "bg-fill-2" : "bg-transparent"}`}
       >
-        {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards. */}
-        <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
-          <span ref={pill} className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] ${fades ? FILL_FADE : ""} ${liquid ? "bg-transparent" : "bg-fill-3"}`} />
-        </span>
-        <div
-          ref={strip}
-          className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]"
-          onPointerLeave={() => setHoveredIdx(null)}
-          style={{ maskImage: fade, WebkitMaskImage: fade }}
+        {/* The drop without the glass (usePlainDrop), behind the buttons and cut to the capsule; not in the strip, which also cuts upwards.
+            Under Material it is the state layer that moves with the pointer, so it matches the current tool's pill when it rests there.
+            Without the background it shows only while a tool is pointed: no grey behind the current tool, which keeps its mark (#76). */}
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] transition-opacity duration-150 motion-reduce:transition-none ${!fill && pointed === null ? "opacity-0" : ""}`}
         >
+          <span
+            ref={pill}
+            className={`absolute bottom-0 left-1/2 h-9 w-[42px] rounded-[12px] material:rounded-[18px] material:opacity-[0.08] ${fades ? FILL_FADE : ""} ${
+              glassBar && !plus ? "bg-transparent" : "bg-fill-3 material:bg-current"
+            }`}
+          />
+        </span>
+        <div ref={strip} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" onPointerLeave={() => setHoveredIdx(null)} style={{ maskImage: fade, WebkitMaskImage: fade }}>
           {tabs.map((tab, idx) => {
             let scale = 1.0;
             if (magnify && hoveredIdx !== null) {
@@ -1082,10 +1226,12 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
                 hue={tab.hue}
                 active={tab.id === activeId}
                 pointed={pointed === tab.id}
-                liquid={liquid}
+                liquid={glassBar}
                 lens={pointed === tab.id ? mag : 1}
                 scale={scale}
                 onPointerEnter={() => setHoveredIdx(idx)}
+                onPointerDown={tabs.length > 1 ? dragFrom(tab.id) : undefined}
+                dimmed={dragged === tab.id}
                 onClick={() => switchTo(tab.id)}
               />
             );
@@ -1098,12 +1244,13 @@ function Dock({ tabs, activeId, liquid, fades }: { tabs: NotchTab[]; activeId: s
           icon={GearSix}
           active={inSettings}
           pointed={pointed === settingsTab.id}
-          liquid={liquid}
+          liquid={glassBar}
           lens={pointed === settingsTab.id ? mag : 1}
           badge={badge}
           onClick={() => navigate(settingsTab.id, badge ? "updates" : null)}
         />
       </div>
+      <DockDrop root={root} tabs={tabs} top={top} />
     </div>
   );
 }
@@ -1114,155 +1261,70 @@ function switchTo(id: string) {
   navigate(id);
 }
 
-/** Tool bar on the outer screen edge when docked left or right. */
-function SideDock({ tabs, activeId, edge }: { tabs: NotchTab[]; activeId: string; edge: "left" | "right" }) {
-  const lastTool = useRef(tabs[0]?.id);
-  if (!pageTabs.some((p) => p.id === activeId)) lastTool.current = activeId;
-  const inSettings = activeId === settingsTab.id;
-  const updateReady = update.use().phase === "available";
-  const unseen = useUnseen().length > 0;
-  const badge = updateReady || unseen;
+/**
+ * A tool dragged off the tool bar (toolDrag): its icon under the pointer and, beside the Dock on the tool view's side (above it, or
+ * below it with the bar on top), the trash. Let go on the trash once it is armed (useTrashArmed) and the tool is switched off in its
+ * place, as its switch in Settings > Tools does; anywhere else nothing changes, as the order is Settings' to change. Both inside the
+ * panel, which the shape clips, over the tool view.
+ */
+function DockDrop({ root, tabs, top }: { root: RefObject<HTMLDivElement | null>; tabs: NotchTab[]; top: boolean }) {
+  const drag = toolDrag.use();
+  const dragging = drag !== null;
+  const disc = useRef<HTMLSpanElement>(null);
+  // Where CSS put it, in client px as the pointer is; the outer span, so the armed swell never moves the box.
+  const r = drag && disc.current?.getBoundingClientRect();
+  const trash = r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+  const armed = useTrashArmed(!!drag && !!trash && inBox(trash, drag.x, drag.y));
+  // The trash as drawn, for the release: one not armed yet takes nothing.
+  const armedTrash = useRef<Box | null>(null);
+  armedTrash.current = armed ? trash : null;
+  const shown = useRef<string[]>([]);
+  shown.current = tabs.map((tab) => tab.id);
+  // Over the glass the panel's red is the glass's, held to its veil and not to this glyph's --color-notch; the theme's own red is.
+  // The cover's backdrop gives the panel Dark's ink whole, which holds already.
+  const theme = activeTheme.use();
+  const backdrop = coverBackdrop.use() !== null;
+  // As ItemDrop: a layout effect, taken on the way down, before the press ends the drag.
+  useLayoutEffect(() => {
+    if (!dragging) return;
+    const onUp = (m: PointerEvent) => {
+      const d = toolDrag.get(), box = armedTrash.current;
+      if (!d || d.pointerId !== m.pointerId || !box || !inBox(box, d.x, d.y)) return;
+      // The page and the release run in one task, so these are the saved tools of this moment; the last tool left writes nothing.
+      const cur = settings.get().tools, next = toolOff(cur, d.id, shown.current);
+      if (next !== cur) updateSettings({ tools: next });
+    };
+    addEventListener("pointerup", onUp, true);
+    return () => removeEventListener("pointerup", onUp, true);
+  }, [dragging]);
 
-  const pillRef = useRef<HTMLDivElement>(null);
-  const strip = useRef<HTMLDivElement>(null);
-  const more = useScrollEdges(strip, "y");
-  useStripScroll(strip, "y", pillRef);
-  const fade = more.start || more.end ? `linear-gradient(180deg, ${more.start ? "transparent, #000 20px" : "#000"}, ${more.end ? "#000 calc(100% - 20px), transparent" : "#000"})` : undefined;
-
+  const at = drag && root.current?.getBoundingClientRect();
+  const I = drag ? tabs.find((tab) => tab.id === drag.id)?.icon : undefined;
+  // Over the browser's CSS zoom (1 in the app), as glass/bar.ts measures: the panel's slide cancels out against the Dock's rect.
+  const z = viewZoom();
   return (
-    <div data-dock className={`flex shrink-0 flex-col items-center py-3 ${edge === "left" ? "ps-2 pe-1" : "pe-2 ps-1"}`}>
-      <div ref={pillRef} className="flex w-12 flex-1 min-h-0 flex-col items-center rounded-[16px] bg-fill-2 p-1">
-        <div
-          ref={strip}
-          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] w-full"
-          style={{ maskImage: fade, WebkitMaskImage: fade }}
+    <>
+      {/* Over anything a tool view lifts (up to z-20), and under the ghost after it. */}
+      <DropTrash
+        ref={disc}
+        shown={dragging}
+        armed={armed}
+        edge={top ? "top" : "bottom"}
+        className={`absolute left-1/2 z-30 -ml-5 ${top ? "top-full mt-2" : "bottom-full mb-2"}`}
+        style={backdrop ? undefined : { ["--color-red" as string]: theme.vars["--color-red"] }}
+      />
+      {drag && at && I && (
+        // Under Material lifted on a tonal disc at level 4, as on the bar; as far out as it pads in, so the icon stays centred.
+        <span
+          className="pointer-events-none absolute top-0 left-0 z-30 flex text-label material:-m-1.5 material:p-1.5 material:rounded-full material:bg-secondary-container material:text-on-secondary-container material:shadow-level4"
+          style={{ transform: `translate(${(drag.x - at.left) / z - 9}px, ${(drag.y - at.top) / z - 9}px)` }}
         >
-          {tabs.map((tab) => (
-            <DockButton
-              key={tab.id}
-              label={t(tab.label)}
-              icon={tab.icon}
-              hue={tab.hue}
-              active={tab.id === activeId}
-              onClick={() => switchTo(tab.id)}
-            />
-          ))}
-        </div>
-        <span aria-hidden className="my-1.5 h-px w-6 shrink-0 bg-separator" />
-        <DockButton
-          label={t(settingsTab.label)}
-          icon={GearSix}
-          active={inSettings}
-          badge={badge}
-          onClick={() => {
-            stayUntilVisit();
-            if (inSettings) navigate(lastTool.current ?? tabs[0].id);
-            else navigate(settingsTab.id, badge ? "updates" : null);
-          }}
-        />
-      </div>
-    </div>
+          <I size={18} weight="bold" />
+        </span>
+      )}
+    </>
   );
 }
-
-/** Handles mouse wheel mapping (vertical wheel to horizontal scroll) and smooth edge-hover scrolling. */
-function useStripScroll(ref: RefObject<HTMLDivElement | null>, direction: "x" | "y" = "x", hitRef?: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = ref.current;
-    const hit = hitRef?.current ?? el;
-    if (!el || !hit) return;
-
-    // 1. Mouse wheel support: on horizontal strip, convert deltaY to scrollLeft
-    const onWheel = (e: WheelEvent) => {
-      if (direction === "x") {
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-        if (delta !== 0) {
-          e.preventDefault();
-          el.scrollLeft += delta;
-        }
-      }
-    };
-    hit.addEventListener("wheel", onWheel, { passive: false });
-
-    // 2. Cursor edge proximity auto-scrolling
-    let rafId: number | null = null;
-    let velocity = 0;
-
-    const step = () => {
-      if (velocity !== 0) {
-        if (direction === "x") {
-          el.scrollLeft += velocity;
-        } else {
-          el.scrollTop += velocity;
-        }
-        rafId = requestAnimationFrame(step);
-      } else {
-        rafId = null;
-      }
-    };
-
-    const EDGE_ZONE = 48;
-    const MAX_SPEED = 7;
-
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = hit.getBoundingClientRect();
-      if (direction === "x") {
-        const distStart = e.clientX - rect.left;
-        const distEnd = rect.right - e.clientX;
-
-        if (distStart >= 0 && distStart < EDGE_ZONE) {
-          const intensity = 1 - distStart / EDGE_ZONE;
-          velocity = -Math.max(2, Math.round(intensity * MAX_SPEED));
-          if (rafId === null) rafId = requestAnimationFrame(step);
-        } else if (distEnd >= 0 && distEnd < EDGE_ZONE) {
-          const intensity = 1 - distEnd / EDGE_ZONE;
-          velocity = Math.max(2, Math.round(intensity * MAX_SPEED));
-          if (rafId === null) rafId = requestAnimationFrame(step);
-        } else {
-          velocity = 0;
-        }
-      } else {
-        const distStart = e.clientY - rect.top;
-        const distEnd = rect.bottom - e.clientY;
-
-        if (distStart >= 0 && distStart < EDGE_ZONE) {
-          const intensity = 1 - distStart / EDGE_ZONE;
-          velocity = -Math.max(2, Math.round(intensity * MAX_SPEED));
-          if (rafId === null) rafId = requestAnimationFrame(step);
-        } else if (distEnd >= 0 && distEnd < EDGE_ZONE) {
-          const intensity = 1 - distEnd / EDGE_ZONE;
-          velocity = Math.max(2, Math.round(intensity * MAX_SPEED));
-          if (rafId === null) rafId = requestAnimationFrame(step);
-        } else {
-          velocity = 0;
-        }
-      }
-    };
-
-    const stop = () => {
-      velocity = 0;
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    };
-
-    hit.addEventListener("pointermove", onPointerMove);
-    hit.addEventListener("pointerleave", stop);
-    hit.addEventListener("pointerup", stop);
-    hit.addEventListener("pointercancel", stop);
-
-    return () => {
-      stop();
-      hit.removeEventListener("wheel", onWheel);
-      hit.removeEventListener("pointermove", onPointerMove);
-      hit.removeEventListener("pointerleave", stop);
-      hit.removeEventListener("pointerup", stop);
-      hit.removeEventListener("pointercancel", stop);
-    };
-  }, [ref, direction, hitRef]);
-}
-
 /** Whether a horizontal strip has more to scroll to at its start and its end (either direction of writing). */
 function useScrollEdges(ref: RefObject<HTMLDivElement | null>, direction: "x" | "y" = "x") {
   const [edges, setEdges] = useState({ start: false, end: false });
@@ -1302,6 +1364,9 @@ function DockButton(props: {
   badge?: boolean;
   scale?: number;
   onPointerEnter?: () => void;
+  /** A tool's press, which can drag it off the bar (Dock), and whether it is the one dragged. */
+  onPointerDown?: (e: ReactPointerEvent<HTMLElement>) => void;
+  dimmed?: boolean;
 }) {
   const I = props.icon;
   const color = useHue(props.hue);
@@ -1316,11 +1381,17 @@ function DockButton(props: {
       ref={ref}
       data-tool={props.id}
       aria-label={props.label}
+      aria-current={props.active ? "page" : undefined}
       title={props.label}
-      onClick={props.onClick}
-      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] transition-colors duration-150 ${
-        props.active || props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
-      }`}
+      onPointerDown={props.onPointerDown}
+      // The click a drag's release makes opens nothing; a key's click (no count) never ends a drag.
+      onClick={(e) => {
+        if (!(props.onPointerDown && e.detail > 0 && pressDragged())) props.onClick();
+      }}
+      // A draggable one keeps a sideways swipe for scrolling the strip; a move off the strip drags it.
+      className={`pressable relative flex h-9 w-[42px] min-w-6 shrink items-center justify-center rounded-[12px] material:rounded-[18px] transition-colors duration-150 ${
+        props.active ? "text-label material:text-on-secondary-container" : props.pointed ? "text-label" : color ? "" : "text-label-2 hover:text-label"
+      } ${props.onPointerDown ? "touch-pan-x" : ""} ${props.dimmed ? "opacity-40" : ""}`}
       onPointerEnter={props.onPointerEnter}
       style={{
         ...(color ? { color } : {}),
@@ -1329,10 +1400,16 @@ function DockButton(props: {
       }}
     >
       {/* The current tool's mark under the icon, sliding from tool to tool along the bar only: when the panel changes height it stays
-          with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without. */}
+          with the bar, as the drop does. The brighter pill over it is the drop: the shader's over the glass, the Dock's own without.
+          Under Material the mark gives way to a pill as big as the slot; a coloured one is the tool's hue at HUE_PILL, which keeps
+          the icon in that hue at 3:1 where a hue on secondary-container would not. */}
       {props.active && (
         <motion.span layoutId="dock-pill" layout="x" className="absolute inset-0" transition={springs.snappy}>
-          <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label" />
+          <span className="absolute bottom-[3px] left-1/2 h-[2px] w-3 -translate-x-1/2 rounded-full bg-label material:hidden" />
+          <span
+            className="absolute inset-0 hidden rounded-[18px] bg-secondary-container material:block"
+            style={color ? { background: color, opacity: HUE_PILL } : undefined}
+          />
         </motion.span>
       )}
       <motion.span className="relative flex" initial={false} animate={{ transform: `scale(${props.lens ?? 1})` }} transition={springs.peek}>
@@ -1356,7 +1433,7 @@ function DockButton(props: {
 }
 
 /**
- * With the dock at the bottom, a shorter tool moves it up, and a narrower tool
+ * A shorter tool moves the panel's bottom up (with the dock at the bottom, the dock with it), and a narrower tool
  * moves the sides in, so the cursor would suddenly be outside and the notch would
  * close. So the hit zone only shrinks once the cursor is back over the shape (or
  * the notch closes).
@@ -1423,16 +1500,18 @@ function useSpringTop(top: number, transition: Transition, dragging: boolean): M
   return value;
 }
 
-/** Picks the spring for the transition (open ≠ close ≠ morph). */
-function useTransitionFor(status: NotchStatus, shape: NotchGeometry): Transition {
+/** Picks the spring for the transition (open ≠ close ≠ morph); a status alert's HUD (`hud`) comes in as the notch opens and goes as it closes. */
+function useTransitionFor(status: NotchStatus, shape: NotchGeometry, hud: boolean): Transition {
   const prev = useRef(status);
+  const prevHud = useRef(hud);
   const key = `${shape.w}x${shape.h}x${shape.r}x${shape.ear}x${shape.rt}`;
   const prevKey = useRef(key);
 
   let t: Transition;
   if (status === "open") t = prev.current === "open" ? springs.morph : springs.open;
   else if (status === "peek") t = springs.peek;
-  else t = prev.current === "open" ? springs.close : springs.morph;
+  else if (prev.current === "open") t = springs.close;
+  else t = hud === prevHud.current ? springs.morph : hud ? springs.open : springs.close;
 
   // Only switch when the shape actually changes, otherwise the running spring continues.
   const stable = useRef(t);
@@ -1440,6 +1519,7 @@ function useTransitionFor(status: NotchStatus, shape: NotchGeometry): Transition
 
   useEffect(() => {
     prev.current = status;
+    prevHud.current = hud;
     prevKey.current = key;
   });
 
@@ -1447,7 +1527,8 @@ function useTransitionFor(status: NotchStatus, shape: NotchGeometry): Transition
 }
 
 /**
- * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity.
+ * Quick drop: drag files over the notch and it opens on the Shelf, ahead of a live activity. Over the open Launcher it stays
+ * there (`appDrop`), and only the files that are no app reach the Shelf, which opens then.
  * A cancelled drag closes it again if it only opened for that. With the Shelf off nothing takes files:
  * the drag is ignored and a drop forgotten, so it cannot turn up when the Shelf is switched on later.
  */
@@ -1468,6 +1549,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
           if (dropped) takeDropped();
           return;
         }
+        if (dropped && nav.get().tabId !== "shelf") openOn("shelf");
         if (dragging && !holding.current) {
           holding.current = true;
           holdOpen(true);
@@ -1475,7 +1557,7 @@ function useQuickDrop(status: NotchStatus, open: () => void, dismiss: () => void
             openedByDrag.current = true;
             open();
           }
-          if (nav.get().tabId !== "shelf") openOn("shelf");
+          if (nav.get().tabId !== "shelf" && !(appDrop.get() && statusRef.current === "open")) openOn("shelf");
         } else if (!dragging && holding.current) {
           // Drag over: dropped → stay open, cancelled → close again.
           holding.current = false;
@@ -1516,6 +1598,16 @@ function useNativeBridge(
     report();
     // Moving the capsule changes padding or margin, which the observer doesn't see; measured after Motion has rendered the new value.
     const offTop = top.on("change", () => frame.postRender(report));
+    // A window that grows or shrinks moves the centred zone without resizing it, which the observer doesn't see either. A new page
+    // scale can be Windows' Text size, which Rust has to read again to size the window and the hit test with it (issue #61).
+    let dpr = viewMetrics.get().dpr;
+    const offMetrics = viewMetrics.subscribe(() => {
+      if (viewMetrics.get().dpr !== dpr) {
+        dpr = viewMetrics.get().dpr;
+        display.rescale();
+      }
+      report();
+    });
 
     const offHover = onNativeHover((inside) => (inside ? onEnter() : onLeave()));
     // Text field focused → hold (clickable, no collapse) until focus leaves.
@@ -1528,11 +1620,19 @@ function useNativeBridge(
     };
     el.addEventListener("focusin", onFocusIn);
     el.addEventListener("focusout", onFocusOut);
+    // A focused field that is removed (switching to another tool) sends no focusout in WebKit (WebView2 does), so the hold would
+    // stay for good and the notch would never close. Looked at whenever the page changes.
+    const mo = new MutationObserver(() => {
+      if (typing && !isTextField(document.activeElement)) holdOpen((typing = false));
+    });
+    mo.observe(el, { childList: true, subtree: true });
 
     return () => {
       ro.disconnect();
       offTop();
+      offMetrics();
       offHover();
+      mo.disconnect();
       el.removeEventListener("focusin", onFocusIn);
       el.removeEventListener("focusout", onFocusOut);
       if (typing) holdOpen(false);
@@ -1540,10 +1640,10 @@ function useNativeBridge(
   }, [hitRef, top, onEnter, onLeave, edge]);
 }
 
-function isTextField(el: EventTarget | null): boolean {
-  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+function isInteractive(el: EventTarget | null): boolean {
+  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider], [role=button], [role=radio], [role=switch], [role=option], [role=tab], [data-no-drag]");
 }
 
-function isInteractive(el: EventTarget | null): boolean {
-  return el instanceof Element && !!el.closest("button, input, textarea, a, [role=slider]");
+function isTextField(el: EventTarget | null): boolean {
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 }

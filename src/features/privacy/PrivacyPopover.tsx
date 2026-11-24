@@ -9,7 +9,7 @@ import {
   Stop,
   VideoCamera,
   X,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { popover } from "../../design/motion";
 import { t } from "../../i18n";
 import { capture, systemControls, type QuickState } from "../../platform/services";

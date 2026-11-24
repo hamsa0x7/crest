@@ -1,62 +1,32 @@
-import { useSyncExternalStore } from "react";
 // First of everything that reads localStorage: the demo swaps it for memory before any store loads.
 import "../dev/demoStorage";
 // Then a restore from a backup, if one waits, so every store loads the restored data.
 import "./restorePending";
+import { makeStore, setAside as setAsideIn, type Store } from "./storeCore";
 
-export interface Store<T> {
-  get(): T;
-  set(next: T | ((prev: T) => T)): void;
-  subscribe(listener: () => void): () => void;
-  use(): T;
-}
+export type { Store };
 
 /** Keeps a saved value that cannot be used under `<key>.bad`, so a reset does not erase the only copy. */
 export function setAside(key: string, raw: string | null) {
   try {
-    if (raw) localStorage.setItem(`${key}.bad`, raw);
+    setAsideIn(localStorage, key, raw);
   } catch {
-    // Quota full or no storage: nothing more to do.
+    // No storage at all: nothing more to do.
   }
 }
 
 /**
- * Minimal global store. With `persist` the state is mirrored to localStorage
- * (in Tauri the WebView profile persists).
+ * Minimal global store. With `persist` the state is mirrored to localStorage (in Tauri the WebView profile persists), and a write
+ * another Crest window makes to the same key reaches this one too (storeCore.ts).
  */
 export function createStore<T>(initial: T, options: { persist?: string } = {}): Store<T> {
   const key = options.persist && `notch:${options.persist}`;
-  let state = initial;
-  if (key) {
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(key);
-      if (raw) state = JSON.parse(raw) as T;
-    } catch {
-      // Broken entry → continue with the default.
-      setAside(key, raw);
-    }
+  if (!key) return makeStore(initial, null);
+  let storage: Storage | null = null;
+  try {
+    storage = localStorage;
+  } catch {
+    // No storage at all: the state lives in memory only.
   }
-
-  const listeners = new Set<() => void>();
-  const store: Store<T> = {
-    get: () => state,
-    set(next) {
-      state = typeof next === "function" ? (next as (prev: T) => T)(state) : next;
-      if (key) {
-        try {
-          localStorage.setItem(key, JSON.stringify(state));
-        } catch {
-          // Quota full: the state lives on in memory, so typing and the app keep working; it is just not saved.
-        }
-      }
-      listeners.forEach((l) => l());
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    use: () => useSyncExternalStore(store.subscribe, store.get),
-  };
-  return store;
+  return makeStore(initial, storage && { key, storage, target: typeof window === "undefined" ? undefined : window });
 }

@@ -17,6 +17,12 @@ fn main() {
         cupcake_lib::restore_osd();
         std::process::exit(0);
     }
+    // Run by the uninstaller before it closes Cupcake (src-tauri/windows/hooks.nsh).
+    #[cfg(windows)]
+    if args.get(1).is_some_and(|a| a == "--restore-taskbar") {
+        cupcake_lib::restore_taskbar();
+        std::process::exit(0);
+    }
     #[cfg(windows)]
     if let [_, flag, value] = args.as_slice() {
         if flag == "--fps-unlock" {
@@ -25,6 +31,10 @@ fn main() {
         // Started by Cupcake while it hides the Windows volume indicator: restores it once Cupcake ends (value: its pid).
         if flag == "--osd-guard" {
             std::process::exit(cupcake_lib::osd_guard(value));
+        }
+        // Started by Cupcake while its bar stands in for Windows' taskbar: gives the taskbar back once Cupcake ends (value: its pid).
+        if flag == "--taskbar-guard" {
+            std::process::exit(cupcake_lib::taskbar_guard(value));
         }
     }
     // A portable copy that just updated itself waits for the old process to exit first.

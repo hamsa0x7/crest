@@ -1,9 +1,29 @@
+import { isNotchWindow } from "../../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 /** Is the frontend running in the Tauri app (rather than a regular browser)? */
 export const isNative = "__TAURI_INTERNALS__" in window;
+
+/** The settings window (settings_window.rs). In the browser every member does nothing: the demo keeps the settings in the panel. */
+export const settingsWindow = {
+  /** Opens it, or brings it forward, on `section` (an id of SettingsView's sections). */
+  open: (section: string | null): Promise<void> => (isNative ? invoke("settings_window_open", { section }) : Promise.resolve()),
+  /** The section asked for when the window opened; the page asks once, when it loads. */
+  takeSection: (): Promise<string | null> => (isNative ? invoke<string | null>("settings_window_section") : Promise.resolve(null)),
+  /** A section asked for while the window stays open. On this window only: another window's events do not reach it. */
+  onSection(handler: (section: string) => void): () => void {
+    if (!isNative) return () => {};
+    const off = getCurrentWebviewWindow().listen<string>("settings://section", (e) => handler(e.payload));
+    return () => void off.then((f) => f());
+  },
+  /** Opens the notch from another window, on a tool, as the tray does. */
+  notchOpen: (tab: string | null): Promise<void> => (isNative ? invoke("notch_open", { tab }) : Promise.resolve()),
+  /** The theme's background ("#rrggbb"), which the next settings window opens in instead of black. */
+  background: (color: string): Promise<void> => (isNative ? invoke("settings_window_background", { color }) : Promise.resolve()),
+};
 
 /** The app on a Mac, where the tools built on Windows APIs are hidden (src/notch/tabs.ts). */
 export const isMac = isNative && navigator.userAgent.includes("Mac");
@@ -85,7 +105,8 @@ export function onTrayOpen(handler: (tab: string | null) => void): () => void {
  * false: focus goes back to the previous app if we still have it.
  */
 export function keyboardFocus(focus: boolean) {
-  if (isNative) void invoke("keyboard_focus", { focus });
+  // The notch's focus only: another window (the Vault's PIN entry in the settings) already has the keyboard.
+  if (isNative && isNotchWindow) void invoke("keyboard_focus", { focus });
 }
 
 /** WebView2 memory target: low while the notch sits closed, normal otherwise. */
@@ -107,14 +128,18 @@ export interface GlassZone { x: number; y: number; w: number; h: number }
 export const glassLive = {
   supported: (): Promise<GlassLiveSupport> => invoke("glass_live_supported"),
   exclude: (on: boolean): Promise<void> => invoke("glass_live_exclude", { on }),
-  start: (zone: GlassZone): Promise<GlassZone & { gen: number }> => invoke("glass_live_start", { zone }),
+  start: (zone: GlassZone, fps?: number): Promise<GlassZone & { gen: number }> => invoke("glass_live_start", { zone, fps }),
   stop: (): Promise<void> => invoke("glass_live_stop"),
 };
 
-/** Rust stopped the live copy on its own (`glass://live`): that session's gen, and why. */
+/** Rust stopped this window's live copy on its own (`glass://live`): that session's gen, and why. Another window's are left out:
+ *  the global `listen` hears them too. */
 export function onGlassLiveStop(handler: (e: { gen: number; reason: string }) => void): () => void {
   if (!isNative) return () => {};
-  const off = listen<{ gen: number; reason: string }>("glass://live", (e) => handler(e.payload));
+  const label = getCurrentWebviewWindow().label;
+  const off = listen<{ label: string; gen: number; reason: string }>("glass://live", (e) => {
+    if (e.payload.label === label) handler(e.payload);
+  });
   return () => void off.then((f) => f());
 }
 
@@ -148,7 +173,19 @@ export function onSharedBuffer(use: (meta: unknown, data: ArrayBuffer) => void):
   return () => host.removeEventListener("sharedbufferreceived", listener);
 }
 
+/** Focus mode: the window is fully click-through (Rust only counts the clicks that leave it). */
+export function setPassthrough(on: boolean) {
+  if (isNative) void invoke("set_passthrough", { on });
+}
+
 /** The tray menu's texts in the interface language (Rust starts in English). */
 export function setTrayTexts(texts: { open: string; settings: string; autostart: string; quit: string }) {
   if (isNative) void invoke("tray_texts", { texts });
+}
+
+/** Three quick clicks on the notch in focus mode. */
+export function onFocusExit(handler: () => void): () => void {
+  if (!isNative) return () => {};
+  const off = listen("notch://focus-exit", handler);
+  return () => void off.then((f) => f());
 }

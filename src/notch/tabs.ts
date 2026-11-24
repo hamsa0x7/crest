@@ -15,6 +15,8 @@ import {
   GearSix,
   Gift,
   HandWaving,
+  Hourglass,
+  ImageSquare,
   MagnifyingGlass,
   GithubLogo,
   RocketLaunch,
@@ -27,12 +29,14 @@ import {
   Vault,
   TerminalWindow,
   type Icon,
-} from "@phosphor-icons/react";
+} from "../ui/iconset";
 import { DepotIcon } from "../ui/icons";
 import type { Hue } from "../features/themes/hues";
-import { DiscordLogo } from "../ui/brands";
+import { DiscordLogo, LeetcodeLogo } from "../ui/brands";
 import { OverviewView } from "../features/overview/OverviewView";
 import { NowPlayingView } from "../features/now-playing/NowPlayingView";
+import { MIN_HEIGHT as MUSIC_MIN_H } from "../features/now-playing/coverSize";
+import type { ToolSize } from "../features/window/panelSize";
 import { TimerView } from "../features/timer/TimerView";
 import { TodosView } from "../features/todos/TodosView";
 import { NotesView } from "../features/notes/NotesView";
@@ -50,31 +54,35 @@ import { WaterView } from "../features/water/WaterView";
 import { ScratchpadView } from "../features/scratchpad/ScratchpadView";
 import { QUOTE_LINE_H } from "../features/quotes/QuoteLine";
 import { SEARCH_LINE_H } from "../features/overview/SearchLine";
+import { overviewHeight } from "../features/overview/parts";
 import { settings } from "../settings/store";
 import { NoticesView } from "../features/notices/NoticesView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { TerminalView } from "../features/terminal/TerminalView";
 import { LauncherView } from "../features/launcher/LauncherView";
 import { GithubView } from "../features/github/GithubView";
+import { LeetcodeView } from "../features/leetcode/LeetcodeView";
 import { CalendarView } from "../features/calendar/CalendarView";
 import { CaptureView } from "../features/capture/CaptureView";
 import { SetupView } from "../features/setup/SetupView";
 import { WhatsNewView } from "../features/whatsnew/WhatsNewView";
-import { Camera, VideoCamera, Waveform } from "@phosphor-icons/react";
+import { Camera, VideoCamera, Waveform } from "../ui/iconset";
 import { RecorderView } from "../features/recorder/RecorderView";
 import { CameraView } from "../features/camera/CameraView";
 import { FindView } from "../features/find/FindView";
-import { CalendarCheck } from "@phosphor-icons/react";
+import { CalendarCheck } from "../ui/iconset";
 import { HabitsView } from "../features/habits/HabitsView";
 import { ColourView } from "../features/colour/ColourView";
-import { Eyedropper } from "@phosphor-icons/react";
-import { GlobeHemisphereWest } from "@phosphor-icons/react";
+import { Eyedropper } from "../ui/iconset";
+import { GlobeHemisphereWest } from "../ui/iconset";
 import { ClocksView } from "../features/clocks/ClocksView";
-import { Scroll } from "@phosphor-icons/react";
+import { Scroll } from "../ui/iconset";
 import { TeleprompterView } from "../features/teleprompter/TeleprompterView";
-import { Robot } from "@phosphor-icons/react";
+import { Robot } from "../ui/iconset";
 import { AgentsView } from "../features/agents/AgentsView";
 import { CalcView } from "../features/calc/CalcView";
+import { ScreenTimeView } from "../features/screentime/ScreenTimeView";
+import { WallpapersView } from "../features/wallpapers/WallpapersView";
 import { pluginTab } from "../features/plugins/tabs";
 import { isMac } from "../platform/native";
 
@@ -96,7 +104,7 @@ export interface NotchTab {
   icon: Icon;
   /** Its colour in the tool bar while coloured icons are on (Settings, Themes); plugins have none. */
   hue?: Hue;
-  size: { w: number; h: number };
+  size: ToolSize;
   View: ComponentType;
 }
 
@@ -106,14 +114,15 @@ export const tabs: NotchTab[] = ([
     hue: "blue",
     label: "Übersicht",
     icon: SquaresFour,
-    // Taller while the quote line or the search line is on; read on every render, so the shape follows the settings.
+    // Taller while the quote line or the search line is on, shorter for each part switched off; read on every render, so the shape
+    // follows the settings.
     get size() {
-      const { quotes, search } = settings.get().productivity;
-      return { w: 520, h: 252 + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
+      const { quotes, search, overview } = settings.get().productivity;
+      return { w: 520, h: overviewHeight(overview, isMac) + (quotes ? QUOTE_LINE_H : 0) + (search !== "off" ? SEARCH_LINE_H : 0) };
     },
     View: OverviewView,
   },
-  { id: "media", hue: "pink", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232 }, View: NowPlayingView },
+  { id: "media", hue: "pink", label: "Wiedergabe", icon: MusicNotesSimple, size: { w: 520, h: 232, minH: MUSIC_MIN_H }, View: NowPlayingView },
   { id: "timer", hue: "orange", label: "Timer", icon: Timer, size: { w: 520, h: 192 }, View: TimerView },
   { id: "todos", hue: "green", label: "To-Dos", icon: CheckCircle, size: { w: 600, h: 276 }, View: TodosView },
   { id: "notes", hue: "yellow", label: "Notiz", icon: NotePencil, size: { w: 520, h: 260 }, View: NotesView },
@@ -132,6 +141,8 @@ export const tabs: NotchTab[] = ([
   { id: "terminal", hue: "slate", label: "Terminal", icon: TerminalWindow, size: { w: 720, h: 460 }, View: TerminalView },
   { id: "launcher", hue: "orange", label: "Launcher", icon: RocketLaunch, size: { w: 520, h: 210 }, View: LauncherView },
   { id: "github", hue: "violet", label: "GitHub", icon: GithubLogo, size: { w: 520, h: 236 }, View: GithubView },
+  { id: "leetcode", hue: "amber", label: "LeetCode", icon: LeetcodeLogo, size: { w: 520, h: 248 }, View: LeetcodeView },
+  // Its size is the bar clock's Calendar half too (CLOCK_CALENDAR, taskbar/panelModel.ts): change both.
   { id: "calendar", hue: "red", label: "Kalender", icon: CalendarBlank, size: { w: 560, h: 340 }, View: CalendarView },
   { id: "notices", hue: "amber", label: "Mitteilungen", icon: BellSimple, size: { w: 560, h: 320 }, View: NoticesView },
   { id: "capture", hue: "cyan", label: "Erfassen", icon: Camera, size: { w: 620, h: 336 }, View: CaptureView },
@@ -143,6 +154,8 @@ export const tabs: NotchTab[] = ([
   { id: "teleprompter", hue: "amber", label: "Prompter", icon: Scroll, size: { w: 560, h: 340 }, View: TeleprompterView },
   { id: "agents", hue: "indigo", label: "Agents", icon: Robot, size: { w: 560, h: 320 }, View: AgentsView },
   { id: "calc", hue: "indigo", label: "Rechner", icon: Calculator, size: { w: 600, h: 320 }, View: CalcView },
+  { id: "screentime", hue: "purple", label: "Bildschirmzeit", icon: Hourglass, size: { w: 600, h: 340 }, View: ScreenTimeView },
+  { id: "wallpapers", hue: "sky", label: "Hintergründe", icon: ImageSquare, size: { w: 620, h: 440 }, View: WallpapersView },
 ] satisfies NotchTab[]).filter((t) => !isMac || !WINDOWS_ONLY.has(t.id));
 
 export const getActiveTabs = (): NotchTab[] => resolveTabs(tabs);

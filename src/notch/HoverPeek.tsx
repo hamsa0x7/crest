@@ -8,7 +8,7 @@ import {
   Play,
   SkipBack,
   SkipForward,
-} from "@phosphor-icons/react";
+} from "../ui/iconset";
 import { media, useNowPlaying } from "../platform/media";
 import { remainingOf, timer, timerActions } from "../features/timer/store";
 import { formatTime } from "../lib/format";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { CaretUp } from "@phosphor-icons/react";
+import { CaretUp } from "../../ui/iconset";
 import { settings } from "../../settings/store";
 import { isMac, isNative } from "../../platform/native";
 import { Button, Group, Row, Segmented, Select, Switch } from "../../ui/controls";
@@ -27,27 +27,28 @@ export function MusicSettings() {
   return (
     <>
       <Group title={t("Musik")} id="settings-music">
-        <Row label={t("Cover als Hintergrund")} hint={t("Zeigt das Albumcover verschwommen hinter dem ganzen Musik-Fenster")}>
+        <Row icon="wallpaper" label={t("Cover als Hintergrund")} hint={t("Zeigt das Albumcover verschwommen hinter dem ganzen Musik-Fenster")}>
           <Switch label={t("Cover als Hintergrund")} checked={music.coverBackground} onChange={(coverBackground) => setMusic({ coverBackground })} />
         </Row>
-        <Row label={t("Songtext in der geschlossenen Notch")} hint={t("Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an")}>
+        <Row icon="lyrics" label={t("Songtext in der geschlossenen Notch")} hint={t("Zeigt beim Abspielen nur Cover und die aktuelle Zeile, die Notch passt sich jeder Zeile an")}>
           <Switch label={t("Songtext in der geschlossenen Notch")} checked={music.notchLyrics} onChange={(notchLyrics) => setMusic({ notchLyrics })} />
         </Row>
         {(music.notchLyrics || music.titleLyrics) && (
-          <Row label={t("Übersetzung in der geschlossenen Notch")} hint={t("Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals")}>
+          <Row icon="translate" label={t("Übersetzung in der geschlossenen Notch")} hint={t("Songs mit Übersetzung zeigen dort die übersetzte Zeile statt des Originals")}>
             <Switch label={t("Übersetzung in der geschlossenen Notch")} checked={music.closedTranslation} onChange={(closedTranslation) => setMusic({ closedTranslation })} />
           </Row>
         )}
         {(music.notchLyrics || music.titleLyrics) && (
-          <Row label={t("Lautschrift in der geschlossenen Notch")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile")}>
+          <Row icon="record_voice_over" label={t("Lautschrift in der geschlossenen Notch")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben statt der Zeile")}>
             <Switch label={t("Lautschrift in der geschlossenen Notch")} checked={music.closedRoman} onChange={(closedRoman) => setMusic({ closedRoman })} />
           </Row>
         )}
         {/* The Mac sends no audio levels, so the looks would only move on their own. */}
         {!isMac && (
-          <Row label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
+          <Row icon="equalizer" label={t("Equalizer-Stil")} hint={t("Im Musik-Tool; die geschlossene Notch behält ihre vier Balken")}>
             <Segmented
               id="music-eq-style"
+              label={t("Equalizer-Stil")}
               value={music.eqStyle}
               options={[
                 { value: "bars", label: t("Balken") },
@@ -58,9 +59,10 @@ export function MusicSettings() {
             />
           </Row>
         )}
-        <Row label={t("Fortschrittsbalken")} hint={t("Wellig schwingt beim Abspielen und wird bei Pause flach")}>
+        <Row icon="linear_scale" label={t("Fortschrittsbalken")} hint={t("Wellig schwingt beim Abspielen und wird bei Pause flach")}>
           <Segmented
             id="music-progress-style"
+            label={t("Fortschrittsbalken")}
             value={music.progressStyle}
             options={[
               { value: "line", label: t("Linie") },
@@ -70,17 +72,17 @@ export function MusicSettings() {
           />
         </Row>
         {music.pinned && (
-          <Row label={t("Angehefteter Player")} hint={t("{app} bleibt in der Notch, auch wenn eine andere App spielt", { app: sourceName(music.pinned) })}>
+          <Row icon="keep" label={t("Angehefteter Player")} hint={t("{app} bleibt in der Notch, auch wenn eine andere App spielt", { app: sourceName(music.pinned) })}>
             <Button onClick={() => setMusic({ pinned: null })}>{t("Lösen")}</Button>
           </Row>
         )}
       </Group>
       <Group title={t("Songtexte")} id="settings-lyrics">
-        <Row label={t("Quellen")} hint={t("Werden von oben nach unten gefragt, bis eine den Song hat. Gesendet werden nur Titel, Interpret und Länge, und nur wenn Songtexte an sind.")} />
+        <Row icon="library_music" label={t("Quellen")} hint={t("Werden von oben nach unten gefragt, bis eine den Song hat. Gesendet werden nur Titel, Interpret und Länge, und nur wenn Songtexte an sind.")} />
         {sources.map((src, i) => {
           const info = LYRIC_SOURCES.find((x) => x.id === src.id)!;
           return (
-            <Row key={src.id} label={`${i + 1}. ${info.name}`} hint={`${info.host} · ${t(TERMS[src.id])}`}>
+            <Row icon="library_music" key={src.id} label={`${i + 1}. ${info.name}`} hint={`${info.host} · ${t(TERMS[src.id])}`}>
               <div className="flex items-center gap-1.5">
                 <button
                   aria-label={t("Nach oben")}
@@ -96,31 +98,31 @@ export function MusicSettings() {
             </Row>
           );
         })}
-        <Row label={t("Wort für Wort")} hint={t("Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)")}>
+        <Row icon="format_ink_highlighter" label={t("Wort für Wort")} hint={t("Hebt die gesungenen Wörter hervor, wenn die Quelle jedes Wort timt (meist Kugou)")}>
           <Switch label={t("Wort für Wort")} checked={music.lyricWords} onChange={(lyricWords) => setMusic({ lyricWords })} />
         </Row>
-        <Row label={t("Übersetzung")} hint={t("Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat")}>
+        <Row icon="translate" label={t("Übersetzung")} hint={t("Eine Zeile unter jeder Zeile, wenn die Quelle eine Übersetzung hat")}>
           <Switch label={t("Übersetzung")} checked={music.lyricTranslation} onChange={(lyricTranslation) => setMusic({ lyricTranslation })} />
         </Row>
         {music.lyricTranslation && (
-          <Row label={t("Offline übersetzen")} hint={t("Übersetzt Songs auf diesem Gerät in die Sprache von Cupcake, mit den Modellen von Mozilla, die auch Firefox nutzt. Nichts verlässt den PC.")}>
+<Row icon="download_for_offline" label={t("Offline übersetzen")} hint={t("Übersetzt Songs auf diesem Gerät in die Sprache von Cupcake, mit den Modellen von Mozilla, die auch Firefox nutzt. Nichts verlässt den PC.")}>
             <Switch label={t("Offline übersetzen")} checked={music.offlineTranslation} onChange={(offlineTranslation) => setMusic({ offlineTranslation })} />
           </Row>
         )}
         {music.lyricTranslation && music.offlineTranslation && <OfflineLanguages />}
-        <Row label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat. Chinesisch wird Zeichen für Zeichen gelesen, manche Wörter klingen anders.")}>
+        <Row icon="record_voice_over" label={t("Lautschrift")} hint={t("Japanisch, Chinesisch und Koreanisch in lateinischen Buchstaben, offline; von der Quelle, wenn sie eine hat. Chinesisch wird Zeichen für Zeichen gelesen, manche Wörter klingen anders.")}>
           <Switch label={t("Lautschrift")} checked={music.lyricRoman} onChange={(lyricRoman) => setMusic({ lyricRoman })} />
         </Row>
         {music.lyricRoman && <KanjiDictionary />}
       </Group>
       <Group title={t("Video & Bild-in-Bild (PiP)")} id="settings-video-pip">
-        <Row label={t("Bild-in-Bild (PiP) Fenster")} hint={t("Schwebendes Always-On-Top Fenster für Videos und Mediensteuerung")}>
+        <Row icon="aspect_ratio" label={t("Bild-in-Bild (PiP) Fenster")} hint={t("Schwebendes Always-On-Top Fenster für Videos und Mediensteuerung")}>
           <Button onClick={() => void invoke("open_pip", {})}>{t("PiP öffnen")}</Button>
         </Row>
-        <Row label={t("Schwebende Songtexte")} hint={t("Frei bewegliches transparentes Desktop-Fenster (Tastenkürzel: Strg + Alt + L)")}>
+        <Row icon="lyrics" label={t("Schwebende Songtexte")} hint={t("Frei bewegliches transparentes Desktop-Fenster (Tastenkürzel: Strg + Alt + L)")}>
           <Button onClick={() => void invoke("lyrics_window_open", {})}>{t("Fenster öffnen")}</Button>
         </Row>
-        <Row label={t("yt-dlp Video & Audio Downloader")} hint={t("Video-Links aus YouTube, X oder Instagram als MP4 oder MP3 herunterladen")}>
+        <Row icon="download" label={t("yt-dlp Video & Audio Downloader")} hint={t("Video-Links aus YouTube, X oder Instagram als MP4 oder MP3 herunterladen")}>
           <Button onClick={() => navigate("downloader")}>{t("Downloader öffnen")}</Button>
         </Row>
       </Group>
@@ -147,7 +149,7 @@ function OfflineLanguages() {
   };
   return (
     <>
-      <Row label={t("Übersetzen in")} hint={t("Die Sprachen unten werden in diese übersetzt")}>
+      <Row icon="language" label={t("Übersetzen in")} hint={t("Die Sprachen unten werden in diese übersetzt")}>
         <Select
           value={(OFFLINE_TARGETS as readonly string[]).includes(picked) ? picked : ""}
           options={[{ value: "", label: t("Sprache von Cupcake ({name})", { name: nameOf(targetOf("", lang())) }) }, ...OFFLINE_TARGETS.map((code) => ({ value: code, label: nameOf(code) }))]}
@@ -171,7 +173,7 @@ function OfflineLanguages() {
               ? t("Installiert, {mb} MB", { mb: mb(sizeOf(pairs)) })
               : t("Download von 40 bis 70 MB");
         return (
-          <Row key={code} label={nameOf(code)} hint={hint}>
+          <Row icon="language" key={code} label={nameOf(code)} hint={hint}>
             {isNative && (
               <Button disabled={busy !== null} onClick={() => run(ready ? removePair(own) : downloadPairs(pairs))}>
                 {ready ? t("Entfernen") : t("Laden")}
@@ -207,7 +209,7 @@ function KanjiDictionary() {
       ? t("Installiert, {mb} MB im App-Datenordner. Lesungen nach Wörterbuch, nicht immer wie gesungen.", { mb: mb(size) })
       : t("Ohne Wörterbuch bekommen nur Kana Lautschrift. JMdict (EDRDG, CC BY-SA 4.0): 1,4 MB Download von GitHub, etwa 0,7 MB auf der Festplatte.");
   return (
-    <Row label={t("Kanji-Wörterbuch")} hint={hint}>
+    <Row icon="dictionary" label={t("Kanji-Wörterbuch")} hint={hint}>
       {isNative && size !== null && (
         <Button disabled={busy} onClick={() => run(size ? "lyrics_dict_remove" : "lyrics_dict_download")}>
           {size ? t("Entfernen") : t("Laden")}

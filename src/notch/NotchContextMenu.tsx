@@ -9,7 +9,7 @@ import {
   PushPin,
   GearSix,
   Check,
-} from "@phosphor-icons/react";
+} from "../ui/iconset";
 import { t } from "../i18n";
 import { popover } from "../design/motion";
 import { display } from "../platform/services";

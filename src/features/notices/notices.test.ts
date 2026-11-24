@@ -145,3 +145,10 @@ test("an app Windows can open by its id: a package or a name, not a full path", 
   assert.equal(appOpens("App & more"), false);
   assert.equal(appOpens(""), false);
 });
+
+test("Crest's focus mode keeps notices in the history, with no sound", () => {
+  // A notch put aside shows no app notice, so a pop would only ring.
+  const on = { ...NOTICE_DEFAULTS, enabled: true };
+  assert.equal(route("x", on, { presenting: false, now: 12 * 60, focusMode: true }), "history");
+  assert.equal(route("x", on, { presenting: false, now: 12 * 60, focusMode: false }), "pop");
+});

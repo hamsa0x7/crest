@@ -1,4 +1,4 @@
-import { CircleDashed } from "@phosphor-icons/react";
+import { CircleDashed } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 
 export const SatelliteBubbleExtension: NativeExtension = {

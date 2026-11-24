@@ -4,17 +4,22 @@
 //!
 //! Rhythms (src/features/system/store.ts): ~1×/s with everything while the Hardware tool is shown (`full`); every 2 s
 //! with the GPU counters while the closed row shows a GPU reading (`with_gpu`); otherwise every 3 s with CPU, RAM and
-//! only the extras the closed row asks for (`want`).
+//! only the extras the closed row or the bar's widgets ask for (`want`), the process list among them for the bar's Top apps.
 //!
 //! - GPU: performance counters "GPU Engine(*)" per adapter and engine, the same values as Task Manager, vendor-independent;
 //!   VRAM from "GPU Adapter Memory(*)\Dedicated Usage", sizes and names from DXGI.
 //! - CPU: sysinfo per core, core kinds from the CPU set efficiency class, frequency from "Processor Information".
 //! - Network: cumulative byte counters of the hardware interfaces (GetIfTable2); the page computes the rate.
-//! - Temperatures, power, battery and drives: see `hw`; from HWiNFO or LibreHardwareMonitor when one runs: see `external`.
+//! - Temperatures, power, battery and drives: see `hw`; from HWiNFO, LibreHardwareMonitor or Core Temp when one runs: see `external`.
 //! - Ping: ICMP echo to 1.1.1.1 on its own thread (every 2 s, only while polled).
+//! - Local IP: the address Send to phone uses (phone_share.rs), only while the tool is shown.
+//!
+//! Two clicks in the tool start Windows' own tools: ipconfig in a Command Prompt, and the battery report (powercfg).
 
 mod external;
-mod hw;
+pub(crate) mod hw;
+
+pub(crate) use hw::{bar_drives, BarDrive};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -44,8 +49,10 @@ const PING_EVERY: Duration = Duration::from_secs(2);
 const PING_IDLE: Duration = Duration::from_secs(5);
 /// "No ping" (timeout / offline).
 const NO_PING: u64 = u64::MAX;
-/// Listing processes is the costliest read: at most this often, and only while the tool is shown.
+/// Listing processes is the costliest read: at most this often while the tool is shown, and only while a poll wants processes.
 const PROCESS_EVERY: Duration = Duration::from_millis(1800);
+/// Listing processes for the bar's Top apps widget alone, without the tool: at most this often.
+const PROCESS_EVERY_BAR: Duration = Duration::from_secs(5);
 /// Entries kept per ranking (CPU, memory); the page shows fewer, the rest replace rows that leave.
 const PROCESS_KEEP: usize = 12;
 /// DXGI is asked again for a counter adapter it did not list (LUIDs change when a driver restarts), at most this often.
@@ -53,14 +60,15 @@ const ADAPTERS_EVERY: Duration = Duration::from_secs(30);
 
 pub struct SystemState(Arc<Mutex<Probe>>);
 
-/// The process list is dropped this long after the last full poll (tool closed), with sysinfo's process handles.
+/// The process list is dropped this long after the last poll that wanted processes (tool closed, bar hidden), with sysinfo's process handles.
 const PROCESS_LINGER: Duration = Duration::from_secs(10);
 
 struct Probe {
     sys: System,
-    /// Processes only: sysinfo keeps a handle per listed process, so this lives only while the tool is shown
-    /// (created on the first full poll, dropped on a non-full one or by the sweeper after `PROCESS_LINGER`).
+    /// Processes only: sysinfo keeps a handle per listed process, so this lives only while the tool or the bar's Top apps asks
+    /// (created on the first poll that wants processes, dropped on one that does not or by the sweeper after `PROCESS_LINGER`).
     procs: Option<System>,
+    /// The last poll that wanted processes.
     full_at: Instant,
     started: Instant,
     gpu: Option<Pdh>,
@@ -133,7 +141,7 @@ fn lock(m: &Mutex<Probe>) -> std::sync::MutexGuard<'_, Probe> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Polling stops altogether when nothing shows the values, so a closed tool's process handles are let go here.
+/// Polling stops altogether when nothing shows the values, so the process handles of a closed tool or a hidden bar are let go here.
 fn spawn_process_sweeper(probe: Arc<Mutex<Probe>>) {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(5));
@@ -146,7 +154,7 @@ fn spawn_process_sweeper(probe: Arc<Mutex<Probe>>) {
     });
 }
 
-/// Extras the closed row asks for outside the tool (the tool gets everything).
+/// Extras the closed row and the bar's widgets ask for outside the tool (the tool gets everything). A field an older page leaves out is false.
 #[derive(Deserialize, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Want {
@@ -154,6 +162,8 @@ pub struct Want {
     temps: bool,
     power: bool,
     battery: bool,
+    /// The process list, for the bar's Top apps widget.
+    processes: bool,
 }
 
 #[derive(Serialize)]
@@ -170,6 +180,8 @@ pub struct Stats {
     gpu_mem_total: u64,
     /// Milliseconds; None = no reply.
     ping: Option<u64>,
+    /// This PC's address on its network, only while the tool is shown; None offline.
+    local_ip: Option<String>,
     /// Milliseconds since the probe started (monotonic), for rates.
     at: f64,
     /// Per logical processor, only while shown.
@@ -189,7 +201,7 @@ pub struct Stats {
     energy: Vec<(String, f64)>,
     meter: Vec<(String, f64)>,
     nvml: Vec<hw::NvmlGpu>,
-    /// CPU and GPU temperature and power from HWiNFO or LibreHardwareMonitor.
+    /// CPU and GPU temperature and power from HWiNFO or LibreHardwareMonitor, or the CPU's from Core Temp.
     external: Option<external::Reading>,
     battery: Option<hw::BatteryRaw>,
     drives: Option<hw::Drives>,
@@ -213,6 +225,8 @@ pub struct GpuReading {
     engine: Option<String>,
     mem_used: u64,
     temp: Option<f64>,
+    /// The fan's speed in rpm as the driver reports it; 0 also from a driver that does not report it.
+    fan: Option<u32>,
     #[serde(skip)]
     luid: LUID,
 }
@@ -239,7 +253,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     }
     let mut guard = lock(&state.0);
     let p = &mut *guard;
-    let want = if full { Want { net: true, temps: true, power: true, battery: true } } else { want.unwrap_or_default() };
+    let want = if full { Want { net: true, temps: true, power: true, battery: true, processes: true } } else { want.unwrap_or_default() };
     p.sys.refresh_cpu_usage();
     p.sys.refresh_memory();
     if p.sys.cpus().is_empty() || p.sys.cpus()[0].brand().is_empty() {
@@ -247,9 +261,11 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     }
     if full {
         *p.ping.wanted_at.lock().unwrap_or_else(|e| e.into_inner()) = Instant::now();
+    }
+    if want.processes {
         p.full_at = Instant::now();
     } else if p.procs.is_some() {
-        // The tool closed: let go of every process handle at once.
+        // Neither the tool nor the bar asks any more: let go of every process handle at once.
         p.procs = None;
         p.processes.clear();
         p.processes_at = None;
@@ -285,7 +301,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
     let external = if want.temps || want.power { p.external.read() } else { None };
     let battery = if want.battery || want.power { p.hw.battery() } else { None };
     let drives = if full { p.hw.drives() } else { None };
-    let processes = if full { Some(p.read_processes()) } else { None };
+    let processes = if want.processes { Some(p.read_processes(if full { PROCESS_EVERY } else { PROCESS_EVERY_BAR })) } else { None };
 
     let ping = if full { p.ping.ms.load(Ordering::Relaxed) } else { NO_PING };
     let gpu_name = strongest.map(|i| p.adapters[i].name.clone());
@@ -300,6 +316,7 @@ pub async fn system_stats(full: bool, with_gpu: Option<bool>, want: Option<Want>
         gpu_mem_used,
         gpu_mem_total,
         ping: (ping != NO_PING).then_some(ping),
+        local_ip: if full { crate::phone_share::lan_ip().or_else(crate::phone_share::route_ip).map(|ip| ip.to_string()) } else { None },
         at: p.started.elapsed().as_secs_f64() * 1000.0,
         cores,
         cpu_mhz,
@@ -328,6 +345,45 @@ pub async fn system_icon(path: String) -> Result<Option<String>, String> {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
     Ok(crate::mixer::icon_png(&path))
+}
+
+/// A program in System32 by its full path: a bare name is looked up next to crest.exe first, whose folder may be one
+/// other users can write to (see `crate::opener`).
+fn system32(exe: &str) -> std::path::PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    std::path::Path::new(&root).join("System32").join(exe)
+}
+
+/// The local IP's click: ipconfig in a new Command Prompt window that stays open (`/k`), in the user's folder.
+#[tauri::command]
+pub fn system_ipconfig() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+    let mut cmd = std::process::Command::new(system32("cmd.exe"));
+    cmd.arg("/k").arg(system32("ipconfig.exe")).creation_flags(CREATE_NEW_CONSOLE);
+    if let Some(home) = std::env::var_os("USERPROFILE") {
+        cmd.current_dir(home);
+    }
+    cmd.spawn().map(drop).map_err(|e| e.to_string())
+}
+
+/// The battery health's click: Windows' battery report, written by powercfg into Crest's temp folder (no console window),
+/// then opened in the default program for HTML. Takes a few seconds; the page says it is working meanwhile.
+#[tauri::command(async)]
+pub fn system_battery_report() -> Result<(), String> {
+    let dir = std::env::temp_dir().join("crest");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("battery-report.html");
+    // An old report must not pass for a new one when powercfg fails.
+    let _ = std::fs::remove_file(&path);
+    let mut cmd = std::process::Command::new(system32("powercfg.exe"));
+    cmd.arg("/batteryreport").arg("/output").arg(&path);
+    crate::convert::hide_console(&mut cmd);
+    let out = cmd.output().map_err(|e| e.to_string())?;
+    if !out.status.success() || !path.is_file() {
+        return Err("failed".into());
+    }
+    crate::open_url(&path.to_string_lossy())
 }
 
 impl Probe {
@@ -363,6 +419,7 @@ impl Probe {
                     engine: busy.filter(|b| b.0 > 5.0).map(|b| b.1.clone()),
                     mem_used: vram.get(&a.key).copied().unwrap_or(0.0) as u64,
                     temp: None,
+                    fan: None,
                     luid: a.luid,
                 }
             })
@@ -390,8 +447,9 @@ impl Probe {
         }
     }
 
-    fn read_processes(&mut self) -> Vec<Proc> {
-        if self.processes_at.is_some_and(|t| t.elapsed() < PROCESS_EVERY) {
+    /// The process list, read again only once `every` has passed since the last read.
+    fn read_processes(&mut self, every: Duration) -> Vec<Proc> {
+        if self.processes_at.is_some_and(|t| t.elapsed() < every) {
             return self.processes.clone();
         }
         self.processes_at = Some(Instant::now());
@@ -735,5 +793,13 @@ mod tests {
         let engines = vec![(format!("pid_1_{l}_phys_0_eng_1_engtype_Copy"), 0.0), (format!("pid_1_{l}_phys_0_eng_0_engtype_3D"), 0.0)];
         let (usage, _) = gpu_counters(&engines, &[]);
         assert_eq!(usage["luid_0x00000000_0x00001111"].1, "3D");
+    }
+
+    #[test]
+    fn want_from_an_older_page_lists_no_processes() {
+        let older: Want = serde_json::from_str(r#"{"net":true,"temps":false,"power":false,"battery":true}"#).unwrap();
+        assert!(older.net && older.battery && !older.processes);
+        let bar: Want = serde_json::from_str(r#"{"processes":true}"#).unwrap();
+        assert!(bar.processes && !bar.net);
     }
 }

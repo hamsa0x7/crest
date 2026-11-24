@@ -43,6 +43,10 @@ interface Props {
   top?: MotionValue<number>;
   /** The open panel hangs from the edge (not a floating capsule's): the glass keeps the closed notch's colour under its header. */
   hangs?: boolean;
+  /** A status alert fills the closed shape: its glass is the tool bar's clear one, without frost. */
+  hud?: boolean;
+  /** The open panel's tool bar is drawn as the taskbar's Liquid Glass + (Notch.tsx plusDock). */
+  plus?: boolean;
   /** Ferrofluid liquid physics: organic lower edge stretch. */
   ferrofluidStretch?: boolean;
   stretchOffset?: MotionValue<number>;
@@ -78,6 +82,8 @@ export function NotchShape({
   look = "panel",
   top: propTop,
   hangs = true,
+  hud = false,
+  plus = false,
   birthAnimation = false,
   tinted = false,
   rimPreset = "none",
@@ -231,7 +237,7 @@ export function NotchShape({
       }}
     >
       {/* Under the ears and the shadow like the shape's own colour, so its ears crossfade with --shape too. */}
-      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} />}
+      {glass !== "off" && <GlassLayer mode={glass} look={look} w={wPx} h={hPx} r={r} ear={ear} rt={rt} top={top} target={geometry} hangs={hangs} hud={hud} plus={plus} />}
       <motion.span
         aria-hidden
         className="absolute top-0 pointer-events-none"
@@ -316,9 +322,8 @@ export function NotchShape({
           borderTopRightRadius: rt,
           borderBottomLeftRadius: r,
           borderBottomRightRadius: r,
-          // Within the window's margin around the largest panel (10 px on the sides, 20 below, display.rs), or a wide panel shows
-          // the shadow cut off in a straight line on a light wallpaper.
-          boxShadow: "0 10px 20px -10px rgb(0 0 0 / 0.7), 0 3px 8px rgb(0 0 0 / 0.35)",
+          // Crest's own or Material's level 4 (tokens.css), both within the window's margin around the largest panel.
+          boxShadow: "var(--shadow-panel)",
         }}
       />
       {rimStops && (

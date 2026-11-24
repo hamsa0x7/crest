@@ -8,11 +8,21 @@
 //!
 //! The pet's nest beside the notch has a zone of its own: the window takes the pointer there too, without the
 //! notch's hover, and `notch://pet-hover` says when the pointer comes onto it and leaves.
+//!
+//! Focus mode (`passthrough`): the window stays click-through even over the notch,
+//! so clicks reach the app below (e.g. browser tabs). Three quick clicks on the notch
+//! emit `notch://focus-exit`; only the mouse button is watched for that.
+//!
+//! On Windows the same poll serves other windows (the bar): each takes the pointer only over the zones its page reports
+//! (`track`, `set_zones`), and `taskbar://hover` tells that page when the pointer comes onto one and leaves. Focus mode
+//! puts only the notch aside.
 
+#[cfg(windows)]
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
@@ -24,10 +34,10 @@ use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SWAPBUTTON};
 /// Hit zone in CSS px, relative to the window's top-left corner.
 #[derive(Clone, Copy, Default, Deserialize)]
 pub struct HitRect {
-    x: f64,
-    y: f64,
-    w: f64,
-    h: f64,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) w: f64,
+    pub(crate) h: f64,
 }
 
 impl HitRect {
@@ -61,6 +71,16 @@ const DROP_MARGIN: f64 = 48.0;
 /// Movement (CSS px) after the press before it counts as a drag.
 const DRAG_START: f64 = 6.0;
 
+/// A window besides the notch that takes the pointer only over the zones its page reports (the bar).
+#[cfg(windows)]
+#[derive(Clone)]
+struct Zoned {
+    label: String,
+    hwnd: isize,
+    /// In the page's CSS px; see sanitize.
+    zones: Vec<HitRect>,
+}
+
 #[derive(Default)]
 pub struct HitState {
     rect: Mutex<HitRect>,
@@ -70,10 +90,15 @@ pub struct HitState {
     pinned: Mutex<bool>,
     /// Set after show(): reapply click-through on the next poll.
     refresh: AtomicBool,
+    /// Focus mode: always click-through, no hover.
+    passthrough: AtomicBool,
     /// Panel scale (the page's zoom) as f64 bits; 0 = 1.0.
     zoom: AtomicU64,
     /// The screen edge the notch hangs from, for the drop zone (see HitRect::grown).
     edge: AtomicU8,
+    /// The windows besides the notch, one per label.
+    #[cfg(windows)]
+    zoned: Mutex<Vec<Zoned>>,
 }
 
 impl HitState {
@@ -107,8 +132,52 @@ pub fn set_pet_rect(rect: Option<HitRect>, state: State<'_, HitState>) {
 }
 
 #[tauri::command]
+pub fn set_passthrough(on: bool, state: State<'_, HitState>) {
+    state.passthrough.store(on, Ordering::Relaxed);
+}
+
+#[tauri::command]
 pub fn set_pinned(pinned: bool, state: State<'_, HitState>) {
     *state.pinned.lock().unwrap() = pinned;
+}
+
+/// Lets the pointer through `label`'s window except over the zones its page reports, none until it reports. The caller
+/// takes `hwnd`: the poll must not ask the main thread for it (see geometry). A window built again under the label
+/// replaces the old one.
+#[cfg(windows)]
+pub(crate) fn track(state: &HitState, label: &str, hwnd: isize) {
+    let mut zoned = state.zoned.lock().unwrap();
+    zoned.retain(|z| z.label != label);
+    zoned.push(Zoned { label: label.to_owned(), hwnd, zones: Vec::new() });
+}
+
+#[cfg(windows)]
+pub(crate) fn untrack(state: &HitState, label: &str) {
+    state.zoned.lock().unwrap().retain(|z| z.label != label);
+}
+
+/// The zones `label`'s page reports, and how many of them it keeps (see sanitize); 0, and ignored, for a window not tracked
+/// (a page still reporting as it closes).
+#[cfg(windows)]
+pub(crate) fn set_zones(state: &HitState, label: &str, rects: Vec<HitRect>) -> usize {
+    let mut zoned = state.zoned.lock().unwrap();
+    let Some(z) = zoned.iter_mut().find(|z| z.label == label) else { return 0 };
+    z.zones = sanitize(rects);
+    z.zones.len()
+}
+
+/// A page's report as the poll uses it: at most 8 zones, each with finite values and a positive size.
+#[cfg(windows)]
+fn sanitize(rects: Vec<HitRect>) -> Vec<HitRect> {
+    let valid = |r: &HitRect| [r.x, r.y, r.w, r.h].iter().all(|v| v.is_finite()) && r.w > 0.0 && r.h > 0.0;
+    rects.into_iter().filter(valid).take(8).collect()
+}
+
+/// Whether the point is in any of the zones, edges included, and its distance to the nearest one (infinite with none).
+#[cfg(windows)]
+fn over(zones: &[HitRect], x: f64, y: f64) -> (bool, f64) {
+    let near = zones.iter().map(|z| z.distance(x, y)).fold(f64::INFINITY, f64::min);
+    (zones.iter().any(|z| z.contains(x, y)), near)
 }
 
 /// ~60 Hz is plenty: hover delays are 180–220 ms anyway.
@@ -118,6 +187,46 @@ const POLL: Duration = Duration::from_millis(16);
 /// the next poll near the notch is fast again.
 const POLL_FAR: Duration = Duration::from_millis(50);
 const FAR: f64 = 160.0;
+/// Leaving focus mode: this many clicks on the notch, each within the double-click time of the one before, as the page counts the
+/// clicks that enter it. Windows' own setting; elsewhere the usual default.
+const EXIT_CLICKS: u32 = 3;
+#[cfg(not(windows))]
+const CLICK_GAP: Duration = Duration::from_millis(500);
+
+fn double_click_gap() -> Duration {
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+        Duration::from_millis(u64::from(unsafe { GetDoubleClickTime() }))
+    }
+    #[cfg(not(windows))]
+    CLICK_GAP
+}
+
+/// Counts the clicks that leave focus mode: true on the `EXIT_CLICKS`th, each at most `gap` after the one before, then it starts over.
+/// A slower click starts a new count.
+struct Clicks {
+    count: u32,
+    last: Option<Instant>,
+    gap: Duration,
+}
+
+impl Clicks {
+    fn new(gap: Duration) -> Self {
+        Self { count: 0, last: None, gap }
+    }
+
+    fn click(&mut self, at: Instant) -> bool {
+        let quick = self.last.is_some_and(|last| at.saturating_duration_since(last) <= self.gap);
+        self.count = if quick { self.count + 1 } else { 1 };
+        self.last = Some(at);
+        if self.count < EXIT_CLICKS {
+            return false;
+        }
+        self.count = 0;
+        true
+    }
+}
 
 /// The cursor relative to the window's top-left corner in physical px, and the window's scale.
 ///
@@ -194,6 +303,70 @@ fn tell_mouse_left(hwnd: isize) {
     let _ = unsafe { PostMessageW(Some(HWND(hwnd as _)), WM_MOUSELEAVE, WPARAM(0), LPARAM(0)) };
 }
 
+/// Lets the pointer through the window (`ignore`) or has it take the pointer, after `last` (None: not known). Taking it
+/// with the pointer over what the window draws (`on_surface`, not only pinned) takes it from the app below.
+#[cfg(windows)]
+fn let_through(window: &WebviewWindow, hwnd: isize, ignore: bool, last: Option<bool>, on_surface: bool) {
+    // Asked before the window takes the pointer, since after that the point is Crest's own. Only when Crest takes
+    // it from an app (not at the first pass or after a refresh), and not with a button held, which that app may be
+    // following as a drag.
+    let below = if last == Some(true) && !ignore && !button_down() && on_surface {
+        under_pointer().filter(|&(_, ours)| !ours).map(|(below, _)| below)
+    } else {
+        None
+    };
+    set_click_through(hwnd, ignore);
+    let _ = window.set_ignore_cursor_events(ignore);
+    // Sent once the window holds the pointer: the app below looks at what is under the pointer when it reads this.
+    // Only if Crest holds it now: under a window that covers Crest (Task View, a game bar) that app keeps the pointer.
+    if let Some(below) = below {
+        if under_pointer().is_some_and(|(_, ours)| ours) {
+            tell_mouse_left(below);
+        }
+    }
+}
+
+/// One pass over the windows besides the notch; `last` holds whether the pointer was on a zone of each, by hwnd. Returns
+/// the distance to the nearest zone of any of them, in CSS px.
+#[cfg(windows)]
+fn poll_zoned(app: &AppHandle, state: &HitState, last: &mut HashMap<isize, bool>) -> f64 {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::IsWindowVisible;
+    // A copy, so no Win32 call runs under the lock: set_zones takes it on the main thread, and a style change from here
+    // waits for that thread (set_click_through).
+    let zoned = state.zoned.lock().unwrap().clone();
+    last.retain(|hwnd, _| zoned.iter().any(|z| z.hwnd == *hwnd));
+    let mut near = f64::INFINITY;
+    for z in zoned {
+        let hwnd = HWND(z.hwnd as _);
+        // Hidden, or gone with its handle now another process's: forgotten, so a window shown again with the pointer
+        // resting on it takes the pointer at once, as the notch does after `refresh`.
+        if crate::display::window_pid(hwnd) != std::process::id() || !unsafe { IsWindowVisible(hwnd) }.as_bool() {
+            last.remove(&z.hwnd);
+            continue;
+        }
+        let Some((dx, dy, scale)) = geometry(z.hwnd) else { continue };
+        let (inside, distance) = over(&z.zones, dx / scale, dy / scale);
+        near = near.min(distance);
+        let was = last.get(&z.hwnd).copied();
+        // Only on a change: every call goes through the event loop.
+        if was != Some(inside) {
+            let Some(window) = app.get_webview_window(&z.label) else { continue };
+            let_through(&window, z.hwnd, !inside, was.map(|w| !w), inside);
+            let _ = app.emit_to(&z.label, "taskbar://hover", inside);
+            last.insert(z.hwnd, inside);
+        }
+    }
+    near
+}
+
+/// The pointer, `dx` and `dy` device px from the window's top-left corner, in the page's CSS px: the monitor's scale, the
+/// panel scale and Windows' Text size all make a CSS px bigger (text_scale.rs).
+fn to_page(dx: f64, dy: f64, device: f64, zoom: f64, text: f64) -> (f64, f64) {
+    let scale = device * zoom * text;
+    (dx / scale, dy / scale)
+}
+
 #[cfg(not(windows))]
 fn geometry(window: &WebviewWindow) -> Option<(f64, f64, f64)> {
     let (Ok(cursor), Ok(origin), Ok(scale)) = (window.cursor_position(), window.outer_position(), window.scale_factor()) else {
@@ -215,7 +388,10 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         // Where the current press started; None = button up or the press began near the notch.
         let mut drag_from: Option<(f64, f64)> = None;
         let mut drag_active = false;
+        let mut clicks = Clicks::new(double_click_gap());
         let mut far = false;
+        #[cfg(windows)]
+        let mut zoned_inside = HashMap::new();
 
         loop {
             thread::sleep(if far { POLL_FAR } else { POLL });
@@ -224,9 +400,19 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             if state.refresh.swap(false, Ordering::Relaxed) {
                 last_ignore = None;
             }
-            // Hidden by a rule or the hotkey, or the screen is off (standby.rs): nothing to hit; show() sets `refresh` again.
-            if crate::display::is_hidden(&app) || crate::standby::asleep() {
+            // The screen is off (standby.rs): nothing to hit.
+            if crate::standby::asleep() {
                 far = true;
+                continue;
+            }
+            // The other windows before the notch, whose pass below ends early in places.
+            #[cfg(windows)]
+            let zoned_near = poll_zoned(&app, &state, &mut zoned_inside);
+            #[cfg(not(windows))]
+            let zoned_near = f64::INFINITY;
+            // Hidden by a rule or the hotkey: no notch to hit; show() sets `refresh` again.
+            if crate::display::is_hidden(&app) {
+                far = zoned_near > FAR;
                 continue;
             }
             #[cfg(windows)]
@@ -236,9 +422,7 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             let Some((dx, dy, scale)) = geometry else { continue };
 
             // The hit rect is in the zoomed page's CSS px.
-            let scale = scale * state.zoom();
-            let x = dx / scale;
-            let y = dy / scale;
+            let (x, y) = to_page(dx, dy, scale, state.zoom(), crate::text_scale::get());
             let rect = *state.rect.lock().unwrap();
             // GetAsyncKeyState reads the physical buttons: a left-handed mouse has its primary button on the right.
             #[cfg(windows)]
@@ -248,11 +432,31 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             };
             #[cfg(target_os = "macos")]
             let dragging = crate::macos::left_button_down();
-            // Edge distance to the hit zone; a held button keeps the fast poll (drags).
+            let passthrough = state.passthrough.load(Ordering::Relaxed);
+            // Edge distance to the nearest hit zone, the other windows' too; a held button keeps the fast poll (drags,
+            // triple click in focus mode).
             let pet = *state.pet.lock().unwrap();
-            let near = rect.distance(x, y).min(pet.map_or(f64::INFINITY, |p| p.distance(x, y)));
+            let near = rect.distance(x, y).min(pet.map_or(f64::INFINITY, |p| p.distance(x, y))).min(zoned_near);
             far = !dragging && !was_down && near > FAR;
 
+            if passthrough {
+                // Only count clicks (button edges), never swallow them.
+                if dragging && !was_down && rect.contains(x, y) && clicks.click(Instant::now()) {
+                    let _ = window.emit("notch://focus-exit", ());
+                }
+                was_down = dragging;
+                if last_ignore != Some(true) {
+                    #[cfg(windows)]
+                    set_click_through(hwnd, true);
+                    let _ = window.set_ignore_cursor_events(true);
+                    last_ignore = Some(true);
+                }
+                if last_inside != Some(false) {
+                    let _ = window.emit("notch://hover", false);
+                    last_inside = Some(false);
+                }
+                continue;
+            }
             // Grow the zone only for a real drag that started away from the notch (a file
             // from Explorer). A plain click right below the notch must reach the app
             // underneath; growing on every press swallowed those clicks (issue #7).
@@ -281,26 +485,10 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
 
             // Only call on change: every call goes through the event loop.
             if last_ignore != Some(ignore) {
-                // Asked before the window takes the pointer, since after that the point is Crest's own. Only when Crest takes
-                // it from an app (not at the first pass or after a refresh), and not with a button held, which that app may be
-                // following as a drag.
                 #[cfg(windows)]
-                let below = if last_ignore == Some(true) && !ignore && !button_down() && (inside || on_pet) {
-                    under_pointer().filter(|&(_, ours)| !ours).map(|(below, _)| below)
-                } else {
-                    None
-                };
-                #[cfg(windows)]
-                set_click_through(hwnd, ignore);
+                let_through(&window, hwnd, ignore, last_ignore, inside || on_pet);
+                #[cfg(not(windows))]
                 let _ = window.set_ignore_cursor_events(ignore);
-                // Sent once the window holds the pointer: the app below looks at what is under the pointer when it reads this.
-                // Only if Crest holds it now: under a window that covers Crest (Task View, a game bar) that app keeps the pointer.
-                #[cfg(windows)]
-                if let Some(below) = below {
-                    if under_pointer().is_some_and(|(_, ours)| ours) {
-                        tell_mouse_left(below);
-                    }
-                }
                 last_ignore = Some(ignore);
             }
             if last_inside != Some(inside) {
@@ -323,6 +511,25 @@ mod tests {
     const R: HitRect = HitRect { x: 10.0, y: 0.0, w: 100.0, h: 30.0 };
 
     #[test]
+    fn the_leaving_clicks_take_the_double_click_time() {
+        // Clicks 480 ms apart enter focus mode under Windows' default 500 ms, so they must leave it too.
+        let t0 = Instant::now();
+        let ms = |n| t0 + Duration::from_millis(n);
+        let mut c = Clicks::new(Duration::from_millis(500));
+        assert!(!c.click(ms(0)) && !c.click(ms(480)) && c.click(ms(960)));
+    }
+
+    #[test]
+    fn three_quick_clicks_leave_focus_mode() {
+        let t0 = Instant::now();
+        let ms = |n| t0 + Duration::from_millis(n);
+        let mut c = Clicks::new(Duration::from_millis(450));
+        assert!(!c.click(ms(0)) && !c.click(ms(300)) && c.click(ms(600)));
+        // A slow click starts the count again.
+        assert!(!c.click(ms(2000)) && !c.click(ms(2500)) && !c.click(ms(3200)));
+    }
+
+    #[test]
     fn contains_includes_the_edges() {
         assert!(R.contains(10.0, 0.0) && R.contains(110.0, 30.0) && R.contains(50.0, 15.0));
         assert!(!R.contains(9.9, 15.0) && !R.contains(50.0, 30.1));
@@ -335,9 +542,63 @@ mod tests {
     }
 
     #[test]
+    fn the_dock_and_the_pin_take_the_pointer_at_text_size_125() {
+        // Issue #61: the Media tool (520 x 232 CSS px) hangs from the top of the 760 px wide page, centred, with the hit zone's
+        // 16 px at the sides and 12 px below. At 200 % with Windows' Text size at 125 % a CSS px is 2.5 device px.
+        let rect = HitRect { x: 104.0, y: 0.0, w: 552.0, h: 244.0 };
+        let (x, y) = to_page(2.5 * 380.0, 2.5 * 220.0, 2.0, 1.0, 1.25);
+        assert!(rect.contains(x, y), "the Dock, 12 px above the panel's bottom: {x}, {y}");
+        let (x, y) = to_page(2.5 * 614.0, 2.5 * 30.0, 2.0, 1.0, 1.25);
+        assert!(rect.contains(x, y), "the pin, 26 px in from the panel's right edge: {x}, {y}");
+    }
+
+    #[test]
+    fn the_panel_scale_and_the_text_size_both_divide_the_pointer() {
+        assert_eq!(to_page(300.0, 150.0, 1.5, 1.0, 1.0), (200.0, 100.0));
+        assert_eq!(to_page(300.0, 150.0, 1.0, 1.25, 1.2), (200.0, 100.0));
+    }
+
+    #[test]
     fn distance_is_zero_inside_and_euclidean_outside_the_corner() {
         assert_eq!(R.distance(50.0, 15.0), 0.0);
         assert_eq!(R.distance(0.0, 15.0), 10.0);
         assert_eq!(R.distance(113.0, 34.0), 5.0);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_window_takes_the_pointer_only_over_its_zones() {
+        let bar = HitRect { x: 8.0, y: 568.0, w: 1904.0, h: 64.0 };
+        let menu = HitRect { x: 300.0, y: 380.0, w: 220.0, h: 170.0 };
+        assert!(over(&[bar, menu], 400.0, 450.0).0); // in the menu
+        let (inside, d) = over(&[bar, menu], 600.0, 450.0);
+        assert!(!inside && (d - 80.0).abs() < 1e-9); // right of the menu
+        assert!(over(&[bar, menu], 400.0, 600.0).0); // on the bar
+        let (inside, d) = over(&[], 1.0, 1.0);
+        assert!(!inside && d.is_infinite()); // no zones: never takes the pointer, never keeps the fast poll
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_page_reports_few_finite_zones() {
+        let r = |w: f64| HitRect { x: 0.0, y: 0.0, w, h: 10.0 };
+        assert_eq!(sanitize(vec![r(1.0); 10]).len(), 8);
+        assert_eq!(sanitize(vec![r(f64::NAN), r(f64::INFINITY), r(-5.0), r(0.0), r(2.0)]).len(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn only_a_tracked_window_keeps_its_zones() {
+        let state = HitState::default();
+        let bar = HitRect { x: 0.0, y: 0.0, w: 100.0, h: 40.0 };
+        assert_eq!(set_zones(&state, "taskbar", vec![bar]), 0);
+        track(&state, "taskbar", 1);
+        track(&state, "taskbar", 2); // a new window under the same label replaces the old one
+        assert_eq!(set_zones(&state, "taskbar", vec![HitRect::default()]), 0); // nothing drawn: not the bar's first draw
+        assert_eq!(set_zones(&state, "taskbar", vec![bar, HitRect::default()]), 1);
+        let zoned = state.zoned.lock().unwrap().clone();
+        assert!(zoned.len() == 1 && zoned[0].hwnd == 2 && zoned[0].zones.len() == 1);
+        untrack(&state, "taskbar");
+        assert_eq!(set_zones(&state, "taskbar", vec![bar]), 0); // a late report from a page that closed
     }
 }

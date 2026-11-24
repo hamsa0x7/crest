@@ -13,10 +13,11 @@ brag-output/
 CLAUDE.md
 AGENTS.md
 GEMINI.md
-PLAN.md
+PLAN*.md
 PLAN-REVIEW-LOG.md
 .claude/
 .codex/
+.superpowers/
 .design/
 src-tauri/target-shared
 .agent-notes/

@@ -22,7 +22,7 @@ use windows::Win32::Foundation::{CloseHandle, COLORREF, HANDLE, HWND, LPARAM, RE
 use windows::Win32::System::SystemInformation::GetTickCount64;
 use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, FindWindowExW, FindWindowW, GetPropW, GetSystemMetrics, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, RemovePropW,
+    EnumWindows, FindWindowExW, GetPropW, GetShellWindow, GetSystemMetrics, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, RemovePropW,
     SetLayeredWindowAttributes, SetPropW, SetWindowLongW, GWL_EXSTYLE, LWA_ALPHA, SM_CXSCREEN, SM_CYSCREEN, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TRANSPARENT,
 };
 
@@ -179,9 +179,14 @@ unsafe extern "system" fn restore_one(hwnd: HWND, _: LPARAM) -> BOOL {
 unsafe fn flyouts() -> Vec<HWND> {
     let mut found = Vec::new();
     unsafe {
-        let Ok(tray) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) else { return found };
+        // Explorer's process from its desktop window, not from the taskbar: a taskbar replacement such as lumabar registers its own
+        // Shell_TrayWnd, which FindWindowW can return first, and then no flyout matched and Windows' indicator stayed on screen.
+        let shell = GetShellWindow();
+        if shell.is_invalid() {
+            return found;
+        }
         let mut explorer = 0;
-        GetWindowThreadProcessId(tray, Some(&mut explorer));
+        GetWindowThreadProcessId(shell, Some(&mut explorer));
         let (screen_w, screen_h) = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
         for (class, win10) in [(FLYOUT_CLASSES[0], false), (FLYOUT_CLASSES[1], true)] {
             let mut after = None;

@@ -134,6 +134,8 @@ pub async fn power_plans() -> Plans {
 pub async fn power_plan_set(id: String) -> Result<Plans, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let g = find(&schemes(), &id).ok_or("unknown plan")?;
+        // Picked in Crest: the power mode it brings is no status alert.
+        crate::sysevents::own(crate::sysevents::Own::Plan);
         let e = unsafe { PowerSetActiveScheme(None, Some(&g)) };
         if e != ERROR_SUCCESS {
             return Err(format!("PowerSetActiveScheme failed: {}", e.0));

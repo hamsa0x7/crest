@@ -1,4 +1,4 @@
-import { Waves } from "@phosphor-icons/react";
+import { Waves } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 
 export const FerrofluidExtension: NativeExtension = {

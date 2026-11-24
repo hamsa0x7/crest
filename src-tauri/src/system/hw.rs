@@ -1,7 +1,7 @@
-//! Readings that need no administrator rights and no driver of Crest's own: graphics temperatures (D3DKMT, as Task
-//! Manager), NVIDIA board power and temperature (NVML from System32, desktops only), the machine's battery (WinRT
+//! Readings that need no administrator rights and no driver of Crest's own: graphics temperatures and fans (D3DKMT, as Task
+//! Manager), NVIDIA board power, temperature and fan (NVML from System32, desktops only), the machine's battery (WinRT
 //! report + GetSystemPowerStatus), and internal drives with SSD temperatures (storage properties, on a thread of their
-//! own). Raw values only; src/features/system/*.ts decides what they mean.
+//! own). The same drives, without temperatures, for the bar's disk space widget (`bar_drives`). Raw values only; src/features/system/*.ts decides what they mean.
 //!
 //! Translated in part from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck): src/BrimDeck/Native/TemperatureSensors.cs
 //! (D3DKMT perf data layout, retry pauses) and src/BrimDeck/Native/StorageReader.cs (storage property layouts).
@@ -17,7 +17,7 @@ use windows::core::{s, w, HSTRING, PCSTR};
 use windows::Devices::Power::Battery;
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HMODULE, LUID};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeNameForVolumeMountPointW, QueryDosDeviceW,
+    CreateFileW, GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDriveStringsW, GetVolumeInformationW, GetVolumeNameForVolumeMountPointW, QueryDosDeviceW,
     FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::Diagnostics::Debug::{SetThreadErrorMode, SEM_FAILCRITICALERRORS, THREAD_ERROR_MODE};
@@ -42,7 +42,7 @@ impl Hardware {
         Self { has_battery: power_status().is_some_and(|s| s.BatteryFlag & 128 == 0 && s.BatteryFlag != 255), gpu: HashMap::new(), nvml: None, drives: Arc::default() }
     }
 
-    /// Fills `temp` for the adapters that may be asked: all on a desktop, only busy ones on a battery machine (an idle
+    /// Fills `temp` and `fan` for the adapters that may be asked: all on a desktop, only busy ones on a battery machine (an idle
     /// discrete GPU in a hybrid laptop stays asleep; a lone adapter has none to wake, and without counters nothing is busy).
     pub fn gpu_temps(&mut self, gpus: &mut [GpuReading]) {
         let now = Instant::now();
@@ -52,7 +52,7 @@ impl Hardware {
                 continue;
             }
             let sensor = self.gpu.entry(g.key.clone()).or_default();
-            g.temp = sensor.read(g.luid, now);
+            (g.temp, g.fan) = sensor.read(g.luid, now);
             // An open handle could keep a hybrid laptop's discrete GPU from its deepest sleep.
             if self.has_battery {
                 sensor.close();
@@ -91,7 +91,7 @@ impl Hardware {
             let shared = self.drives.clone();
             let temps_due = cache.temps_at.is_none_or(|t| t.elapsed() > DRIVE_TEMPS_EVERY);
             thread::spawn(move || {
-                let fresh = read_drives(temps_due);
+                let fresh = read_drives(temps_due, false);
                 if let Ok(mut c) = shared.lock() {
                     let now = Instant::now();
                     // Temperatures not due this time keep the last ones.
@@ -122,9 +122,12 @@ fn power_status() -> Option<SYSTEM_POWER_STATUS> {
 
 // ---------- GPU temperature (D3DKMT) ----------
 
-/// KMTQAITYPE_ADAPTERPERFDATA; D3DKMT_ADAPTER_PERFDATA is 64 bytes, Temperature (tenths of °C) at 56.
+/// KMTQAITYPE_ADAPTERPERFDATA; D3DKMT_ADAPTER_PERFDATA (d3dkmthk.h) is 64 bytes: PhysicalAdapterIndex and its padding, five
+/// ULONGLONGs (MemoryFrequency, MaxMemoryFrequency, MaxMemoryFrequencyOC, MemoryBandwidth, PCIEBandwidth), then FanRPM at 48,
+/// Power at 52 and Temperature (tenths of °C) at 56.
 const ADAPTER_PERF_DATA: i32 = 62;
 const PERF_DATA_SIZE: usize = 64;
+const FAN_OFFSET: usize = 48;
 const TEMPERATURE_OFFSET: usize = 56;
 const NOT_SUPPORTED: i32 = 0xC00000BBu32 as i32;
 const INVALID_PARAMETER: i32 = 0xC000000Du32 as i32;
@@ -152,6 +155,12 @@ extern "system" {
     fn D3DKMTQueryAdapterInfo(query: *mut QueryAdapterInfo) -> i32;
 }
 
+/// The temperature in tenths of °C and the fan in rpm from the perf data's bytes.
+fn perf_values(bytes: &[u8]) -> (u32, u32) {
+    let at = |offset: usize| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+    (at(TEMPERATURE_OFFSET), at(FAN_OFFSET))
+}
+
 /// One adapter's temperature sensor: never asked again once the driver says it does not report it; after any other
 /// failure asked again after a pause growing from 5 s to 5 min.
 #[derive(Default)]
@@ -163,15 +172,16 @@ struct Sensor {
 }
 
 impl Sensor {
-    fn read(&mut self, luid: LUID, now: Instant) -> Option<f64> {
+    /// The temperature, and the fan from the same answer (0 also from a driver that does not report it: the page tells).
+    fn read(&mut self, luid: LUID, now: Instant) -> (Option<f64>, Option<u32>) {
         if self.never || self.retry_at.is_some_and(|t| now < t) {
-            return None;
+            return (None, None);
         }
         unsafe {
             if self.handle == 0 {
                 let mut open = OpenAdapterFromLuid { luid, adapter: 0 };
                 if D3DKMTOpenAdapterFromLuid(&mut open) != 0 {
-                    return self.wait(now);
+                    return (self.wait(now), None);
                 }
                 self.handle = open.adapter;
             }
@@ -179,24 +189,23 @@ impl Sensor {
             let mut query = QueryAdapterInfo { adapter: self.handle, kind: ADAPTER_PERF_DATA, data: data.as_mut_ptr().cast(), size: PERF_DATA_SIZE as u32 };
             let status = D3DKMTQueryAdapterInfo(&mut query);
             if status == 0 {
-                let bytes: &[u8] = std::slice::from_raw_parts(data.as_ptr().cast(), PERF_DATA_SIZE);
-                let deci = u32::from_le_bytes(bytes[TEMPERATURE_OFFSET..TEMPERATURE_OFFSET + 4].try_into().unwrap());
+                let (deci, rpm) = perf_values(std::slice::from_raw_parts(data.as_ptr().cast(), PERF_DATA_SIZE));
                 self.pause = Duration::ZERO;
                 // Zero: no sensor, or an adapter just waking up; asked again shortly.
                 if deci == 0 {
                     self.retry_at = Some(now + FIRST_PAUSE);
-                    return None;
+                    return (None, Some(rpm));
                 }
-                return Some(deci as f64 / 10.0);
+                return (Some(deci as f64 / 10.0), Some(rpm));
             }
             let _ = D3DKMTCloseAdapter(&mut self.handle);
             self.handle = 0;
             if status == NOT_SUPPORTED || status == INVALID_PARAMETER {
                 self.never = true;
-                return None;
+                return (None, None);
             }
         }
-        self.wait(now)
+        (self.wait(now), None)
     }
 
     fn close(&mut self) {
@@ -223,6 +232,8 @@ pub struct NvmlGpu {
     /// Board power in watts.
     watts: Option<f64>,
     temp: Option<f64>,
+    /// The fan in percent of its top speed (it may pass 100); None where the board reports none.
+    fan: Option<u32>,
 }
 
 type NvmlInit = unsafe extern "C" fn() -> i32;
@@ -231,6 +242,7 @@ type NvmlHandle = unsafe extern "C" fn(u32, *mut *mut c_void) -> i32;
 type NvmlName = unsafe extern "C" fn(*mut c_void, *mut u8, u32) -> i32;
 type NvmlPower = unsafe extern "C" fn(*mut c_void, *mut u32) -> i32;
 type NvmlTemp = unsafe extern "C" fn(*mut c_void, u32, *mut u32) -> i32;
+type NvmlFan = unsafe extern "C" fn(*mut c_void, *mut u32) -> i32;
 
 /// The NVIDIA driver's management library, only from System32 (where current drivers install it).
 struct Nvml {
@@ -239,6 +251,8 @@ struct Nvml {
     name: NvmlName,
     power: NvmlPower,
     temp: NvmlTemp,
+    /// Optional: power and temperature still come from a library without it.
+    fan: Option<NvmlFan>,
 }
 
 // Plain function pointers into a library that stays loaded.
@@ -256,6 +270,7 @@ impl Nvml {
                 name: std::mem::transmute(f(s!("nvmlDeviceGetName"))?),
                 power: std::mem::transmute(f(s!("nvmlDeviceGetPowerUsage"))?),
                 temp: std::mem::transmute(f(s!("nvmlDeviceGetTemperature"))?),
+                fan: f(s!("nvmlDeviceGetFanSpeed")).map(|p| std::mem::transmute::<_, NvmlFan>(p)),
             };
             (init() == 0).then_some(nvml)
         }
@@ -284,7 +299,10 @@ impl Nvml {
                 let watts = ((self.power)(dev, &mut mw) == 0).then(|| mw as f64 / 1000.0);
                 // Sensor 0: the GPU die.
                 let temp = ((self.temp)(dev, 0, &mut c) == 0 && c > 0).then_some(c as f64);
-                list.push(NvmlGpu { name, watts, temp });
+                let mut pct = 0u32;
+                // NVML_ERROR_NOT_SUPPORTED on a board whose fan the firmware runs (laptops).
+                let fan = self.fan.and_then(|get| (get(dev, &mut pct) == 0).then_some(pct));
+                list.push(NvmlGpu { name, watts, temp, fan });
             }
         }
         list
@@ -352,6 +370,11 @@ const DRIVE_REMOVABLE: u32 = 2;
 const DRIVE_FIXED: u32 = 3;
 /// A drive behind a RAID controller is never asked for its temperature: the controller's driver answers for it and may hang.
 const BUS_RAID: u32 = 8;
+/// STORAGE_BUS_TYPE values of drives that plug in: USB, SD, MMC (as PLUG_BUS in src/features/system/storage.ts).
+const PLUG_BUS: [u32; 3] = [7, 12, 13];
+/// BusTypeFileBackedVirtual, a VHD; and the smallest volume shown (both as in src/features/system/storage.ts).
+const VIRTUAL_BUS: u32 = 14;
+const SMALLEST_VOLUME: u64 = 1 << 30;
 
 #[derive(Default)]
 struct DriveCache {
@@ -375,6 +398,9 @@ pub struct Volume {
     free: u64,
     /// \\.\PhysicalDriveN; None when the volume spans drives.
     disk: Option<u32>,
+    /// The name File Explorer shows, empty when the volume has none; read for the bar alone (bar_drives).
+    #[serde(skip)]
+    label: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -390,19 +416,20 @@ pub struct Disk {
     temp: Option<[i16; 3]>,
 }
 
-fn read_drives(temps: bool) -> Drives {
-    let volumes = volumes();
+/// `bar`: for the bar's widget, which wants the labels and not the seek penalty (whether a drive is an SSD).
+fn read_drives(temps: bool, bar: bool) -> Drives {
+    let volumes = volumes(bar);
     let mut numbers: Vec<u32> = volumes.iter().filter_map(|v| v.disk).collect();
     numbers.sort_unstable();
     numbers.dedup();
-    let disks = numbers.into_iter().filter_map(|n| disk(n, temps)).collect();
+    let disks = numbers.into_iter().filter_map(|n| disk(n, temps, !bar)).collect();
     Drives { volumes, disks }
 }
 
 /// Every fixed or removable lettered volume on a disk, each once. Subst letters, virtual file systems (Google Drive),
 /// empty card readers and volumes whose extents cannot be read (a VeraCrypt or ImDisk volume lives inside another
-/// drive) are left out.
-fn volumes() -> Vec<Volume> {
+/// drive) are left out, and so are drives locked by BitLocker, whose free space cannot be read.
+fn volumes(labels: bool) -> Vec<Volume> {
     let mut list = Vec::new();
     let mut seen = Vec::<String>::new();
     unsafe {
@@ -438,11 +465,61 @@ fn volumes() -> Vec<Volume> {
                 continue;
             }
             let Some(disk) = extents(&letter) else { continue };
-            list.push(Volume { letter, total, free, disk });
+            let mut name = [0u16; 261];
+            let label = if labels && GetVolumeInformationW(&root_h, Some(&mut name), None, None, None, None).is_ok() {
+                String::from_utf16_lossy(&name[..name.iter().position(|&c| c == 0).unwrap_or(name.len())])
+            } else {
+                String::new()
+            };
+            list.push(Volume { letter, total, free, disk, label });
         }
         let _ = SetThreadErrorMode(old_mode, None);
     }
     list
+}
+
+/// A lettered drive for the bar's disk space widget (taskbar/disks.rs).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct BarDrive {
+    /// "C:"
+    pub letter: String,
+    /// The volume's label, else the drive's model; may be empty.
+    name: String,
+    total: u64,
+    free: u64,
+    /// A USB stick, a card or a USB disk.
+    pub(crate) removable: bool,
+    /// The drive Windows runs from.
+    system: bool,
+}
+
+/// Whether a drive plugs in: removable media (a USB stick, a card) or a fixed disk on a USB, SD or MMC bus (a USB disk). A
+/// volume whose drive is not known (it spans drives) counts as internal.
+fn plugs_in(disk: Option<&Disk>) -> bool {
+    disk.is_some_and(|d| d.removable || PLUG_BUS.contains(&d.bus))
+}
+
+/// The volumes the Hardware tool shows, without temperatures, so no drive is asked for one. Read on a call, not cached:
+/// the bar asks every few minutes and as its panel opens.
+pub fn bar_drives() -> Vec<BarDrive> {
+    let Drives { volumes, disks } = read_drives(false, true);
+    bar_list(volumes, &disks, &std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()))
+}
+
+/// The Hardware tool's rule (groupDrives in storage.ts): no volume under 1 GiB, none on a virtual disk or on a drive that
+/// could not be read. The drive Windows runs from never plugs in, though eMMC reports the SD or MMC bus.
+fn bar_list(volumes: Vec<Volume>, disks: &[Disk], system: &str) -> Vec<BarDrive> {
+    let system_disk = volumes.iter().find(|v| v.letter.eq_ignore_ascii_case(system)).and_then(|v| v.disk);
+    volumes
+        .into_iter()
+        .filter(|v| v.total >= SMALLEST_VOLUME && v.disk.is_none_or(|n| disks.iter().any(|d| d.number == n && d.bus != VIRTUAL_BUS)))
+        .map(|v| {
+            let disk = v.disk.and_then(|n| disks.iter().find(|d| d.number == n));
+            let name = if v.label.is_empty() { disk.map(|d| d.model.clone()).unwrap_or_default() } else { v.label };
+            let removable = plugs_in(disk) && v.disk != system_disk;
+            BarDrive { system: v.letter.eq_ignore_ascii_case(system), removable, name, total: v.total, free: v.free, letter: v.letter }
+        })
+        .collect()
 }
 
 /// A letter whose DOS device is a disk volume; a subst target (`\??\`) and a virtual file system are not.
@@ -450,13 +527,13 @@ fn disk_volume(target: &str) -> bool {
     target.starts_with(r"\Device\HarddiskVolume")
 }
 
-fn open(path: &str) -> Option<HANDLE> {
+pub(crate) fn open(path: &str) -> Option<HANDLE> {
     // No read or write access: a normal user may open volumes and drives this way.
     unsafe { CreateFileW(&HSTRING::from(path), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, None, OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES(0), None).ok() }
 }
 
 /// Some(Some(n)): the volume lies on drive n; Some(None): it spans drives; None: unreadable.
-fn extents(letter: &str) -> Option<Option<u32>> {
+pub(crate) fn extents(letter: &str) -> Option<Option<u32>> {
     let h = open(&format!("\\\\.\\{letter}"))?;
     // VOLUME_DISK_EXTENTS: count (u32), padding, then 24-byte DISK_EXTENTs with DiskNumber first.
     let mut out = [0u64; (8 + 24 * 32) / 8];
@@ -489,7 +566,8 @@ fn property(h: HANDLE, id: u32) -> Option<Vec<u8>> {
     }
 }
 
-fn disk(number: u32, temps: bool) -> Option<Disk> {
+/// `seek`: whether to ask the seek penalty (`ssd` is false when not asked; temperatures need it).
+fn disk(number: u32, temps: bool, seek: bool) -> Option<Disk> {
     let h = open(&format!("\\\\.\\PhysicalDrive{number}"))?;
     let result = (|| {
         // STORAGE_DEVICE_DESCRIPTOR: RemovableMedia at 10, ProductIdOffset at 16, BusType at 28.
@@ -505,7 +583,7 @@ fn disk(number: u32, temps: bool) -> Option<Disk> {
         let bus = u32_at(&d, 28);
         let removable = d[10] != 0;
         // DEVICE_SEEK_PENALTY_DESCRIPTOR: IncursSeekPenalty at 8. A drive that does not say is taken for a spinning disk.
-        let ssd = property(h, SEEK_PENALTY_PROPERTY).is_some_and(|p| p.len() >= 9 && p[8] == 0);
+        let ssd = seek && property(h, SEEK_PENALTY_PROPERTY).is_some_and(|p| p.len() >= 9 && p[8] == 0);
         // Hard disks are not asked (it could spin one up), nor drives behind RAID.
         let temp = (temps && ssd && bus != BUS_RAID && !removable)
             .then(|| property(h, TEMPERATURE_PROPERTY))
@@ -527,9 +605,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_perf_data_gives_the_temperature_and_the_fan() {
+        let mut bytes = [0u8; PERF_DATA_SIZE];
+        bytes[56..60].copy_from_slice(&523u32.to_le_bytes());
+        bytes[48..52].copy_from_slice(&1340u32.to_le_bytes());
+        assert_eq!(perf_values(&bytes), (523, 1340));
+    }
+
+    #[test]
     fn only_disk_volumes_are_kept() {
         assert!(disk_volume(r"\Device\HarddiskVolume3"));
         assert!(!disk_volume(r"\Device\Volume{042dcf0d-1a8b-3c45-87b7-1a3469d2a54b}"));
         assert!(!disk_volume(r"\??\C:\some\folder"));
+    }
+
+    #[test]
+    fn usb_sticks_and_disks_plug_in() {
+        let d = |bus: u32, removable: bool| Disk { number: 0, model: String::new(), bus, removable, ssd: true, temp: None };
+        // NVMe, SATA and a virtual disk are internal; so is a volume whose drive is not known.
+        assert!(!plugs_in(Some(&d(17, false))) && !plugs_in(Some(&d(11, false))) && !plugs_in(Some(&d(14, false))));
+        assert!(!plugs_in(None));
+        // A USB stick (removable media), a USB disk (fixed, on USB), an SD and an MMC card.
+        assert!(plugs_in(Some(&d(7, true))) && plugs_in(Some(&d(7, false))) && plugs_in(Some(&d(12, false))) && plugs_in(Some(&d(13, false))));
+        // Removable media on any bus.
+        assert!(plugs_in(Some(&d(11, true))));
+    }
+
+    #[test]
+    fn the_bar_lists_what_the_hardware_tool_shows() {
+        const GB: u64 = 1 << 30;
+        let v = |letter: &str, total: u64, disk: Option<u32>| Volume { letter: letter.into(), total, free: 0, disk, label: String::new() };
+        let d = |number: u32, bus: u32| Disk { number, model: format!("model {number}"), bus, removable: false, ssd: false, temp: None };
+        // C: on eMMC (bus 13), a 500 MB recovery partition with a letter, a VHD, a drive that could not be read, a USB disk
+        // and a volume spanning drives.
+        let volumes = vec![v("C:", 64 * GB, Some(0)), v("R:", GB / 2, Some(0)), v("V:", 10 * GB, Some(1)), v("X:", 10 * GB, Some(5)), v("E:", 32 * GB, Some(2)), v("S:", 100 * GB, None)];
+        let list = bar_list(volumes, &[d(0, 13), d(1, VIRTUAL_BUS), d(2, 7)], "c:");
+        let letters: Vec<_> = list.iter().map(|b| b.letter.as_str()).collect();
+        assert_eq!(letters, ["C:", "E:", "S:"]);
+        assert!(list[0].system && !list[0].removable && list[0].name == "model 0");
+        assert!(!list[1].system && list[1].removable && !list[2].removable && list[2].name.is_empty());
     }
 }

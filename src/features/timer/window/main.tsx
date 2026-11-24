@@ -2,25 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import "../../../styles/global.css";
-import { settings, type Settings } from "../../../settings/store";
+import { settings } from "../../../settings/store";
 import { TimerWindow } from "./TimerWindow";
 import { language, startLanguage } from "../../../i18n";
 import { startThemes } from "../../themes/store";
 
 /*
  * Entry of the detached timer window (timer.html). Loads only the timer, its settings and
- * the styles; the timer state follows the notch window through localStorage (see store.ts).
+ * the styles; the timer state and the settings follow the other windows through localStorage
+ * (src/lib/storeCore.ts).
  */
-
-// A new look picked in the notch settings shows here right away.
-window.addEventListener("storage", (e) => {
-  if (e.key !== "notch:settings" || !e.newValue) return;
-  try {
-    settings.set(JSON.parse(e.newValue) as Settings);
-  } catch {
-    // Broken entry: keep the current settings.
-  }
-});
 
 // The timer's colours and the font come from the theme variables.
 startThemes();

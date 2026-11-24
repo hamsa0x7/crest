@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { display } from "../platform/services";
-import { settings, updateSettings } from "../settings/store";
+import { barEdge, settings, updateSettings } from "../settings/store";
 import { effectiveIdleStyle } from "../features/window/store";
 import { toPageCss, toSaved } from "../features/window/panelSize";
 import { capsuleY, snapCapsule, windowYFor } from "./capsule";
 import { across, alongOf, anchorAt, edgeLine, frameFor, nearestEdge, pointToScreen, pointerIn, span, WINDOW, type Dock, type Edge, type Work } from "./edge";
 import { windowAlong } from "./collapsed";
 import { closedLive } from "./ClosedResize";
+import { focusMode } from "./focus";
 import { spotFor } from "./follow";
 import { monitorMetrics, monitors, placedMonitor, reloadMonitor, sharedSpan } from "./monitor";
 import { viewZoom } from "./viewZoom";
@@ -17,14 +18,17 @@ const THRESHOLD = 6;
 /** The notch snaps to the center when close to it. */
 const SNAP = 24;
 
-/** display.offset and display.y are saved at 100 % scale; the page works in CSS px of the current scale. */
+/**
+ * display.offset and display.y are saved at 100 % scale; the page works in CSS px of the current scale. Windows' Text size is not taken
+ * out (text_scale.rs): above 100 % a saved place lands that much further from the centre or the top, as everything Crest draws grows.
+ */
 const pageCss = (saved: number) => toPageCss(saved, settings.get().behavior.scale);
 
 type Style = "notch" | "capsule" | "line";
 
-/** The closed look on screen: the idle style, which a window rule may turn into the line. */
+/** The closed look on screen: the focus line overrides the idle style, a window rule may turn it into the line. */
 export function shownStyle(s = settings.get()): Style {
-  return effectiveIdleStyle(s.display.idleStyle);
+  return focusMode.get() && s.display.focusStyle === "line" ? "line" : effectiveIdleStyle(s.display.idleStyle);
 }
 
 /** The edge in use: the notch and the line hang from the chosen one, the capsule always floats on the top frame. */
@@ -108,7 +112,8 @@ export const viewLine = (dock: Dock) => {
 /*
  * Move the notch along its edge, the capsule anywhere: grab it anywhere when closed, by the
  * header when open. Closed, the notch and the line move to the edge nearest the pointer (with
- * hysteresis), hanging from the screen's edge over a taskbar and from the taskbar's edge elsewhere.
+ * hysteresis), never to the bottom while Crest's bar is on, hanging from the screen's edge over
+ * a taskbar and from the taskbar's edge elsewhere.
  * Natively the window itself moves (display.rs, clamped to the monitor), in the browser only
  * the notch inside the window. Saved on release. `shape` gives the closed shape, which the capsule snaps with.
  */
@@ -137,6 +142,8 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
 
     // Where the pointer is on the monitor: the notch's place on its edge plus the pointer's place in the hit zone, which hangs from the edge.
     const m0 = dragArea(), work0 = workOf(m0), edge0 = from.dock.edge;
+    // Crest's bar takes its edge: a pointer nearest to it leaves the notch on its own (edge.ts nearestEdge).
+    const shut = barEdge(settings.get()) ?? undefined;
     const hit = document.querySelector("[data-notch-hit]")?.getBoundingClientRect();
     const z = viewZoom();
     const raw = hit ? pointerIn(edge0, hit, e.clientX, e.clientY) : { depth: 0, along: 0 };
@@ -162,7 +169,7 @@ export function useDragToMove(status: NotchStatus, shape: () => { w: number; h: 
       } else {
         const p = { x: grab.x + dx, y: grab.y + dy }, work = workOf(m), open = status === "open";
         // Open, it keeps its edge and anchor: the panel would jump around the screen.
-        const edge = open ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge);
+        const edge = open ? edge0 : nearestEdge(p.x, p.y, m.width, m.height, current.dock.edge, shut);
         const anchor = anchorAt(edge, p.x, p.y, m.width, m.height, work) ?? (edge === edge0 ? from.dock.anchor : "auto");
         // On the edge it started on, the grabbed point stays under the pointer; on another, the notch's centre comes under it.
         const along = alongOf(edge, p.x, p.y) - span(edge, m.width, m.height) / 2 - (edge === edge0 ? rel.along : 0);

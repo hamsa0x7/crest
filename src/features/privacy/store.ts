@@ -1,7 +1,10 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
 import { isMac } from "../../platform/native";
 import { fetchPrivacy, type PrivacyState } from "../../platform/services";
 import { settings, updateSettings } from "../../settings/store";
+import { privacyOnBar } from "../taskbar/widgets";
 
 /*
  * Mic/camera/screen use, polled once for the privacy dots and the presentation mode.
@@ -9,23 +12,17 @@ import { settings, updateSettings } from "../../settings/store";
  */
 const POLL_MS = 1500;
 
-export const privacy = createStore<PrivacyState>({
-  mic: false,
-  camera: false,
-  screen: false,
-  mic_apps: [],
-  camera_apps: [],
-  screen_apps: [],
-});
+const NONE: PrivacyState = { mic: false, camera: false, screen: false, location: false, mic_apps: [], camera_apps: [], screen_apps: [] };
+export const privacy = createStore<PrivacyState>(NONE);
 
 /** "Off for now" during an auto-detected recording; resets when the recording ends. */
-const snoozed = createStore(false);
+export const snoozed = createStore(false);
 
 let poll: number | undefined;
 
 function syncPolling() {
   const s = settings.get();
-  const needed = !isMac && (s.privacyDots || s.presentation.auto);
+  const needed = !isMac && (s.privacyDots || s.presentation.auto || privacyOnBar(s.taskbar));
   if (needed && poll === undefined) {
     const load = () =>
       void fetchPrivacy().then((next) => {
@@ -36,6 +33,7 @@ function syncPolling() {
           prev.mic === next.mic &&
           prev.camera === next.camera &&
           prev.screen === next.screen &&
+          prev.location === next.location &&
           arraysEqual(prev.mic_apps, next.mic_apps) &&
           arraysEqual(prev.camera_apps, next.camera_apps) &&
           arraysEqual(prev.screen_apps, next.screen_apps)
@@ -50,11 +48,14 @@ function syncPolling() {
     window.clearInterval(poll);
     poll = undefined;
     snoozed.set(false);
-    privacy.set({ mic: false, camera: false, screen: false, mic_apps: [], camera_apps: [], screen_apps: [] });
+    privacy.set(NONE);
   }
 }
-settings.subscribe(syncPolling);
-syncPolling();
+// The notch alone polls; the settings window gets the result through the bridge (src/features/settings/window/shared.ts).
+if (isNotchWindow) {
+  settings.subscribe(syncPolling);
+  syncPolling();
+}
 
 function isPresenting(manual: boolean, auto: boolean, screen: boolean, off: boolean): boolean {
   return manual || (auto && screen && !off);
@@ -79,6 +80,8 @@ export function presentingNow(): boolean {
 
 /** One switch for both cases: during an auto-detected recording "off" only lasts until it ends. */
 export function togglePresentation() {
+  // The notch knows the recording and the snooze: the settings window asks it.
+  if (!isNotchWindow) return askNotch({ kind: "presentation" });
   const { manual, auto } = settings.get().presentation;
   const { screen } = privacy.get();
   if (isPresenting(manual, auto, screen, snoozed.get())) {

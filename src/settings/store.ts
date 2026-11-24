@@ -8,19 +8,22 @@ import type { RimPreset, RimEffect } from "../notch/rim";
 import { normalizeClockLook, normalizeLook, normalizeLookColor, type ClockLook, type LookColor, type TimerLook } from "../features/timer/looks";
 import { normalizeFocusSound, type FocusSound } from "../features/timer/focusSound";
 import { WATER_DEFAULTS, normalizeWater, type WaterConfig } from "../features/water/water";
+import { OVERVIEW_PARTS_DEFAULT, normalizeOverviewParts, type OverviewParts } from "../features/overview/parts";
 import { normalizeCards, USAGE_CARDS_DEFAULTS, type UsageCards } from "../features/usage/cards";
 import { THEME_DEFAULTS, legacyIconColors, normalizeThemeSettings, type ThemeSettings } from "../features/themes/themes";
 import type { ColorScheme } from "../features/system/levels";
 import { normalizeFavorites, type Favorite } from "../features/launcher/apps";
 import { NOTICE_DEFAULTS, normalizeNotices, type NoticeSettings } from "../features/notices/rules";
 import { WINDOW_DEFAULTS, normalizeWindow, type WindowSettings } from "../features/window/model";
-import { DOCK_DEFAULTS, normalizeDock, type Dock } from "../notch/edge";
+import { DOCK_DEFAULTS, dockBesideBar, normalizeDock, type Dock } from "../notch/edge";
 import { normalizeMonitorMode, type MonitorMode } from "../notch/follow";
 import { CALENDAR_DEFAULTS, normalizeCalendar, type CalendarSettings } from "../features/calendar/model";
 import { CLOSED_SIZE_DEFAULTS, fitCapsuleTop, normalizeClosedSize, type ClosedSize } from "../notch/collapsed";
 import { DEFAULT_OFF, TOOL_IDS } from "./tools";
 import { LYRIC_SOURCE_DEFAULTS, normalizeSources, type LyricSourceSetting } from "../features/now-playing/lyricSources";
 import { normalizeSearch, type SearchSetting } from "../features/overview/search";
+import { TASKBAR_DEFAULTS, normalizeTaskbar, type TaskbarSettings } from "../features/taskbar/model";
+import { WALLPAPER_DEFAULTS, normalizeWallpapers, type WallpaperSettings } from "../features/wallpapers/model";
 
 export type AskProvider = "openrouter" | "openai" | "anthropic" | "custom";
 export type AskEffort = "off" | "low" | "medium" | "high" | "xhigh";
@@ -58,8 +61,12 @@ export interface Settings {
     /** "chosen": on `monitor`; "follow": where the pointer is while closed; "all": a closed copy on every other monitor (src/notch/monitor.ts). */
     monitorMode: MonitorMode;
     offset: number;
+    /** Focus mode look: half transparent (as before) or shrunk to a thin line at the edge. */
+    focusStyle: "dim" | "line";
+    /** Three quick clicks on the notch turn focus mode on and off; off by default (src/notch/focusRules.ts). */
+    focusClicks: boolean;
     /**
-     * Closed look: the notch, the floating capsule, or a thin line (no
+     * Closed look outside focus mode: the notch, the floating capsule, or a thin line (no
      * music etc.; only a finished timer opens it into the notch until dismissed). Hover and
      * click work as usual.
      */
@@ -132,8 +139,8 @@ export interface Settings {
   /** Look of the big countdown in the Timer tool and the detached timer window; background sound while a focus timer runs, volume 0 to 1. */
   timer: { look: TimerLook; clockLook: ClockLook; color: LookColor; clockColor: LookColor; focusSound: FocusSound; focusVolume: number };
   /** To-do reminders (sound), dates in plain words in the new-task field, the water reminder and the quote line in Overview. */
-  /** `search`: Overview's web search line and its engine, or "off". */
-  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; search: SearchSetting; water: WaterConfig };
+  /** `search`: Overview's web search line and its engine, or "off". `overview`: which of Overview's other parts show (overview/parts.ts). */
+  productivity: { reminderSound: boolean; nlDates: boolean; quotes: boolean; search: SearchSetting; water: WaterConfig; overview: OverviewParts };
   /** Terminal tool: shell, font size in px, start folder ("" = home), end the shell when the notch closes. */
   terminal: { shell: "pwsh" | "powershell" | "cmd"; fontSize: number; startDir: string; endOnClose: boolean };
   /**
@@ -146,6 +153,8 @@ export interface Settings {
   music: {
     lyricsOpen: boolean;
     titleLyrics: boolean;
+    /** A title too wide for its part keeps scrolling while the song plays, instead of three laps (#53). */
+    titleLoop: boolean;
     notchLyrics: boolean;
     pinned: string | null;
     lyricSources: LyricSourceSetting[];
@@ -172,10 +181,13 @@ export interface Settings {
   /**
    * App launcher: pinned apps, `null` until the first app list arrives, which pins the detected
    * AI apps once. `hotkeys`: the first six on Alt+1 to Alt+6, opt-in (other apps lose those keys).
+   * `hotkeyOffer`: the opt-in under the tiles, until its × hides it for good (the switch stays in Settings).
    */
-  launcher: { favorites: Favorite[] | null; hotkeys: boolean };
+  launcher: { favorites: Favorite[] | null; hotkeys: boolean; hotkeyOffer: boolean };
   /** GitHub activity: the public username. An optional token is stored with the secrets. */
   github: { user: string };
+  /** LeetCode activity: the public username. */
+  leetcode: { user: string };
   /** Calendar: ICS links and CalDAV accounts (the link or app password is stored with the secrets), the notice before an event, the next-event part's horizon. */
   calendar: CalendarSettings;
   /** Live notices: Windows notifications and cupcake-notify in the closed notch, with per-app rules and quiet hours. */
@@ -207,6 +219,12 @@ export interface Settings {
     springWhoosh: boolean;
     chimes: boolean;
   };
+  /** Cupcake's bar in place of Windows' taskbar (Windows only, off by default): its zones, size, background and pinned apps (src/features/taskbar). */
+  taskbar: TaskbarSettings;
+  /** Screen Time records which app is in front, per hour, only on this PC and only once turned on (src/features/screentime). */
+  screenTime: { on: boolean };
+  /** The Wallpapers tool: its source, its folder, the fit and the automatic change (src/features/wallpapers). */
+  wallpapers: WallpaperSettings;
 }
 
 const defaults: Settings = {
@@ -226,7 +244,8 @@ const defaults: Settings = {
     },
   },
   weather: null,
-  display: { visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
+  display: {
+    visibility: "always", monitor: null, monitorMode: "chosen", offset: 0, focusStyle: "dim", focusClicks: false, idleStyle: "notch", y: 5, ears: true, earRadius: 13, birthAnimation: true, hoverPeek: true, satelliteBubble: true,
     rimPreset: "none", rimThickness: 1.0, rimGlow: 0, rimEffect: "none", rimSpeed: 1.0, rimCustomStart: "#60a5fa", rimCustomEnd: "#c084fc",
     frostedGlass: false, glassOpacity: 75, surfaceSheen: true, refractiveHighlight: true,
     chargerAnimation: "cinematic", dockMagnifyDots: true,
@@ -235,7 +254,8 @@ const defaults: Settings = {
     tabStripImmunity: true, immunityHeight: 40,
     wheelActivityCycling: true, pressToPin: false,
     notchLocked: false, lockClickThrough: false, defaultTab: "",
-    ferrofluidStretch: true, ferrofluidSpikes: true, dropletBead: true, idleSag: true, weatherDrips: true },
+    ferrofluidStretch: true, ferrofluidSpikes: true, dropletBead: true, idleSag: true, weatherDrips: true
+  },
   closed: CLOSED_DEFAULTS,
   closedSize: CLOSED_SIZE_DEFAULTS,
   gaming: { mode: "off" },
@@ -247,11 +267,12 @@ const defaults: Settings = {
   presentation: { manual: false, auto: true, hideFromCapture: false },
   updates: { auto: true },
   timer: { look: "clean", clockLook: "standard", color: "orange", clockColor: "white", focusSound: "off", focusVolume: 0.3 },
-  productivity: { reminderSound: true, nlDates: true, quotes: false, search: "off", water: WATER_DEFAULTS },
+  productivity: { reminderSound: true, nlDates: true, quotes: false, search: "off", water: WATER_DEFAULTS, overview: OVERVIEW_PARTS_DEFAULT },
   terminal: { shell: "pwsh", fontSize: 13, startDir: "", endOnClose: false },
   music: {
     lyricsOpen: false,
     titleLyrics: false,
+    titleLoop: false,
     notchLyrics: false,
     pinned: null,
     lyricSources: LYRIC_SOURCE_DEFAULTS,
@@ -268,8 +289,9 @@ const defaults: Settings = {
   },
   themes: THEME_DEFAULTS,
   system: { colors: "calm", gpu: "", gpuIndex: 0, sort: "cpu" },
-  launcher: { favorites: null, hotkeys: false },
+  launcher: { favorites: null, hotkeys: false, hotkeyOffer: true },
   github: { user: "" },
+  leetcode: { user: "" },
   calendar: CALENDAR_DEFAULTS,
   notices: NOTICE_DEFAULTS,
   behavior: WINDOW_DEFAULTS,
@@ -287,6 +309,9 @@ const defaults: Settings = {
     springWhoosh: true,
     chimes: true,
   },
+  taskbar: TASKBAR_DEFAULTS,
+  screenTime: { on: false },
+  wallpapers: WALLPAPER_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -329,6 +354,21 @@ try {
   settings.set(defaults);
 }
 
+/** Crest's bar is on. Windows only: a Mac, which has no bar, never reads it on from a restored backup. */
+export function barOn(s: Settings): boolean {
+  return s.taskbar.enabled && !isMac;
+}
+
+/** The screen edge Crest's bar takes while it is on, null while it is off. */
+export function barEdge(s: Settings): "bottom" | "top" | null {
+  return barOn(s) ? s.taskbar.position : null;
+}
+
+/** The notch leaves the bar's edge to Crest's bar (edge.ts dockBesideBar), as the settings load (a restored backup too) and on every update (the bar turned on or moved). */
+function besideBar(s: Settings): Settings {
+  return { ...s, dock: dockBesideBar(s.dock, barEdge(s)) };
+}
+
 function migrate({ language: _old, ...s }: Settings & { language?: unknown }): Settings {
   const known = new Set<string>(TOOL_IDS);
   // Plugin tools stay; src/features/plugins/store.ts drops those no longer installed once it has read the list.
@@ -339,7 +379,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     if (id === "overview") tools.unshift({ id, enabled: true });
     else tools.push({ id, enabled: !DEFAULT_OFF.has(id) });
   }
-  return {
+  return besideBar({
     ...defaults,
     ...s,
     // The old `language` was forced to English, never a choice: those settings start from the system language.
@@ -352,6 +392,8 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     display: {
       ...defaults.display,
       ...s.display,
+      focusStyle: s.display?.focusStyle === "line" ? "line" : "dim",
+      focusClicks: s.display?.focusClicks === true,
       y: fitCapsuleTop(s.display?.y),
       monitorMode: isMac ? "chosen" : normalizeMonitorMode(s.display?.monitorMode),
       ears: typeof s.display?.ears === "boolean" ? s.display.ears : defaults.display.ears,
@@ -453,15 +495,22 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       clockColor: normalizeLookColor(s.timer?.clockColor, "white"),
       focusSound: normalizeFocusSound(s.timer?.focusSound),
     },
-    productivity: { ...defaults.productivity, ...s.productivity, search: normalizeSearch(s.productivity?.search), water: normalizeWater(s.productivity?.water) },
+    productivity: {
+      ...defaults.productivity,
+      ...s.productivity,
+      search: normalizeSearch(s.productivity?.search),
+      water: normalizeWater(s.productivity?.water),
+      overview: normalizeOverviewParts(s.productivity?.overview, isMac),
+    },
     terminal: { ...defaults.terminal, ...s.terminal },
     music: { ...defaults.music, ...s.music, lyricSources: normalizeSources(s.music?.lyricSources) },
     // Coloured icons moved from Hardware (closed-row readings only) to Themes (the whole app).
     themes: normalizeThemeSettings(s.themes, legacyIconColors(s.system)),
     system: (({ iconColors: _moved, ...rest }: Partial<Settings["system"]> & { iconColors?: unknown }) => ({ ...defaults.system, ...rest }))(s.system ?? {}),
     // Only an explicit opt-in turns the keys on; an older saved `shortcuts: true` does not.
-    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true },
+    launcher: { favorites: normalizeFavorites(s.launcher?.favorites), hotkeys: s.launcher?.hotkeys === true, hotkeyOffer: s.launcher?.hotkeyOffer !== false },
     github: { ...defaults.github, ...s.github },
+    leetcode: { ...defaults.leetcode, ...s.leetcode },
     calendar: normalizeCalendar(s.calendar),
     capture: { ...defaults.capture, ...s.capture },
     recorder: { ...defaults.recorder, ...s.recorder },
@@ -483,7 +532,11 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
       springWhoosh: typeof s.acoustics?.springWhoosh === "boolean" ? s.acoustics.springWhoosh : defaults.acoustics.springWhoosh,
       chimes: typeof s.acoustics?.chimes === "boolean" ? s.acoustics.chimes : defaults.acoustics.chimes,
     },
-  };
+    taskbar: normalizeTaskbar(s.taskbar),
+    // Only an explicit true records: the switch is the consent.
+    screenTime: { on: s.screenTime?.on === true },
+    wallpapers: normalizeWallpapers(s.wallpapers),
+  });
 }
 
 /** Migrates the old shape ({ provider: "demo", model }) and adds missing providers. */
@@ -500,5 +553,5 @@ export function updateAsk(provider: AskProvider, patch: Partial<AskProviderConfi
 }
 
 export function updateSettings(patch: Partial<Settings> | ((s: Settings) => Partial<Settings>)) {
-  settings.set((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
+  settings.set((s) => besideBar({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
 }

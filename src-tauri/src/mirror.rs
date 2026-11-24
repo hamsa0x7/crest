@@ -15,7 +15,9 @@
 //! hide hotkey, and each one on its own where a window on its monitor calls for a hiding or line rule.
 //!
 //! The thread also notices monitors being added, removed, rescaled or getting another taskbar (once a second): it places
-//! the notch again and emits `notch://monitors`, which makes the frontend read them again.
+//! the notch and Crest's bars again, emits `notch://monitors`, which makes the frontend read them again, then gives every
+//! monitor its bar (taskbar/screens.rs). Once such changes have been quiet for `SCREENS_SETTLE` it compares the monitors with
+//! the ones before and tells each that came or went (`status://display`, the status alert).
 
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::Mutex;
@@ -24,7 +26,11 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow, WebviewWindowBuilder};
-use windows::Win32::Foundation::POINT;
+use windows::Win32::Devices::Display::{
+    DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_MODE_INFO,
+    DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME, QDC_ONLY_ACTIVE_PATHS,
+};
+use windows::Win32::Foundation::{ERROR_SUCCESS, POINT};
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, MONITORINFO, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow};
 
@@ -36,6 +42,8 @@ const DWELL: Duration = Duration::from_millis(350);
 /// The pointer is read this often while a mode is on; otherwise only the monitors are checked, once a second.
 const TICK: Duration = Duration::from_millis(100);
 const IDLE: Duration = Duration::from_secs(1);
+/// A dock or a cable changes the monitors in a burst: they are compared once nothing has changed for this long.
+const SCREENS_SETTLE: Duration = Duration::from_secs(2);
 /// Template of the mirror windows in tauri.conf.json (never created itself; each mirror is `mirror-<n>`).
 const TEMPLATE: &str = "mirror";
 
@@ -46,6 +54,9 @@ pub struct Picture {
     html: String,
     root: String,
     theme: String,
+    /// The page's style, `crest` or `material` (its `data-design`); a notch from before the Style setting sends none.
+    #[serde(default)]
+    design: String,
     /// The page's `lang` and `dir`, which pick the CJK glyphs and the direction of what is drawn.
     lang: String,
     dir: String,
@@ -131,6 +142,9 @@ fn run(app: AppHandle, rx: Receiver<()>) {
     let mut checked = Instant::now();
     let mut foreground = 0isize;
     let mut dirty = false;
+    // The monitors the status alert compares with, and since when the last change waits to settle.
+    let mut known = screens_now();
+    let mut settle: Option<Instant> = None;
     loop {
         let mode = app.state::<DisplayState>().config().mode;
         let active = mode == "follow" || mode == "all";
@@ -148,14 +162,32 @@ fn run(app: AppHandle, rx: Receiver<()>) {
         if checked.elapsed() >= IDLE || screens.is_empty() {
             checked = Instant::now();
             let now = signature(&app);
-            if !screens.is_empty() && now != screens {
+            // No monitor at all is Windows not answering, not every monitor gone: it changes nothing, and the next reading is
+            // compared with the last good one.
+            if !screens.is_empty() && !now.is_empty() && now != screens {
                 if let Some(window) = app.get_webview_window("notch") {
                     let _ = display::place(&window, &app.state::<DisplayState>());
                 }
+                crate::taskbar::bar::place(&app);
                 let _ = app.emit("notch://monitors", ());
+                // After the emit: building a bar, or waiting while an Off holds SYNC, can take seconds the notch need not wait.
+                crate::taskbar::screens::sync(&app);
                 dirty = true;
+                settle = Some(Instant::now());
             }
-            screens = now;
+            if !now.is_empty() {
+                screens = now;
+            }
+        }
+        if settle.is_some_and(|t| t.elapsed() >= SCREENS_SETTLE) {
+            settle = None;
+            // No monitor at all is Windows not answering, not every monitor gone.
+            if let Some(now) = screens_now().filter(|s| !s.is_empty()) {
+                for change in known.as_deref().map(|before| screen_changes(before, &now)).unwrap_or_default() {
+                    let _ = app.emit("status://display", change);
+                }
+                known = Some(now);
+            }
         }
         // Another app came to the front: the mirrors go back on top, like the notch (display.rs).
         let front = unsafe { GetForegroundWindow() }.0 as isize;
@@ -253,6 +285,8 @@ fn create(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
     }
     let window = builder.build()?;
     crate::capture::exclude_if_capturing(app);
+    // Queued ahead of sync's show(), which comes from this same mirror thread.
+    crate::display::keep_out_of_alt_tab(&window);
     Ok(window)
 }
 
@@ -265,7 +299,7 @@ fn mirrored(spots: &[Spot], placed: Option<&str>, primary: Option<&str>, present
 /// Is the pointer (physical px) over the closed notch's hit zone on this mirror?
 fn over_spot(window: &WebviewWindow, at: (i32, i32), rect: &HitRect, zoom: f64) -> bool {
     let (Ok(origin), Ok(scale)) = (window.outer_position(), window.scale_factor()) else { return false };
-    in_rect(at, (origin.x, origin.y), scale * zoom, rect)
+    in_rect(at, (origin.x, origin.y), scale * zoom * crate::text_scale::get(), rect)
 }
 
 fn in_rect((x, y): (i32, i32), (ox, oy): (i32, i32), scale: f64, rect: &HitRect) -> bool {
@@ -298,6 +332,71 @@ fn signature(app: &AppHandle) -> String {
         .join("|")
 }
 
+/// A monitor for the status alert: its device path (the same monitor on the same port), the name it gives itself, its refresh rate,
+/// and whether it is the laptop's own screen.
+#[derive(Clone, PartialEq, Debug)]
+struct Screen {
+    id: String,
+    name: String,
+    hz: Option<u32>,
+    builtin: bool,
+}
+
+/// One monitor that came, went or changed its refresh rate, for the page (status.ts displayAlert).
+#[derive(Serialize, Clone, PartialEq, Debug)]
+struct ScreenChange {
+    name: String,
+    hz: Option<u32>,
+    connected: bool,
+    builtin: bool,
+}
+
+/// The monitors on now; None when Windows could not tell.
+fn screens_now() -> Option<Vec<Screen>> {
+    let wide = |w: &[u16]| String::from_utf16_lossy(&w[..w.iter().position(|&c| c == 0).unwrap_or(w.len())]).trim().to_string();
+    unsafe {
+        let (mut path_count, mut mode_count) = (0u32, 0u32);
+        if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut path_count, &mut mode_count) != ERROR_SUCCESS {
+            return None;
+        }
+        let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); path_count as usize];
+        let mut modes = vec![DISPLAYCONFIG_MODE_INFO::default(); mode_count as usize];
+        if QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &mut path_count, paths.as_mut_ptr(), &mut mode_count, modes.as_mut_ptr(), None) != ERROR_SUCCESS {
+            return None;
+        }
+        let mut screens: Vec<Screen> = Vec::new();
+        for path in &paths[..path_count as usize] {
+            let mut target = DISPLAYCONFIG_TARGET_DEVICE_NAME::default();
+            target.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+            target.header.size = std::mem::size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>() as u32;
+            target.header.adapterId = path.targetInfo.adapterId;
+            target.header.id = path.targetInfo.id;
+            if DisplayConfigGetDeviceInfo(&mut target.header) != 0 {
+                continue;
+            }
+            // A monitor duplicated onto two outputs is one monitor.
+            let id = wide(&target.monitorDevicePath);
+            if id.is_empty() || screens.iter().any(|s| s.id == id) {
+                continue;
+            }
+            let rate = path.targetInfo.refreshRate;
+            let hz = (rate.Denominator != 0).then(|| (f64::from(rate.Numerator) / f64::from(rate.Denominator)).round() as u32).filter(|&hz| hz > 0);
+            screens.push(Screen { id, name: wide(&target.monitorFriendlyDeviceName), hz, builtin: crate::brightness::embedded(target.outputTechnology) });
+        }
+        Some(screens)
+    }
+}
+
+/// What changed between two readings: the monitors that came (with their refresh rate), the ones that went, and the ones that stayed
+/// at another refresh rate.
+fn screen_changes(before: &[Screen], now: &[Screen]) -> Vec<ScreenChange> {
+    let came = now.iter().filter(|s| before.iter().all(|b| b.id != s.id || (b.hz != s.hz && s.hz.is_some())));
+    let went = before.iter().filter(|b| now.iter().all(|s| s.id != b.id));
+    came.map(|s| ScreenChange { name: s.name.clone(), hz: s.hz, connected: true, builtin: s.builtin })
+        .chain(went.map(|b| ScreenChange { name: b.name.clone(), hz: None, connected: false, builtin: b.builtin }))
+        .collect()
+}
+
 /// The monitor the pointer has stayed on for `DWELL`, told once each time it changes.
 #[derive(Default)]
 struct Dwell {
@@ -324,6 +423,23 @@ impl Dwell {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn screen(id: &str, hz: Option<u32>) -> Screen {
+        Screen { id: id.into(), name: id.to_uppercase(), hz, builtin: id == "panel" }
+    }
+
+    #[test]
+    fn screens_that_came_went_or_changed_their_rate() {
+        let before = [screen("panel", Some(120)), screen("dell", Some(60))];
+        assert!(screen_changes(&before, &before).is_empty());
+        let docked = [screen("panel", Some(120)), screen("dell", Some(60)), screen("lg", Some(144))];
+        assert_eq!(screen_changes(&before, &docked), vec![ScreenChange { name: "LG".into(), hz: Some(144), connected: true, builtin: false }]);
+        let lid_closed = [screen("dell", Some(60))];
+        assert_eq!(screen_changes(&before, &lid_closed), vec![ScreenChange { name: "PANEL".into(), hz: None, connected: false, builtin: true }]);
+        // Another refresh rate on the same monitor is told; one Windows cannot read is not.
+        assert_eq!(screen_changes(&before, &[screen("panel", Some(120)), screen("dell", Some(30))])[0].hz, Some(30));
+        assert!(screen_changes(&before, &[screen("panel", Some(120)), screen("dell", None)]).is_empty());
+    }
 
     fn spot(name: &str) -> Spot {
         Spot { monitor: name.into(), line: 0.0, y: 0.0 }
@@ -366,6 +482,13 @@ mod tests {
         // A new monitor without a spot yet waits for the frontend's.
         assert_eq!(names(mirrored(&spots[..1], Some("B"), Some("A"), &present)), ["A"]);
         assert!(mirrored(&[], Some("B"), Some("A"), &present).is_empty());
+    }
+
+    #[test]
+    fn a_picture_without_a_design_still_reads() {
+        // As a notch from before the Style setting sends it; the mirror page draws an empty design as Crest.
+        let picture: Picture = serde_json::from_str(r#"{"html":"<div></div>","root":"","theme":"dark","lang":"en","dir":"ltr","images":null}"#).unwrap();
+        assert_eq!(picture.design, "");
     }
 
     #[test]

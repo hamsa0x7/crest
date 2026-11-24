@@ -1,4 +1,4 @@
-//! Dots like on iPhone: is anything using the mic or camera, or recording the screen?
+//! Dots like on iPhone: is anything using the mic or camera, or recording the screen? And, for the bar, the location.
 //!
 //! Windows tracks this itself (Settings → Privacy → "Recent activity") under
 //! `HKCU\…\CapabilityAccessManager\ConsentStore\<capability>`: one key per app with
@@ -23,6 +23,8 @@ pub struct Privacy {
     pub mic: bool,
     pub camera: bool,
     pub screen: bool,
+    /// For the bar's privacy button only; the notch's dots read the other three.
+    pub location: bool,
     pub mic_apps: Vec<String>,
     pub camera_apps: Vec<String>,
     pub screen_apps: Vec<String>,
@@ -62,10 +64,12 @@ pub fn privacy_state() -> Privacy {
     let mic_apps = active_apps_multi(&["microphone"], own);
     let camera_apps = active_apps_multi(&["webcam"], own);
     let screen_apps = active_apps_multi(&SCREEN, own);
+    let location = any_in_use(BASE, &["location"], own);
     Privacy {
         mic: !mic_apps.is_empty(),
         camera: !camera_apps.is_empty(),
         screen: !screen_apps.is_empty(),
+        location,
         mic_apps,
         camera_apps,
         screen_apps,

@@ -1,3 +1,5 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
 import { holdOpen } from "../../notch/useNotchState";
 import { pluginApi, type StagedPlugin } from "../../platform/services";
@@ -29,6 +31,8 @@ export const plugins = createStore<PluginManifest[]>([]);
 export const install = createStore<{ phase: "idle" | "busy" | "confirm"; staged: StagedPlugin | null; error: string | null }>({ phase: "idle", staged: null, error: null });
 
 export async function refreshPlugins() {
+  // The notch reads the plugins and syncs their tools into the settings, so one window writes them.
+  if (!isNotchWindow) return askNotch({ kind: "refresh", what: "plugins" });
   // A failed read is not "no plugins": syncing on it would drop every plugin tool and add them back switched off.
   const list = await pluginApi.list().catch(() => null);
   if (!list) return;

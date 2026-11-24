@@ -30,96 +30,22 @@ void main() {
 }`;
 
 /**
- * The glass: the open panel over the copy taken as it opens, the closed notch and the capsule over the live copy (live.ts), bent along the
- * rim and blurred in the middle, under a veil. The tool bar and its drop (bar.ts) are glass of their own inside the panel, from the same copy.
+ * What every glass shader shares (MAIN_FS here, the bar's BAR_FS in src/features/taskbar/window/glassShader.ts): the bend's and the
+ * light's constants, the rounded box's distance, luma, the bend along a rim and its light.
  */
-export const MAIN_FS = `#version 300 es
-precision highp float;
-uniform sampler2D uTex;        // the copy of the screen, BGRA bytes uploaded as RGBA, its mips the blur pyramid
-uniform vec2 uRes;             // canvas, device px
-uniform float uDpr;            // device px per CSS px of the shape
-uniform vec2 uTexScale;        // uv = p * uTexScale + uTexOffset (params.ts textureMap)
-uniform vec2 uTexOffset;
-uniform vec4 uShape;           // body left, right, height, ear radius, CSS px in the canvas
-uniform float uR;              // bottom corner radius
-uniform float uRt;             // top corner radius: 0 hangs from y = 0 (the notch, a capsule near the edge), more floats
-uniform float uBand;           // the rim that bends
-uniform float uMaxShift;       // lower with reduced motion, times Refraction
-uniform vec2 uLod;             // blur level at the rim and in the middle, with Frost (params.ts lodFor)
-uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
-uniform float uVeilEdge;       // the side bands' veil after Transparency
-uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip
-uniform vec4 uBrow;            // the veil's colour and HEADER_HEIGHT while a covering panel near the edge springs; -1 elsewhere
-uniform vec4 uRim;             // --glass-rim, its strength times Rim light
-uniform float uHair;           // the outline, stronger on light themes
-uniform float uThick;          // the glass's thickness for the bend: the panel's, or the closed shapes' thinner one (params.ts GLASS)
-uniform float uShadow;         // the inner shadow along the rim; 0 on the closed shapes, whose row runs close to it
-uniform float uEdgeFade;       // 1 for the live copy (live.ts): past its zone the veil alone
-uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
-uniform float uBarVeil;        // its veil, the side bands' at the mark (--glass-tint-edge), which Transparency leaves as it is
-uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
-uniform float uLift;           // the drop lifted into a lens, 0 to 1
-uniform vec4 uFill;            // --color-fill-3, the drop's tint
-uniform vec2 uLens;            // the drop's bend at its rim in px and its magnification, fully lifted (params.ts dropLens)
-out vec4 o;
-
-const float IOR = 1.5;
+export const GLASS_GLSL = `const float IOR = 1.5;
 const float SLOPE = 1.6;
 const float SAT = 1.2;
 const vec2 LIGHT = vec2(-0.6, -0.8);
 const vec4 SPEC = vec4(1.0, 0.5, 1.4, 1.5);
 const vec2 GLOSS = vec2(0.22, 5.0);
-const float BAR_BAND = 8.0;    // the bar's rim that bends; clear of its icons (11 px from its long sides on buttons from about 32 px)
-const float DROP_BAND = 6.0;   // the drop's; clear of the icon under it, but for a press at high Refraction
-const float BAR_THICK = 10.0;  // the bar's and the drop's glass, thinner than the panel's
-const float BAR_SHADOW = 0.12; // the bar's soft shadow on the panel around it, inside the tool bar's strip
-const float MERGE = 6.0;       // the lifted drop's smooth union with the bar, WinIsland's 6 px
-const float HEAD = 36.0;       // the header's rows, HEADER_HEIGHT + 4 (Notch.tsx Header)
 
 float sdRound(vec2 p, vec2 c, vec2 b, float r) {
   vec2 q = abs(p - c) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
-// Signed distance to the open panel (CSS px, negative inside). Hanging from y = 0 the body runs on past the screen edge, so that edge
-// has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
-// Floating, it is the whole box from y = 0 with top corners uRt; while a shape near the edge opens or closes, the ears come and go
-// beside it, their strip only outside the body's columns (half a pixel in, as the CSS ears) so the top corners stay round. The top rim
-// that strip leaves until uRt reaches 0 lies under the brow.
-float sdPanel(vec2 p) {
-  float L = uShape.x, R = uShape.y, H = uShape.z, e = uShape.w;
-  float d = uRt > 0.0
-    ? sdRound(p, vec2(0.5 * (L + R), 0.5 * H), vec2(0.5 * (R - L), 0.5 * H), p.y < 0.5 * H ? uRt : uR)
-    : sdRound(p, vec2(0.5 * (L + R), H - 4000.0), vec2(0.5 * (R - L), 4000.0), uR);
-  if (e > 0.0) {
-    d = min(d, uRt > 0.0 ? max(p.y - e, min(p.x - L, R - p.x) - 0.5) : p.y - e);
-    vec2 ql = vec2(p.x - (L - e), e - p.y);
-    vec2 qr = vec2((R + e) - p.x, e - p.y);
-    float ol = length(max(ql, 0.0)) + min(max(ql.x, ql.y), 0.0) - e;
-    float orr = length(max(qr, 0.0)) + min(max(qr.x, qr.y), 0.0) - e;
-    d = max(d, max(-ol, -orr));
-  }
-  return d;
-}
-
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-
-// Polynomial smooth minimum (Inigo Quilez), as WinIsland joins its shapes; k 0 is min().
-float smin(float a, float b, float k) {
-  if (k <= 0.0) return min(a, b);
-  float h = clamp(1.0 - abs(a - b) / k, 0.0, 1.0);
-  return min(a, b) - k * 0.25 * h * h;
-}
-
-// The drop, a capsule, cut by the panel while the springs run.
-float sdDrop(vec2 p) { return max(sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), sdPanel(p)); }
-
-// The bar, a capsule, with the lifted drop risen out of it, cut by the panel.
-float sdBar(vec2 p) {
-  float b = sdRound(p, uBar.xy, uBar.zw, uBar.w);
-  if (uDrop.z > 0.0) b = smin(b, sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), MERGE * uLift);
-  return max(b, sdPanel(p));
-}
 
 // The backdrop's shift at inward px into a rim w wide with outward normal n: the slope of the profile, refract(), along the ray through
 // glass thick px, at most most. The slope comes back for the light.
@@ -144,6 +70,87 @@ float shine(vec2 n, float slope, float inward, float band) {
   vec3 rv = reflect(vec3(0.0, 0.0, -1.0), normalize(vec3(n * slope, 1.0)));
   float gloss = pow(max(dot(rv, normalize(vec3(light, 0.75))), 0.0), GLOSS.y) * GLOSS.x * (1.0 - band);
   return rl * lit + gloss;
+}`;
+
+/**
+ * The glass: the open panel over the copy taken as it opens, the closed notch and the capsule over the live copy (live.ts), bent along the
+ * rim and blurred in the middle, under a veil. The tool bar and its drop (bar.ts) are glass of their own inside the panel, from the same copy.
+ */
+export const MAIN_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;        // the copy of the screen, BGRA bytes uploaded as RGBA, its mips the blur pyramid
+uniform vec2 uRes;             // canvas, device px
+uniform float uDpr;            // device px per CSS px of the shape
+uniform vec2 uTexScale;        // uv = p * uTexScale + uTexOffset (params.ts textureMap)
+uniform vec2 uTexOffset;
+uniform vec4 uShape;           // body left, right, height, ear radius, CSS px in the canvas
+uniform float uR;              // bottom corner radius
+uniform float uRt;             // top corner radius: 0 hangs from y = 0 (the notch, a capsule near the edge), more floats
+uniform float uBand;           // the rim that bends
+uniform float uMaxShift;       // lower with reduced motion, times Refraction
+uniform vec2 uLod;             // blur level at the rim and in the middle, with Frost (params.ts lodFor)
+uniform vec4 uVeil;            // --glass-tint's colour, and the content's veil after Transparency (themes.ts glassVeilAt)
+uniform float uVeilEdge;       // the side bands' veil after Transparency
+uniform float uDock;           // DOCK_HEIGHT: no side bands along the tool bar's strip; negative, the strip is under the header
+uniform vec4 uBrow;            // the veil's colour and HEADER_HEIGHT while a covering panel near the edge springs; -1 elsewhere
+uniform vec4 uRim;             // --glass-rim, its strength times Rim light
+uniform float uHair;           // the outline, stronger on light themes
+uniform float uThick;          // the glass's thickness for the bend: the panel's, or the closed shapes' thinner one (params.ts GLASS)
+uniform float uShadow;         // the inner shadow along the rim; 0 on the closed shapes, whose row runs close to it
+uniform float uEdgeFade;       // 1 for the live copy (live.ts): past its zone the veil alone
+uniform vec4 uBar;             // the tool bar's capsule: centre x and y, half width and height; half width 0: none
+uniform float uBarVeil;        // its veil, the side bands' at the mark (--glass-tint-edge), which Transparency leaves as it is
+uniform vec4 uDrop;            // the drop on it: centre x and y, half width and height; half width 0: none
+uniform float uLift;           // the drop lifted into a lens, 0 to 1
+uniform vec4 uFill;            // --color-fill-3, the drop's tint
+uniform vec2 uLens;            // the drop's bend at its rim in px and its magnification, fully lifted (params.ts dropLens)
+out vec4 o;
+
+${GLASS_GLSL}
+
+const float BAR_BAND = 8.0;    // the bar's rim that bends; clear of its icons (11 px from its long sides on buttons from about 32 px)
+const float DROP_BAND = 6.0;   // the drop's; clear of the icon under it, but for a press at high Refraction
+const float BAR_THICK = 10.0;  // the bar's and the drop's glass, thinner than the panel's
+const float BAR_SHADOW = 0.12; // the bar's soft shadow on the panel around it, inside the tool bar's strip
+const float MERGE = 6.0;       // the lifted drop's smooth union with the bar, WinIsland's 6 px
+const float HEAD = 36.0;       // the header's rows, HEADER_HEIGHT + 4 (Notch.tsx Header)
+
+// Signed distance to the open panel (CSS px, negative inside). Hanging from y = 0 the body runs on past the screen edge, so that edge
+// has no rim, and the ears are the two corners between body and screen edge (NotchShape.tsx draws them with radial-gradient).
+// Floating, it is the whole box from y = 0 with top corners uRt; while a shape near the edge opens or closes, the ears come and go
+// beside it, their strip only outside the body's columns (half a pixel in, as the CSS ears) so the top corners stay round. The top rim
+// that strip leaves until uRt reaches 0 lies under the brow.
+float sdPanel(vec2 p) {
+  float L = uShape.x, R = uShape.y, H = uShape.z, e = uShape.w;
+  float d = uRt > 0.0
+    ? sdRound(p, vec2(0.5 * (L + R), 0.5 * H), vec2(0.5 * (R - L), 0.5 * H), p.y < 0.5 * H ? uRt : uR)
+    : sdRound(p, vec2(0.5 * (L + R), H - 4000.0), vec2(0.5 * (R - L), 4000.0), uR);
+  if (e > 0.0) {
+    d = min(d, uRt > 0.0 ? max(p.y - e, min(p.x - L, R - p.x) - 0.5) : p.y - e);
+    vec2 ql = vec2(p.x - (L - e), e - p.y);
+    vec2 qr = vec2((R + e) - p.x, e - p.y);
+    float ol = length(max(ql, 0.0)) + min(max(ql.x, ql.y), 0.0) - e;
+    float orr = length(max(qr, 0.0)) + min(max(qr.x, qr.y), 0.0) - e;
+    d = max(d, max(-ol, -orr));
+  }
+  return d;
+}
+
+// Polynomial smooth minimum (Inigo Quilez), as WinIsland joins its shapes; k 0 is min().
+float smin(float a, float b, float k) {
+  if (k <= 0.0) return min(a, b);
+  float h = clamp(1.0 - abs(a - b) / k, 0.0, 1.0);
+  return min(a, b) - k * 0.25 * h * h;
+}
+
+// The drop, a capsule, cut by the panel while the springs run.
+float sdDrop(vec2 p) { return max(sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), sdPanel(p)); }
+
+// The bar, a capsule, with the lifted drop risen out of it, cut by the panel.
+float sdBar(vec2 p) {
+  float b = sdRound(p, uBar.xy, uBar.zw, uBar.w);
+  if (uDrop.z > 0.0) b = smin(b, sdRound(p, uDrop.xy, uDrop.zw, min(uDrop.z, uDrop.w)), MERGE * uLift);
+  return max(b, sdPanel(p));
 }
 
 void main() {
@@ -219,10 +226,10 @@ void main() {
   // Clamped before the veil, so the veil's worst case stays a white or a black backdrop (themes.ts glassVeil).
   col = clamp(mix(vec3(luma(col)), col, SAT), 0.0, 1.0);
 
-  // The veil: the theme's background, lighter in the side bands above the tool bar, thinner in the bar, with the drop's tint on it.
-  // The bands start below the header, whose buttons sit close to the sides.
+  // The veil: the theme's background, lighter in the side bands beside the content (above the tool bar, or below it with the bar under
+  // the header), thinner in the bar, with the drop's tint on it. The bands start below the header, whose buttons sit close to the sides.
   float side = smoothstep(0.35, 0.75, abs(g.x));
-  float strip = smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y);
+  float strip = uDock > 0.0 ? smoothstep(uShape.z - uDock - 8.0, uShape.z - uDock, p.y) : 1.0 - smoothstep(HEAD - uDock, HEAD - uDock + 8.0, p.y);
   float head = smoothstep(HEAD, HEAD + 8.0, p.y);
   float edge = (1.0 - smoothstep(0.5 * uBand, uBand, inward)) * side * (1.0 - strip) * head;
   col = mix(col, uVeil.rgb, mix(mix(uVeil.a, uVeilEdge, edge), uBarVeil, inB));
@@ -237,8 +244,10 @@ void main() {
 
   if (rim) {
     vec2 light = normalize(LIGHT);
-    // Not inside the bar: its ink is worked out over the veil alone (themes.ts glassInk).
-    col *= 1.0 - uShadow * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB);
+    // Not inside the bar: its ink is worked out over the veil alone (themes.ts glassInk). Nor along the bottom with the bar under the
+    // header, where the tools' content now reaches the rim: darker than the veil's black end, text there would drop below its minimum.
+    float low = uDock < 0.0 ? max(g.y, 0.0) : 0.0;
+    col *= 1.0 - uShadow * exp(-inward / 5.0) * (0.55 + 0.45 * max(dot(g, -light), 0.0)) * (1.0 - inB) * (1.0 - low);
     col += uRim.rgb * uRim.a * shine(g, slope, inward, band);
     col = mix(col, vec3(0.0), uHair * (1.0 - smoothstep(0.0, 1.0, inward * uDpr)));
   }

@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowClockwise, Gauge, SlidersHorizontal, Table, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, Gauge, SlidersHorizontal, Table, WarningCircle } from "../../ui/iconset";
 import { content, spin, springs } from "../../design/motion";
 import { formatAgo, formatIn } from "../../lib/format";
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { navigate } from "../../notch/nav";
 import { requestSize } from "../../notch/size";
+import { findTab } from "../../notch/tabs";
 import type { UsageBalance, UsageId, UsageProvider, UsageWindow } from "../../platform/services";
 import { isMac, isNative } from "../../platform/native";
 import { settings } from "../../settings/store";
@@ -15,13 +18,15 @@ import { Button, Empty, Skeleton } from "../../ui/controls";
 import { t } from "../../i18n";
 import { shownIds } from "./cards";
 import { ModelDetails } from "./ModelDetails";
-import { PaceLine } from "./PaceLine";
+import { PaceLine, usePaceGrow } from "./PaceLine";
 import { refreshTokens, refreshUsage, usage, useTokens, useUsageViewer } from "./store";
 import { formatAmount, formatCost, formatTokens } from "./format";
 import { dayStart, totals, type Totals } from "./tokens";
 import { usePresenting } from "../privacy/store";
+import { wheelSideways } from "../window/panel";
 
 /** What a stale card adds: its reason on up to two lines and the renew link. */
+const STALE_ROWS = 56;
 
 const windowLabels: Record<string, string> = {
   session: "Session",
@@ -105,6 +110,15 @@ export function UsageView() {
     return () => clearInterval(id);
   }, []);
 
+  // A card kept from an old reading adds its reason and the renew link above its time: the panel grows by them.
+  const stale = providers.some((p) => p.error && (p.windows?.length || p.balances?.length));
+  // The pace lines under the bars (PaceLine.tsx) make the panel taller the same way.
+  const paceGrow = usePaceGrow(providers, now);
+  useEffect(() => {
+    const grow = (stale ? STALE_ROWS : 0) + paceGrow;
+    const base = findTab("usage")!.size;
+    requestSize("usage", page === "models" ? { w: 700, h: 430 } : feet ? { w: 600, h: 356 + grow } : grow ? { w: base.w, h: base.h + grow } : null);
+  }, [page, feet, stale, paceGrow]);
   useEffect(() => () => requestSize("usage", null), []);
 
   const actions = (
@@ -155,7 +169,7 @@ export function UsageView() {
   const list: (Partial<UsageProvider> & { id: UsageId })[] = updatedAt === null ? ids.map((id) => ({ id })) : providers;
   const today = dayStart(now, 0), week = dayStart(now, 6);
   return (
-    <div className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
+    <div ref={wheelSideways} className="flex h-full gap-2 overflow-x-auto px-4 pt-1 pb-2 [scrollbar-width:none]">
       {actions}
       {list.map((p, i) => {
         const tool = TOKEN_TOOL[p.id];
@@ -166,7 +180,7 @@ export function UsageView() {
         return (
           <motion.div
             key={p.id}
-            className="flex min-w-[200px] max-w-[280px] flex-1 flex-col self-start rounded-[14px] bg-fill-1 px-3 py-2.5"
+            className="flex min-w-[168px] flex-1 flex-col rounded-[14px] bg-fill-1 px-3 py-2.5"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
             animate={{ opacity: 1, transform: "translateY(0px)" }}
             transition={{ ...content.enter, delay: 0.05 * i }}
@@ -215,6 +229,8 @@ export function UsageView() {
                     <button
                       className="mb-1 block text-link hover:underline"
                       onClick={() => {
+                        // Cupcake's terminal lives in the notch, so from the bar's panel the notch runs the renewal there and opens on it.
+                        if (!isNotchWindow) return askNotch({ kind: "renewClaude" });
                         runInTerminal("claude");
                         navigate("terminal");
                       }}

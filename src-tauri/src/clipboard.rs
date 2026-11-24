@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use arboard::{Clipboard, ImageData};
 use base64::Engine;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 #[cfg(windows)]
 use windows::core::w;
 #[cfg(windows)]
@@ -184,16 +184,25 @@ pub fn clipboard_copy(id: u64, app: AppHandle, state: State<'_, ClipboardState>)
     Ok(())
 }
 
-/// Like `clipboard_copy`, then pastes the entry into the app that had the keyboard before the notch opened, as Win+V does.
+/// Like `clipboard_copy`, then pastes the entry into the app that had the keyboard before the notch opened, as Win+V does; from a
+/// bar's panel, into the app its Esc gives the keyboard back to (taskbar/tasks.rs `release`), as the notch notes only its own.
 /// False when there is no such app, or a Mac has not allowed Crest to press keys: the entry is then only copied.
 #[tauri::command]
-pub fn clipboard_paste(id: u64, app: AppHandle, state: State<'_, ClipboardState>) -> Result<bool, String> {
+pub fn clipboard_paste(id: u64, app: AppHandle, window: WebviewWindow, state: State<'_, ClipboardState>) -> Result<bool, String> {
     clipboard_copy(id, app.clone(), state)?;
     #[cfg(target_os = "macos")]
     if !crate::macos::may_press_keys() {
         return Ok(false);
     }
-    let Some(target) = crate::return_keyboard(&app) else { return Ok(false) };
+    #[cfg(windows)]
+    let back = if crate::taskbar::bar::is_bar_label(window.label()) { crate::taskbar::tasks::release() } else { crate::return_keyboard(&app) };
+    // A Mac has no bar.
+    #[cfg(not(windows))]
+    let back = {
+        let _ = window;
+        crate::return_keyboard(&app)
+    };
+    let Some(target) = back else { return Ok(false) };
     // Off the main thread: a Mac brings the app forward only once that thread runs again.
     thread::spawn(move || {
         #[cfg(windows)]
@@ -502,11 +511,21 @@ fn is_url(text: &str) -> bool {
         && (text.starts_with("http://") || text.starts_with("https://") || text.starts_with("www."))
 }
 
+/// The same text, or the same picture: copying an entry back from the history must not add it a second time. Pictures are
+/// compared by size and PNG bytes, which is exact because the encoder gives the same bytes for the same pixels.
+fn same(a: &Content, b: &Content) -> bool {
+    match (a, b) {
+        (Content::Text(a), Content::Text(b)) => a == b,
+        (Content::Image(a), Content::Image(b)) => a.width == b.width && a.height == b.height && a.png == b.png,
+        _ => false,
+    }
+}
+
 fn add(state: &ClipboardState, content: Content) {
-    // Same text copied again: move the existing entry to the top.
-    if let Content::Text(new) = &content {
+    // Same text or picture copied again: move the existing entry to the top.
+    if matches!(content, Content::Text(_) | Content::Image(_)) {
         let mut entries = state.entries.lock().unwrap();
-        if let Some(i) = entries.iter().position(|e| matches!(&e.content, Content::Text(t) if t == new)) {
+        if let Some(i) = entries.iter().position(|e| same(&e.content, &content)) {
             let mut entry = entries.remove(i);
             entry.item.copied_at = now_ms();
             entries.insert(0, entry);
@@ -616,6 +635,17 @@ fn emit(app: &AppHandle, state: &ClipboardState) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_same_text_or_picture_is_one_entry() {
+        let image = |png: &[u8]| Content::Image(StoredImage { width: 2, height: 1, png: png.to_vec(), thumbnail: String::new() });
+        assert!(same(&image(b"a"), &image(b"a")));
+        assert!(!same(&image(b"a"), &image(b"b")), "other pixels");
+        assert!(!same(&image(b"a"), &Content::Text("a".into())));
+        assert!(same(&Content::Text("x".into()), &Content::Text("x".into())));
+        let other_size = Content::Image(StoredImage { width: 1, height: 2, png: b"a".to_vec(), thumbnail: String::new() });
+        assert!(!same(&image(b"a"), &other_size));
+    }
+
     use super::*;
 
     /// A UI-like tile: flat panels with rows of pseudo-random "glyphs" (fixed seed), like a window of text.

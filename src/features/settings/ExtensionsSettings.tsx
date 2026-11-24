@@ -1,4 +1,4 @@
-import type { Icon } from "@phosphor-icons/react";
+import type { Icon } from "../../ui/iconset";
 import { Group, Row, Switch } from "../../ui/controls";
 import { t } from "../../i18n";
 import {

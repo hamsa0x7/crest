@@ -21,6 +21,8 @@ export const GLASS = {
 } as const;
 /** A running live session moves to a zone inside its own once that zone has stayed the same this long; to one it does not hold, at once. */
 export const LIVE_SETTLE_MS = 150;
+/** After a status alert drawn as glass (with the closed notch's own glass off), its live session runs this long, so a run of keys keeps one. */
+export const HUD_LIVE_LINGER_MS = 5000;
 /** The copy is asked for this long before the hover delay ends: a first peek after a while is estimated at 60-115 ms. */
 export const GLASS_LEAD_MS = 120;
 /** In hover mode: a pointer that only crosses the notch takes no copy. */
@@ -192,6 +194,20 @@ export function liveNeed(reach: ShapeSize, top: number, floating: boolean, view:
   const m = GLASS.zoneMargin, k = view.zoom * view.dpr, mid = view.mid * view.dpr, half = (reach.w / 2 + reach.ear + m) * k;
   const x = Math.floor(mid - half), y = Math.floor((floating ? top - m : top) * k);
   return { x, y, w: Math.ceil(mid + half) - x, h: Math.ceil((top + reach.h + m) * k) - y };
+}
+
+/**
+ * The zone the open panel's tool bar needs under Liquid Glass + (Notch.tsx): its capsule `bar` (bar.ts barRect, CSS px from the panel's
+ * centre and top) with room for the bend on every side, the panel's top at `top`; `view` as for liveNeed. Null until it is measured.
+ */
+export function dockNeed(bar: { x: number; top: number; w: number; h: number }, top: number, view: { mid: number; zoom: number; dpr: number }): Zone | null {
+  return bar.w > 0 ? liveNeed({ w: bar.w, h: bar.h, ear: 0 }, top + bar.top, true, { ...view, mid: view.mid + bar.x * view.zoom }) : null;
+}
+
+/** Whether a copy placed by textureMap holds the whole of `box` (CSS px of the canvas); a millionth of its size spares rounding. */
+export function copyHolds(map: { scale: [number, number]; offset: [number, number] }, box: { x: number; y: number; w: number; h: number }): boolean {
+  const inside = (from: number, size: number, i: 0 | 1) => from * map.scale[i] + map.offset[i] >= -1e-6 && (from + size) * map.scale[i] + map.offset[i] <= 1 + 1e-6;
+  return inside(box.x, box.w, 0) && inside(box.y, box.h, 1);
 }
 
 /**

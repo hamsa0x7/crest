@@ -73,3 +73,12 @@ export function translationLrc(lines: LyricLine[], translated: (string | null)[]
   const out = lines.map((l, i) => (translated[i] ? `[${stamp(l.time)}]${translated[i]}\n` : "")).join("");
   return out || null;
 }
+
+/** Has a pair the translator loaded ("ja-en") been removed since? Only then does it need closing; a download leaves it be. */
+export function lostPair(loaded: Iterable<string>, downloaded: [string, number, boolean][]): boolean {
+  const have = new Set(downloaded.map(([pair]) => pair));
+  return [...loaded].some((pair) => !have.has(pair));
+}
+
+/** Does the translator lack a pair this song needs? Then it starts afresh with only the song's models (offlineEngine.ts). */
+export const lacksPair = (loaded: Set<string>, pairs: [string, string][]) => pairs.some(([from, to]) => !loaded.has(`${from}-${to}`));

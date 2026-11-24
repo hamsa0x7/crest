@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { FolderOpen, Microphone, MicrophoneSlash, Play, Record, SpeakerHigh, SpeakerSlash, Trash, Waveform } from "@phosphor-icons/react";
+import { FolderOpen, Microphone, MicrophoneSlash, Play, Record, SpeakerHigh, SpeakerSlash, Trash, Waveform } from "../../ui/iconset";
 import { fade, springs } from "../../design/motion";
 import { formatBytes } from "../../lib/format";
 import { capture, openFile, revealFile, type CaptureFile } from "../../platform/services";
@@ -9,7 +9,7 @@ import { Button, Empty } from "../../ui/controls";
 import { t } from "../../i18n";
 import { formatElapsed } from "../capture/clock";
 import { IconBtn, Running, Toggle, cacheKey, detailCache, errorText, failureText, useDelete, when } from "../capture/CaptureView";
-import { libraryEpoch, recording, startRecording } from "../capture/store";
+import { libraryEpoch, recording, startCapture, startRecording } from "../capture/store";
 
 /*
  * Recorder: sound only, from the microphone, the system audio (what a call or video plays) or both mixed,
@@ -25,6 +25,8 @@ export function RecorderView() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const idle = rec.phase === "idle";
+  // The notch follows the recording from the start; a bar's window from here.
+  useEffect(startCapture, []);
 
   const record = () => {
     setError(null);

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { FileZip, FolderOpen, PuzzlePiece, X } from "@phosphor-icons/react";
+import { FileZip, FolderOpen, PuzzlePiece, X } from "../../ui/iconset";
+import { isNative } from "../../platform/native";
+import { demo } from "../../dev/showcase-data";
 import type { StagedPlugin } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Group, Row, Segmented, Switch } from "../../ui/controls";
@@ -61,12 +63,21 @@ export function PluginSettings() {
   const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => void refreshPlugins(), []);
 
+  if (!isNative && !demo) {
+    return (
+      <Group title={t("Plugins")} id="settings-plugins">
+        <Row icon="extension" label={t("Plugins laufen nur in der App")} />
+      </Group>
+    );
+  }
+
   return (
     <>
       <Group title={t("Plugins")} id="settings-plugins">
-        <Row label={t("Ansicht")}>
+        <Row icon="apps" label={t("Ansicht")}>
           <Segmented
             id="plugins-tab"
+            label={t("Ansicht")}
             value={tab}
             options={[
               { value: "installed", label: `${t("Installiert")} (${list.length})` },
@@ -87,7 +98,7 @@ export function PluginSettings() {
               const I = iconFor(m.icon) ?? PuzzlePiece;
               const on = tools.some((x) => x.id === toolId(m.id) && x.enabled);
               return (
-                <Row
+                <Row icon="extension"
                   key={m.id}
                   label={
                     <span className="flex items-center gap-2">
@@ -114,7 +125,7 @@ export function PluginSettings() {
                 </Row>
               );
             })}
-            <Row
+            <Row icon="add"
               label={list.length ? t("Manuell hinzufügen") : t("Noch kein Plugin")}
               hint={state.error ? <span className="text-orange">{errorText(state.error)}</span> : t("Ein Ordner oder eine .zip mit cupcake-plugin.json")}
             >

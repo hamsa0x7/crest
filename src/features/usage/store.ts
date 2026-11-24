@@ -1,8 +1,11 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect } from "react";
 import { createStore } from "../../lib/store";
 import { rowVisible } from "../../notch/row/visibility";
 import { fetchUsage, fetchUsageTokens, type UsageId, type UsageProvider } from "../../platform/services";
 import { settings } from "../../settings/store";
+import { onBarShows } from "../taskbar/barPanels";
 import { shownIds } from "./cards";
 import type { TokenReport } from "./tokens";
 
@@ -31,6 +34,11 @@ function enabledIds(): UsageId[] {
 let fetchedKey = "";
 
 export function refreshUsage(): Promise<void> {
+  // The notch fetches and shows the usage: the settings window asks it when a key changes.
+  if (!isNotchWindow) {
+    askNotch({ kind: "refresh", what: "usage" });
+    return Promise.resolve();
+  }
   const call = ++latest, ids = enabledIds();
   fetchedKey = ids.join(",");
   usage.set((u) => ({ ...u, loading: true }));
@@ -68,6 +76,8 @@ export function startUsagePolling() {
   settings.subscribe(apply);
   rowVisible.subscribe(apply);
   viewers.subscribe(apply);
+  // A bar's panel showing AI usage counts as one more open view, so the notch fetches for it.
+  onBarShows("usage", (shown) => viewers.set((n) => n + (shown ? 1 : -1)));
 }
 
 /** For views that show the quotas: polling while mounted. */

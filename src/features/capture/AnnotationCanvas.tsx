@@ -10,7 +10,7 @@ import {
   TextT,
   X,
   Sparkle,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { capture } from "../../platform/services";
 import { activeAnnotation, closeAnnotation } from "./annotationStore";
 import { libraryEpoch } from "./store";
@@ -441,7 +441,7 @@ export function AnnotationCanvas() {
                 key={w}
                 onClick={() => setStrokeWidth(w)}
                 className={`flex size-6 items-center justify-center rounded-[6px] ${
-                  strokeWidth === w ? "bg-fill-3 text-label" : "text-label-3 hover:text-label-2"
+                  strokeWidth === w ? "bg-secondary-container text-on-secondary-container" : "text-label-3 hover:text-label-2"
                 }`}
               >
                 <span
@@ -544,7 +544,7 @@ function ToolButton({
       title={label}
       onClick={onClick}
       className={`pressable relative flex h-7 items-center gap-1 rounded-full px-2.5 text-caption font-medium transition-colors ${
-        active ? "bg-fill-3 text-label font-semibold shadow-sm" : "text-label-3 hover:text-label-2"
+        active ? "bg-secondary-container text-on-secondary-container font-semibold shadow-sm" : "text-label-3 hover:text-label-2"
       }`}
     >
       <I size={14} weight={active ? "fill" : "bold"} />

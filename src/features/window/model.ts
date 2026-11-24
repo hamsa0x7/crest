@@ -3,7 +3,7 @@
 // The rules themselves are resolved in Rust (src-tauri/src/screen_policy.rs), which reads the same shape.
 
 import { normalize, type HotkeyKind } from "./hotkeys.ts";
-import { fitScale, normalizeSizes, type PanelScale, type Size } from "./panelSize.ts";
+import { fitScale, normalizeSizes, normalizeTextSizes, type PanelScale, type Size } from "./panelSize.ts";
 
 /** What the notch does in a context: keep its style, switch to the line, or hide. */
 export type Behavior = "normal" | "line" | "hide";
@@ -30,10 +30,20 @@ export interface WindowSettings {
   toolHotkeys: Record<string, string>;
   /** Open size per tool id, dragged at the panel's edges; missing = the tool's default. */
   sizes: Record<string, Size>;
+  /** Text size per tool id in %, set with Ctrl + and Ctrl - in the tool (Notes, Calc); missing = 100. */
+  textSizes: Record<string, number>;
   scale: PanelScale;
   closeDelay: CloseDelay;
   rightClickSettings: boolean;
   wheelTools: boolean;
+  /** Grips at the open panel's edges that set each tool's size. */
+  resizeEdges: boolean;
+  /** With Open on hover, the closed-row part under the pointer picks the tool; a click on a part always does. */
+  hoverParts: boolean;
+  /** The open panel's tool bar: at its bottom, or under the header (#76). */
+  toolBar: "bottom" | "top";
+  /** The tool bar's capsule behind the icons: its fill, or its glass over the glass (#76). */
+  toolBarFill: boolean;
 }
 
 export const MAX_APP_RULES = 32;
@@ -47,10 +57,15 @@ export const WINDOW_DEFAULTS: WindowSettings = {
   hotkeys: { open: "Ctrl+Alt+Space", hide: "", resize: "", find: "Ctrl+Alt+Shift+KeyF", mic: "Ctrl+Alt+KeyM" },
   toolHotkeys: {},
   sizes: {},
+  textSizes: {},
   scale: 100,
   closeDelay: "fast",
   rightClickSettings: true,
   wheelTools: true,
+  resizeEdges: true,
+  hoverParts: true,
+  toolBar: "bottom",
+  toolBarFill: true,
 };
 
 const BEHAVIORS: Behavior[] = ["normal", "line", "hide"];
@@ -135,10 +150,15 @@ export function normalizeWindow(saved: unknown, legacyVisibility?: string): Wind
     },
     toolHotkeys: toolHotkeys(s.toolHotkeys),
     sizes: normalizeSizes(s.sizes),
+    textSizes: normalizeTextSizes(s.textSizes),
     scale: fitScale(s.scale),
     closeDelay: (Object.keys(closeDelayMs) as CloseDelay[]).includes(s.closeDelay as CloseDelay) ? (s.closeDelay as CloseDelay) : d.closeDelay,
     rightClickSettings: bool(s.rightClickSettings, d.rightClickSettings),
     wheelTools: bool(s.wheelTools, d.wheelTools),
+    resizeEdges: bool(s.resizeEdges, d.resizeEdges),
+    hoverParts: bool(s.hoverParts, d.hoverParts),
+    toolBar: s.toolBar === "top" ? "top" : "bottom",
+    toolBarFill: bool(s.toolBarFill, d.toolBarFill),
   };
 }
 
@@ -148,4 +168,14 @@ export function cycle(ids: string[], current: string, step: 1 | -1): string | nu
   const i = ids.indexOf(current);
   if (i < 0) return ids[0];
   return ids[(i + step + ids.length) % ids.length];
+}
+
+/**
+ * How far a wheel moves a horizontal strip's scrollLeft: the vertical wheel turns sideways, toward the end in either text direction.
+ * 0 leaves it alone: a sideways wheel scrolls the strip by itself, and with nothing hidden (`room` = scrollWidth - clientWidth) the notch switches tools.
+ */
+export function stripScroll(dx: number, dy: number, room: number, rtl: boolean): number {
+  if (Math.abs(dy) <= Math.abs(dx) || room <= 1) return 0;
+  // Right to left, scrollLeft runs from 0 down to negative values.
+  return rtl ? -dy : dy;
 }

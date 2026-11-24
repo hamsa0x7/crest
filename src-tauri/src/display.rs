@@ -5,14 +5,16 @@
 //! borderless window behind it counts too. The rules answer keep, line or hide: Rust hides the
 //! window itself and emits `notch://screen` so the frontend can draw the line. `notch://fullscreen`
 //! still reports a full-screen foreground for gaming mode. On every new foreground window "always
-//! on top" is reapplied in case another app put itself above.
+//! on top" is reapplied in case another app put itself above. Crest's bars (Windows) get the full-screen reading of the window
+//! in front of their own monitors (taskbar/front.rs) and are raised before the notch.
 //!
 //! The hide hotkey (shell.rs) hides Crest on top of that until it is pressed again, the notch is
-//! opened from the tray, or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
+//! opened from the tray, Crest is launched again or "raise now" runs. Opening on purpose also shows Crest over a "hide" rule
 //! until the notch closes; the floating timer hides and shows with the notch.
 //!
 //! `offset` moves the notch along its edge (dragging), clamped to the monitor. `zoom` is the panel scale:
-//! the page is zoomed and the window grown by it, so CSS px times DPI times zoom are device pixels.
+//! the page is zoomed and the window grown by it. Windows' Text size makes WebView2 draw the page larger again
+//! (text_scale.rs) and the window grows with it too, so CSS px times DPI times zoom times Text size are device pixels.
 //! `edge` and `line` put the window on another screen edge (bottom, left, right).
 //!
 //! `mode` "follow" or "all" (mirror.rs): the frontend picks `monitor` from where the pointer is, and with "all" sends a `spot`
@@ -29,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow};
 #[cfg(windows)]
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 #[cfg(windows)]
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 #[cfg(windows)]
@@ -37,12 +39,13 @@ use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, HMONITOR
 #[cfg(windows)]
 use windows::Win32::System::Threading::GetCurrentProcessId;
 #[cfg(windows)]
-use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
+use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SHQueryUserNotificationState, SetWindowSubclass, QUNS_RUNNING_D3D_FULL_SCREEN};
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
-    GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowPos, GWL_EXSTYLE, GWL_STYLE, GW_OWNER,
-    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOW, WS_CAPTION, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+    GW_OWNER, HWND_TOPMOST, STYLESTRUCT, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_SHOW, WM_NCDESTROY, WM_STYLECHANGING,
+    WS_CAPTION, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_THICKFRAME,
     FindWindowW, ShowWindow,
 };
 #[cfg(windows)]
@@ -65,16 +68,30 @@ pub struct DisplayState {
     user_hidden: AtomicBool,
     /// The rules call for hiding right now.
     rule_hide: AtomicBool,
-    /// Opened on purpose (shortcut, tray, second launch, launcher): shown over `rule_hide` until the notch closes.
+    /// Opened on purpose (shortcut, tray, launcher): shown over `rule_hide` until the notch closes.
     opened: AtomicBool,
     /// The window is hidden right now.
     hidden: AtomicBool,
+    /// Shown for an indicator while the rules or the hotkey keep it hidden (`display_alert`); `sync` drops it on any change.
+    revealed: AtomicBool,
     /// Last behaviour the rules called for (Behavior as u8), for `display_screen`.
     behavior: AtomicU8,
     /// An app covers the notch's monitor in fullscreen right now, for `display_fullscreen`.
     fullscreen: AtomicBool,
     /// The monitors (HMONITOR) of other screens where a window calls for hiding or the line, so their mirrors hide.
     pub(crate) mirror_block: Mutex<Vec<isize>>,
+}
+
+impl DisplayState {
+    /// Undoes the hide hotkey and nothing else: a "hide" rule keeps its say, since the notch did not open. True when it was hidden.
+    fn come_back(&self) -> bool {
+        self.user_hidden.swap(false, Ordering::Relaxed)
+    }
+
+    /// Hidden by the hotkey, or by a rule the notch was not opened over.
+    fn hides(&self) -> bool {
+        self.user_hidden.load(Ordering::Relaxed) || (self.rule_hide.load(Ordering::Relaxed) && !self.opened.load(Ordering::Relaxed))
+    }
 }
 
 #[derive(Clone, Deserialize)]
@@ -185,9 +202,11 @@ fn fit_depth(depth: f64) -> f64 {
 pub struct MonitorInfo {
     name: String,
     primary: bool,
-    width: u32,
-    height: u32,
-    /// Work area (without taskbar) in CSS px: top below the monitor's top edge, and height.
+    /// Size in CSS px, not rounded: the scale (DPI x panel scale x Text size) rarely divides it, and a rounded size left the
+    /// right or bottom edge's notch a pixel short of the screen's edge.
+    width: f64,
+    height: f64,
+    /// Work area (without taskbar and Crest's bar) in CSS px: top below the monitor's top edge, and height.
     work_top: f64,
     work_height: f64,
     /// The work area's left edge from the monitor's left, and its width (a taskbar on the left or right), in CSS px.
@@ -218,19 +237,26 @@ fn named_monitors(window: &WebviewWindow) -> Vec<(String, tauri::Monitor)> {
 
 #[tauri::command]
 pub fn display_monitors(window: WebviewWindow, state: State<'_, DisplayState>) -> Vec<MonitorInfo> {
-    let zoom = state.config.lock().unwrap().zoom;
+    let zoom = state.config.lock().unwrap().zoom * crate::text_scale::get();
     let primary = window.primary_monitor().ok().flatten().map(|m| *m.position());
+    // Crest's bar stands on every monitor's work area and takes its band off each, on the bar's edge, in the notch's CSS px.
+    #[cfg(windows)]
+    let (band, top) = (crate::taskbar::bar::band() / zoom, crate::taskbar::bar::top());
     named_monitors(&window)
         .into_iter()
         .map(|(name, m)| {
             let scale = m.scale_factor() * zoom;
             let wa = m.work_area();
+            let primary = primary == Some(*m.position());
+            let (work_top, work_height) = ((wa.position.y - m.position().y) as f64 / scale, wa.size.height as f64 / scale);
+            #[cfg(windows)]
+            let (work_top, work_height) = crate::taskbar::bar::band_off(top, (work_top, work_height), band);
             MonitorInfo {
-                primary: primary == Some(*m.position()),
-                width: (m.size().width as f64 / scale) as u32,
-                height: (m.size().height as f64 / scale) as u32,
-                work_top: (wa.position.y - m.position().y) as f64 / scale,
-                work_height: wa.size.height as f64 / scale,
+                primary,
+                width: m.size().width as f64 / scale,
+                height: m.size().height as f64 / scale,
+                work_top,
+                work_height,
                 work_left: (wa.position.x - m.position().x) as f64 / scale,
                 work_width: wa.size.width as f64 / scale,
                 name,
@@ -266,6 +292,38 @@ pub fn display_apply(mut config: Config, window: WebviewWindow, state: State<'_,
     }
 }
 
+/// The page's own scale changed (another monitor, or Windows' Text size): with a new Text size the window and the copies on the
+/// other monitors grow or shrink with it, so the page keeps its size in CSS px and the hit test its units (text_scale.rs). A notch
+/// hanging from an edge stays on it until the page has read the monitors again at the new size (`notch://monitors`) and sent new
+/// places; the offset and a floating capsule's top are the page's own px and move with the Text size, as everything it draws grows.
+#[tauri::command]
+pub fn display_rescale(window: WebviewWindow, state: State<'_, DisplayState>) {
+    let Some((old, new)) = crate::text_scale::refresh() else { return };
+    follow_text_scale(&mut state.config.lock().unwrap(), old / new);
+    let _ = place(&window, &state);
+    crate::mirror::wake(window.app_handle());
+    crate::timer_window::follow_text_size(window.app_handle());
+    let _ = window.emit("notch://monitors", ());
+}
+
+/// The lines the page sent for the window and the copies are CSS px at the Text size of then: `k` (old / new factor) keeps them on
+/// the same device px. On top the page sends a hanging notch's line as the window's top too (follow.ts spotFor), so a top equal to
+/// its line goes with it. A floating capsule's top comes without a line: it is the page's own px, sent again only when it changes,
+/// so a converted copy would make the capsule jump at its next drag.
+fn follow_text_scale(c: &mut Config, k: f64) {
+    follow(&mut c.line, &mut c.y, k);
+    for spot in &mut c.spots {
+        follow(&mut spot.line, &mut spot.y, k);
+    }
+}
+
+fn follow(line: &mut f64, y: &mut f64, k: f64) {
+    if *y == *line {
+        *y *= k;
+    }
+    *line *= k;
+}
+
 /// What the rules call for right now ("normal" | "line" | "hide"), for the frontend's start.
 #[tauri::command]
 pub fn display_screen(state: State<'_, DisplayState>) -> &'static str {
@@ -278,16 +336,61 @@ pub fn display_fullscreen(state: State<'_, DisplayState>) -> bool {
     state.fullscreen.load(Ordering::Relaxed)
 }
 
+/// While an indicator shows everywhere (status alerts), brings out the window that a rule or the hotkey keeps hidden, and hides it again
+/// after. It neither activates the window nor takes the pointer, so the app in front, a game or a video, keeps both: `hidden` stays true
+/// meanwhile, the hit-test thread rests and the window stays click-through. `sync` takes over whenever the reason to hide changes.
+#[tauri::command]
+pub fn display_alert(app: AppHandle, on: bool) {
+    let state = app.state::<DisplayState>();
+    let Some(window) = app.get_webview_window("notch") else { return };
+    if on {
+        if state.hidden.load(Ordering::Relaxed) && !state.revealed.swap(true, Ordering::Relaxed) {
+            show_quietly(&window);
+        }
+    } else if state.revealed.swap(false, Ordering::Relaxed) && state.hidden.load(Ordering::Relaxed) {
+        hide_quietly(&window);
+    }
+}
+
+/// Hidden the way `show_quietly` showed it. tao keeps its own visible flag, which that raw show never set: its hide() would find the
+/// window already hidden and do nothing, leaving the notch over the game or the hidden state until the reason to hide changed.
+#[cfg(windows)]
+fn hide_quietly(window: &WebviewWindow) {
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+    if let Ok(hwnd) = window.hwnd() {
+        let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
+    }
+}
+
+#[cfg(not(windows))]
+fn hide_quietly(window: &WebviewWindow) {
+    let _ = window.hide();
+}
+
+/// Shown without activation and click-through, on top of the other topmost windows: an indicator over the app in front.
+#[cfg(windows)]
+fn show_quietly(window: &WebviewWindow) {
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
+    let _ = window.set_ignore_cursor_events(true);
+    if let Ok(hwnd) = window.hwnd() {
+        let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
+    }
+    raise_topmost(window);
+}
+
+/// The Mac has no status alerts.
+#[cfg(not(windows))]
+fn show_quietly(_window: &WebviewWindow) {}
+
 /// "Raise now": shows Crest if the hide hotkey hid it and puts it on top of the topmost windows.
 #[tauri::command]
 pub fn display_raise(app: AppHandle) {
-    // Not `unhide`: nothing opens here, so a "hide" rule keeps its say.
-    if app.state::<DisplayState>().user_hidden.swap(false, Ordering::Relaxed) {
-        sync(&app);
-    }
+    bring_back(&app);
     let Some(window) = app.get_webview_window("notch") else { return };
     #[cfg(windows)]
     {
+        // The bar first, so the notch stays above it.
+        crate::taskbar::bar::raise(&app);
         raise_topmost(&window);
         crate::mirror::raise(&app);
     }
@@ -301,6 +404,57 @@ pub(crate) fn raise_topmost(window: &WebviewWindow) {
     if let Ok(hwnd) = window.hwnd() {
         let _ = unsafe { SetWindowPos(hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
     }
+}
+
+/// A tool window and not an app window: out of Alt+Tab, Task View and the taskbar. Every other bit stays as tao and hit_test.rs
+/// set it, so click-through, NOACTIVATE and topmost do not change, and the notch and the bars still take the keyboard.
+#[cfg(windows)]
+fn out_of_alt_tab(ex: u32) -> u32 {
+    (ex | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0
+}
+
+/// tao rebuilds the whole ex style from its own flags (APPWINDOW, never TOOLWINDOW) at every show, hide and click-through
+/// change, and set_click_through writes it from the poll thread. Both send WM_STYLECHANGING on the window's thread before the
+/// write lands, and nothing in tao, wry or tauri handles it, so the style is fixed up here. tao reads the ex style back only to
+/// size the frame, and these windows are undecorated: TOOLWINDOW changes only the caption height, which they have none of.
+#[cfg(windows)]
+unsafe extern "system" fn alt_tab_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _: usize, _: usize) -> LRESULT {
+    if msg == WM_STYLECHANGING && wparam.0 as i32 == GWL_EXSTYLE.0 {
+        let style = unsafe { &mut *(lparam.0 as *mut STYLESTRUCT) };
+        style.styleNew = out_of_alt_tab(style.styleNew);
+    } else if msg == WM_NCDESTROY {
+        let _ = unsafe { RemoveWindowSubclass(hwnd, Some(alt_tab_proc), ALT_TAB_SUBCLASS) };
+    }
+    unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+}
+
+#[cfg(windows)]
+const ALT_TAB_SUBCLASS: usize = 1;
+
+/// On the window's own thread: SetWindowSubclass refuses any other. Twice is harmless, the same proc and id only replace the
+/// ref data and the style is already forced.
+#[cfg(windows)]
+fn subclass_out_of_alt_tab(hwnd: HWND) {
+    if !unsafe { SetWindowSubclass(hwnd, Some(alt_tab_proc), ALT_TAB_SUBCLASS, 0) }.as_bool() {
+        eprintln!("alt-tab subclass: SetWindowSubclass failed");
+        return;
+    }
+    let ex = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+    if out_of_alt_tab(ex) != ex {
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, out_of_alt_tab(ex) as isize);
+            let _ = SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    }
+}
+
+/// Keeps one of Crest's windows other than settings out of Alt+Tab and Task View (#78). Called before the window's first show:
+/// on the main thread it runs at once, from another thread it is queued in the same order as any show() that thread sends later.
+#[cfg(windows)]
+pub(crate) fn keep_out_of_alt_tab(window: &WebviewWindow) {
+    let Ok(hwnd) = window.hwnd() else { return };
+    let hwnd = hwnd.0 as isize;
+    let _ = window.run_on_main_thread(move || subclass_out_of_alt_tab(HWND(hwnd as _)));
 }
 
 #[derive(Serialize)]
@@ -382,8 +536,16 @@ pub fn toggle_user_hidden(app: &AppHandle) {
     sync(app);
 }
 
-/// Opening from the tray, the open hotkey, a second launch or the launcher brings back a Crest hidden with
-/// the hotkey, and shows it over a "hide" rule until the notch closes again.
+/// "Raise now" and a second launch (which opens the settings window, not the notch): bring back a Crest hidden with the
+/// hotkey. Not `unhide`: nothing opens, so a "hide" rule keeps its say.
+pub fn bring_back(app: &AppHandle) {
+    if app.state::<DisplayState>().come_back() {
+        sync(app);
+    }
+}
+
+/// Opening from the tray, the open hotkey or the launcher brings back a Crest hidden with the hotkey, and shows it
+/// over a "hide" rule until the notch closes again.
 pub fn unhide(app: &AppHandle) {
     let state = app.state::<DisplayState>();
     state.user_hidden.store(false, Ordering::Relaxed);
@@ -410,18 +572,29 @@ pub fn is_hidden(app: &AppHandle) -> bool {
 
 /// Shows or hides the window (and the floating timer with it) to match the hotkey and the rules; only acts on a change.
 fn sync(app: &AppHandle) {
+    // The bar follows the hotkey on its own, whatever the notch does (taskbar/bar.rs).
+    #[cfg(windows)]
+    crate::taskbar::bar::sync(app);
     let state = app.state::<DisplayState>();
-    let rule_hide = state.rule_hide.load(Ordering::Relaxed) && !state.opened.load(Ordering::Relaxed);
-    let hide = state.user_hidden.load(Ordering::Relaxed) || rule_hide;
+    let hide = state.hides();
     if state.hidden.swap(hide, Ordering::Relaxed) == hide {
         return;
     }
+    // Shown or hidden for good now: an indicator's reveal is over either way.
+    state.revealed.store(false, Ordering::Relaxed);
     crate::mirror::wake(app);
     // Hiding the window does not hide the page, so the Camera tool learns it here.
     let _ = app.emit("notch://hidden", hide);
     // The timer window exists only while it is open (timer_window.rs destroys it on close).
     if let Some(timer) = app.get_webview_window("timer") {
-        let _ = if hide { timer.hide() } else { timer.show() };
+        if hide {
+            let _ = timer.hide();
+        } else {
+            // Queued ahead of this show from any thread, in case it comes before the one timer_window_open queued after build().
+            #[cfg(windows)]
+            keep_out_of_alt_tab(&timer);
+            let _ = timer.show();
+        }
     }
     let Some(window) = app.get_webview_window("notch") else { return };
     if hide {
@@ -455,7 +628,8 @@ impl DisplayState {
 
 /// `place` for any window: on `wanted` (the primary monitor when it is missing), with `line` and `y` for that monitor and the rest of `c`.
 pub(crate) fn put(window: &WebviewWindow, wanted: Option<&str>, c: &Config, line: f64, y: f64) -> tauri::Result<()> {
-    let (offset, zoom, edge, along) = (c.offset, c.zoom, c.edge.as_str(), fit_along(c.along));
+    // Text size zooms the page as the panel scale does (text_scale.rs).
+    let (offset, zoom, edge, along) = (c.offset, c.zoom * crate::text_scale::get(), c.edge.as_str(), fit_along(c.along));
     let side = edge == "left" || edge == "right";
     let monitor = wanted
         .and_then(|name| named_monitors(window).into_iter().find(|(n, _)| n == name).map(|(_, m)| m))
@@ -491,7 +665,7 @@ fn kept_along(along: f64) -> f64 {
     fit_along(along) - (ALONG - PANEL_ALONG)
 }
 
-/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom.
+/// Where the window goes on its monitor; CSS px values, `scale` = monitor DPI x zoom x Text size.
 struct Placement<'a> {
     edge: &'a str,
     offset: f64,
@@ -529,6 +703,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
         let mut last_fullscreen = false;
         let mut last_behavior: Option<Behavior> = None;
         let mut last_foreground = HWND::default();
+        // The window the rules read (`ruled_front`).
+        let mut ruled = HWND::default();
         let (mut front, mut behind) = (Known::default(), Known::default());
         // What each other monitor's window was last known as: its frontmost window and the one behind it.
         let mut aside: std::collections::HashMap<isize, (Known, Known)> = Default::default();
@@ -544,11 +720,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 (c.rules.clone(), c.gaming, c.mode == "all")
             };
             let foreground = unsafe { GetForegroundWindow() };
+            ruled = ruled_front(foreground, crate::taskbar::screens::is_bar(foreground.0 as isize), ruled);
             let monitor = unsafe { MonitorFromWindow(own, MONITOR_DEFAULTTONEAREST) };
-            let fg = read_foreground(foreground, own, monitor, &mut front);
+            let fg = read_foreground(ruled, own, monitor, &mut front);
             // Looked up only where it can matter: nothing in front fills the monitor.
             let bg = (rules.background_matters() && fg.context == Context::Desktop)
-                .then(|| read_background(foreground, own, monitor, &mut behind))
+                .then(|| read_background(ruled, own, monitor, &mut behind))
                 .flatten();
 
             let fullscreen = fg.context.is_fullscreen();
@@ -557,6 +734,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 state.fullscreen.store(fullscreen, Ordering::Relaxed);
                 let _ = app.emit("notch://fullscreen", fullscreen);
             }
+            // Each bar hides over a full-screen app in front of its own monitor, whatever the notch's rules say.
+            crate::taskbar::front::poll(&app, foreground, ruled);
             let behavior = screen_policy::decide(
                 &rules,
                 (fg.context, &fg.name, &fg.path),
@@ -576,8 +755,8 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
                 for m in crate::mirror::monitors(&app).into_iter().filter(|&m| m != monitor.0 as isize) {
                     let (near, far) = aside.entry(m).or_default();
                     let elsewhere = HMONITOR(m as *mut _);
-                    let seen = read_foreground(foreground, own, elsewhere, near);
-                    let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(foreground, own, elsewhere, far)).flatten();
+                    let seen = read_foreground(ruled, own, elsewhere, near);
+                    let back = (rules.background_matters() && seen.context == Context::Desktop).then(|| read_background(ruled, own, elsewhere, far)).flatten();
                     let rule = screen_policy::decide(&rules, (seen.context, &seen.name, &seen.path), back.as_ref().map(|b| (b.context, b.name.as_str(), b.path.as_str())), gaming);
                     if rule != Behavior::Normal {
                         block.push(m);
@@ -587,9 +766,12 @@ pub fn spawn(app: AppHandle, window: WebviewWindow) {
             if std::mem::replace(&mut *state.mirror_block.lock().unwrap(), block.clone()) != block {
                 crate::mirror::wake(&app);
             }
-            // New foreground window: reapply "on top" in case it covered us.
-            if !state.hidden.load(Ordering::Relaxed) && foreground != last_foreground {
-                raise_topmost(&window);
+            // New foreground window: reapply "on top" in case it covered us, the bar first so the notch stays above it.
+            if foreground != last_foreground {
+                crate::taskbar::bar::raise(&app);
+                if !state.hidden.load(Ordering::Relaxed) {
+                    raise_topmost(&window);
+                }
             }
             last_foreground = foreground;
         }
@@ -641,6 +823,13 @@ impl Known {
 }
 
 #[cfg(windows)]
+/// The window the rules read: the one in front, unless that is one of Crest's bars (`is_bar`), which a click on it or one of its
+/// menus brings to front. The rules then stay on the window in front `before` it, as the bars' lists do (tasks.rs).
+fn ruled_front(foreground: HWND, is_bar: bool, before: HWND) -> HWND {
+    if is_bar { before } else { foreground }
+}
+
+#[cfg(windows)]
 fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) -> Seen {
     if hwnd.is_invalid() || hwnd == own || !candidate(hwnd) || unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) } != monitor {
         return Seen::desktop();
@@ -649,12 +838,31 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
     if pid == unsafe { GetCurrentProcessId() } {
         return Seen::desktop();
     }
-    let Some(m) = monitor_rect(monitor) else { return Seen::desktop() };
+    let Some((m, work)) = monitor_rect(monitor) else { return Seen::desktop() };
     let (name, path) = known.describe(hwnd, app_pid(hwnd));
     // The notification state is global; with the foreground window on our monitor, it is this window.
     let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
-    let context = screen_policy::classify(exclusive, covers(frame_rect(hwnd), m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool());
+    let frame = frame_rect(hwnd);
+    let mut context = screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd));
+    // A window that is not maximized but reaches up under the notch (snapped to a half or a quarter, or dragged to the top)
+    // follows the maximized rule too, so its title bar and buttons are not left under the notch.
+    if context == Context::Desktop && under_notch(frame, own, m) {
+        context = Context::Maximized;
+    }
     Seen { context, name, path }
+}
+
+#[cfg(windows)]
+/// Whether a window fills `monitor` as a full-screen app, for Crest's bars (taskbar/front.rs): `read_foreground`'s reading
+/// without the rules' names. False for an invalid window, one of Crest's, one that is not a `candidate` or one on another
+/// monitor. `exclusive` is Windows' exclusive full screen, which it reports of the foreground only.
+pub(crate) fn fills(hwnd: HWND, monitor: HMONITOR, exclusive: bool) -> bool {
+    if hwnd.is_invalid() || !candidate(hwnd) || unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) } != monitor || window_pid(hwnd) == unsafe { GetCurrentProcessId() } {
+        return false;
+    }
+    let Some((m, work)) = monitor_rect(monitor) else { return false };
+    let frame = frame_rect(hwnd);
+    screen_policy::classify(exclusive, covers(frame, m), has_caption(hwnd), unsafe { IsZoomed(hwnd) }.as_bool(), within(frame, work), has_resize_frame(hwnd)).is_fullscreen()
 }
 
 #[cfg(windows)]
@@ -662,7 +870,7 @@ fn read_foreground(hwnd: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) 
 /// maximized behind another app, a borderless game in the background). Skips tool and cloaked windows
 /// (other virtual desktops) and our own.
 fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut Known) -> Option<Seen> {
-    let m = monitor_rect(monitor)?;
+    let (m, work) = monitor_rect(monitor)?;
     let own_pid = unsafe { GetCurrentProcessId() };
     // EnumWindows runs from the top of the z-order, so the first match is the frontmost one.
     for hwnd in top_windows() {
@@ -671,7 +879,8 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
         }
         let maximized = unsafe { IsZoomed(hwnd) }.as_bool();
         let caption = has_caption(hwnd);
-        let full = covers(frame_rect(hwnd), m);
+        let frame = frame_rect(hwnd);
+        let full = covers(frame, m);
         // Tool windows, click-through and never-activated windows are overlays (dimmers, recording frames), not apps.
         if (!maximized && !(full && !caption)) || has_ex_style(hwnd, WS_EX_TOOLWINDOW.0 | WS_EX_TRANSPARENT.0 | WS_EX_NOACTIVATE.0) {
             continue;
@@ -681,7 +890,7 @@ fn read_background(foreground: HWND, own: HWND, monitor: HMONITOR, known: &mut K
             continue;
         }
         let (name, path) = known.describe(hwnd, app_pid(hwnd));
-        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized), name, path });
+        return Some(Seen { context: screen_policy::classify(false, full, caption, maximized, within(frame, work), has_resize_frame(hwnd)), name, path });
     }
     None
 }
@@ -700,7 +909,7 @@ fn candidate(hwnd: HWND) -> bool {
 }
 
 #[cfg(windows)]
-fn top_windows() -> Vec<HWND> {
+pub(crate) fn top_windows() -> Vec<HWND> {
     unsafe extern "system" fn collect(hwnd: HWND, list: LPARAM) -> windows::core::BOOL {
         (*(list.0 as *mut Vec<HWND>)).push(hwnd);
         true.into()
@@ -711,7 +920,7 @@ fn top_windows() -> Vec<HWND> {
 }
 
 #[cfg(windows)]
-fn window_pid(hwnd: HWND) -> u32 {
+pub(crate) fn window_pid(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     pid
@@ -719,7 +928,7 @@ fn window_pid(hwnd: HWND) -> u32 {
 
 #[cfg(windows)]
 /// The app behind a window: a UWP app's frame belongs to ApplicationFrameHost, its CoreWindow child to the app.
-fn app_pid(hwnd: HWND) -> u32 {
+pub(crate) fn app_pid(hwnd: HWND) -> u32 {
     if class_name(hwnd) == "ApplicationFrameWindow" {
         if let Ok(core) = unsafe { FindWindowExW(Some(hwnd), None, w!("Windows.UI.Core.CoreWindow"), PCWSTR::null()) } {
             if !core.is_invalid() {
@@ -736,7 +945,7 @@ fn has_ex_style(hwnd: HWND, bits: u32) -> bool {
 }
 
 #[cfg(windows)]
-fn class_name(hwnd: HWND) -> String {
+pub(crate) fn class_name(hwnd: HWND) -> String {
     let mut buf = [0u16; 64];
     let len = unsafe { GetClassNameW(hwnd, &mut buf) }.max(0) as usize;
     String::from_utf16_lossy(&buf[..len])
@@ -755,8 +964,13 @@ fn has_caption(hwnd: HWND) -> bool {
 }
 
 #[cfg(windows)]
+fn has_resize_frame(hwnd: HWND) -> bool {
+    unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 & WS_THICKFRAME.0 != 0 }
+}
+
+#[cfg(windows)]
 /// The visible frame (without the invisible resize borders), else the window rect.
-fn frame_rect(hwnd: HWND) -> RECT {
+pub(crate) fn frame_rect(hwnd: HWND) -> RECT {
     let mut rect = RECT::default();
     unsafe {
         if DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &mut rect as *mut RECT as *mut _, std::mem::size_of::<RECT>() as u32).is_err() {
@@ -767,9 +981,10 @@ fn frame_rect(hwnd: HWND) -> RECT {
 }
 
 #[cfg(windows)]
-fn monitor_rect(monitor: HMONITOR) -> Option<RECT> {
+/// The monitor's rect and its work area (`rcMonitor`, `rcWork`).
+pub(crate) fn monitor_rect(monitor: HMONITOR) -> Option<(RECT, RECT)> {
     let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
-    unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some(info.rcMonitor)
+    unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool().then_some((info.rcMonitor, info.rcWork))
 }
 
 #[cfg(windows)]
@@ -779,8 +994,30 @@ fn covers(r: RECT, m: RECT) -> bool {
 }
 
 #[cfg(windows)]
+/// `screen_policy::under_notch` for this window and the notch's own window (`own`), whose size never changes with its look.
+fn under_notch(frame: RECT, own: HWND, m: RECT) -> bool {
+    let mut notch = RECT::default();
+    if unsafe { GetWindowRect(own, &mut notch) }.is_err() {
+        return false;
+    }
+    let edges = |r: RECT| (r.left, r.top, r.right, r.bottom);
+    let dpi = unsafe { windows::Win32::UI::HiDpi::GetDpiForWindow(own) }.max(96) as i32;
+    screen_policy::under_notch(edges(frame), edges(notch), edges(m), UNDER_NOTCH_BAND * dpi / 96)
+}
+
+#[cfg(windows)]
+/// How far below the top edge, in CSS px at 100 %, a window's top counts as under the notch: about the closed notch's height.
+const UNDER_NOTCH_BAND: i32 = 40;
+
+#[cfg(windows)]
+/// Inside the work area, give or take 2 px.
+fn within(r: RECT, work: RECT) -> bool {
+    r.left >= work.left - 2 && r.top >= work.top - 2 && r.right <= work.right + 2 && r.bottom <= work.bottom + 2
+}
+
+#[cfg(windows)]
 /// Desktop and taskbar never count as fullscreen.
-fn is_desktop(hwnd: HWND) -> bool {
+pub(crate) fn is_desktop(hwnd: HWND) -> bool {
     if unsafe { hwnd == GetDesktopWindow() || hwnd == GetShellWindow() } {
         return true;
     }
@@ -789,6 +1026,37 @@ fn is_desktop(hwnd: HWND) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_text_size_keeps_a_hanging_edge_on_its_line() {
+        // What the page sends at Text size 100 % (follow.ts spotFor), and what keeps each window on the same device px at 125 %
+        // until the page sends what it measures at the new size.
+        let at_125 = |line: f64, y: f64| {
+            let mut c = Config { line, y, spots: vec![Spot { monitor: "B".into(), line, y }], ..Default::default() };
+            follow_text_scale(&mut c, 1.0 / 1.25);
+            assert_eq!(c.spots, vec![Spot { monitor: "B".into(), line: c.line, y: c.y }], "the copies follow the same rule");
+            (c.line, c.y)
+        };
+        // Bottom edge: the line is the work area's bottom, and the top is unused.
+        assert_eq!(at_125(1032.0, 0.0), (825.6, 0.0));
+        // Top edge, hanging from a 40 px taskbar on top: the line is sent as the window's top too.
+        assert_eq!(at_125(40.0, 40.0), (32.0, 32.0));
+        // A floating capsule: no line, and a top in the page's own px that the page sends again only when it changes. Converted
+        // here, the capsule would jump back at its next drag.
+        assert_eq!(at_125(0.0, 194.0), (0.0, 194.0));
+    }
+
+    #[test]
+    fn a_second_launch_leaves_the_rules_their_say() {
+        let state = DisplayState::default();
+        state.user_hidden.store(true, Ordering::Relaxed);
+        state.rule_hide.store(true, Ordering::Relaxed);
+        assert!(state.come_back(), "the hide hotkey's hiding is undone");
+        assert!(!state.user_hidden.load(Ordering::Relaxed));
+        // Nothing opened, so a "hide" rule still hides the notch.
+        assert!(state.hides());
+        assert!(!state.come_back(), "nothing left to undo");
+    }
 
     #[test]
     fn monitors_of_one_model_get_distinct_names_and_the_first_keeps_its_own() {
@@ -872,5 +1140,63 @@ mod tests {
         assert_eq!(at(100.0).1, 100);
         assert_eq!(at(5000.0).1, 520);
         assert_eq!(at(-50.0).1, 0);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_frame_over_the_taskbar_band_is_outside_the_work_area() {
+        let rect = |left, top, right, bottom| RECT { left, top, right, bottom };
+        let work = rect(0, 0, 1920, 1032);
+        assert!(within(rect(0, 0, 1920, 1032), work));
+        assert!(within(rect(-2, -2, 1922, 1034), work), "give or take 2 px");
+        assert!(!within(rect(0, 0, 1920, 1080), work));
+        assert!(within(rect(0, 0, 1920, 1080), rect(0, 0, 1920, 1080)), "auto-hide: the work area is the monitor");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_bar_in_front_leaves_the_rules_on_the_window_before_it() {
+        let h = |n: isize| HWND(n as _);
+        assert_eq!(ruled_front(h(7), false, h(5)), h(7)); // an app in front
+        assert_eq!(ruled_front(h(9), true, h(7)), h(7)); // a bar clicked, or one of its menus open
+        assert_eq!(ruled_front(h(0), false, h(7)), h(0)); // nothing in front
+    }
+
+    // The ex styles tao and hit_test give a bar or the notch while click-through (read on the PC), the notch taking the pointer,
+    // a mirror and the timer, each with the style it should end up with.
+    #[cfg(windows)]
+    const STYLES: [(u32, u32); 4] = [(0xC0138, 0x801B8), (0x40118, 0x198), (0x080C0138, 0x080801B8), (0x08040118, 0x08000198)];
+
+    #[cfg(windows)]
+    #[test]
+    fn crest_windows_become_tool_windows_and_keep_their_other_bits() {
+        use windows::Win32::UI::WindowsAndMessaging::{WS_EX_ACCEPTFILES, WS_EX_LAYERED, WS_EX_TOPMOST, WS_EX_WINDOWEDGE};
+        let kept = (WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_ACCEPTFILES | WS_EX_WINDOWEDGE).0;
+        for (ex, out) in STYLES {
+            assert_eq!(out_of_alt_tab(ex), out, "{ex:#x}");
+            assert_eq!(out_of_alt_tab(out), out, "{ex:#x} twice");
+            assert_eq!(out & kept, ex & kept, "{ex:#x}: click-through, focus and topmost as tao and hit_test set them");
+        }
+    }
+
+    /// tao writes the whole ex style at every show, hide and click-through change, and set_click_through reads and writes it
+    /// back from the poll thread: the subclass keeps the window a tool window through both.
+    #[cfg(windows)]
+    #[test]
+    fn a_subclassed_window_stays_out_of_alt_tab_whatever_is_written() {
+        use windows::core::w;
+        use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_EX_LAYERED, WS_POPUP};
+        let (tool, app, through) = (WS_EX_TOOLWINDOW.0 as isize, WS_EX_APPWINDOW.0 as isize, (WS_EX_TRANSPARENT | WS_EX_LAYERED).0 as isize);
+        // SetWindowLong cannot set WS_EX_TOPMOST and the system may adjust WINDOWEDGE: only these bits are compared.
+        let bits = |hwnd| unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } & (tool | app | through);
+        let hwnd = unsafe { CreateWindowExW(WS_EX_APPWINDOW, w!("STATIC"), w!("Crest Alt+Tab test"), WS_POPUP, 0, 0, 10, 10, None, None, None, None) }.unwrap();
+        subclass_out_of_alt_tab(hwnd);
+        assert_eq!(bits(hwnd), tool, "forced at once");
+        unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, app | through) };
+        assert_eq!(bits(hwnd), tool | through, "tao's whole style");
+        let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+        unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style & !through) };
+        assert_eq!(bits(hwnd), tool, "set_click_through's read-modify-write");
+        unsafe { DestroyWindow(hwnd) }.unwrap();
     }
 }

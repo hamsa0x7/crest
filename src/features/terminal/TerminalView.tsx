@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowClockwise } from "@phosphor-icons/react";
+import { ArrowClockwise } from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { nav } from "../../notch/nav";
 import { keyboardFocus } from "../../platform/native";
@@ -40,6 +40,7 @@ export function TerminalView() {
           <ArrowClockwise size={14} weight="bold" />
         </HeaderButton>
       </HeaderActions>
+      {/* No click bubbling: a triple click selects a line here, on the notch it would toggle focus mode. */}
       <div
         // A shell is left to right in any language.
         dir="ltr"
@@ -49,6 +50,7 @@ export function TerminalView() {
           keyboardFocus(true);
           focusTerminal();
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* xterm 6 draws its own slider (theme in session.ts); its viewport would add the white system scrollbar beside it. */}
         <div ref={box} className="h-full w-full [&_.xterm-viewport]:[scrollbar-width:none]" />

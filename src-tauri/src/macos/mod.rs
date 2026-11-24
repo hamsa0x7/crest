@@ -8,6 +8,7 @@ pub mod colour;
 pub mod media;
 pub mod mirror;
 pub mod quick;
+pub mod wallpaper;
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -62,6 +63,15 @@ pub fn raise(window: &WebviewWindow) {
 /// The process id of the frontmost app (lib.rs keyboard_focus), 0 when there is none.
 pub fn frontmost_pid() -> i32 {
     NSWorkspace::sharedWorkspace().frontmostApplication().map_or(0, |app| app.processIdentifier())
+}
+
+/// The frontmost app for Screen Time (screentime.rs): its bundle id (its name without one), its name as shown and its process id;
+/// None when there is none.
+pub fn frontmost_app() -> Option<(String, String, i32)> {
+    let app = NSWorkspace::sharedWorkspace().frontmostApplication()?;
+    let name = app.localizedName().map(|n| n.to_string()).unwrap_or_default();
+    let key = app.bundleIdentifier().map(|b| b.to_string()).unwrap_or_else(|| name.clone());
+    Some((key, name, app.processIdentifier()))
 }
 
 /// Gives the keyboard back to the app that had it before the notch opened; false when that app is gone.

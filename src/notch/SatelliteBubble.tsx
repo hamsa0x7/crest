@@ -1,5 +1,5 @@
 import { motion, type MotionValue } from "motion/react";
-import { ArrowDown, HourglassMedium, MusicNoteSimple, Sparkle } from "@phosphor-icons/react";
+import { ArrowDown, HourglassMedium, MusicNoteSimple, Sparkle } from "../ui/iconset";
 import { springs } from "../design/motion";
 import { remainingOf, timer } from "../features/timer/store";
 import { downloads } from "../features/downloads/store";

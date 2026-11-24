@@ -1,6 +1,6 @@
 import changelog from "../../../src/changelog.json";
 import { ArrowUpRight } from "../icons";
-import { Highlights } from "../News";
+import { Film, Highlights } from "../News";
 import { FIXES, RELEASE } from "../release";
 import { mount, Page } from "../Page";
 import { REPO, Rise } from "../Sections";
@@ -12,6 +12,7 @@ function WhatsNew() {
     <Page color="#ff48b0" title="What's new" lead={<>What Cupcake {RELEASE} brings, then every version since the first one, as the app's own What's new page lists them.</>}>
       <section className="sec news news-page" aria-labelledby="release-title">
         <Rise><h2 id="release-title">Cupcake {RELEASE}</h2></Rise>
+        <Film />
         <Highlights />
         <Rise className="fixes">
           <h3>Also fixed</h3>
@@ -29,7 +30,8 @@ function WhatsNew() {
               <div className="version-head">
                 <h3>{v.version}</h3>
                 <p><time dateTime={v.date}>{date(v.date)}</time></p>
-                <a className="textlink" href={`${REPO}/releases/tag/v${v.version}`}>Release notes <ArrowUpRight size={16} weight="bold" aria-hidden="true" /></a>
+                {/* 0.1.0 never had a release on GitHub: the first one is 0.2.0. */}
+                {v.version !== "0.1.0" && <a className="textlink" href={`${REPO}/releases/tag/v${v.version}`}>Release notes <ArrowUpRight size={16} weight="bold" aria-hidden="true" /></a>}
               </div>
               <ul>
                 {v.items.map((it) => <li key={it.en}>{it.en}</li>)}

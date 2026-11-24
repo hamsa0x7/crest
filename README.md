@@ -5,7 +5,7 @@
 <h1 align="center">Cupcake</h1>
 
 <p align="center">
-  <b>A Dynamic Island for the top of your screen, on Windows and macOS.</b>
+  <b>A Dynamic Island for the top of your screen on Windows and macOS, and a taskbar of its own on Windows.</b>
 </p>
 
 <p align="center">
@@ -45,13 +45,13 @@ https://github.com/user-attachments/assets/f3a34516-0d47-4f0c-a10f-25e95cc2cf64
 
 ## What it is
 
-A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. Free and open source, no account, nothing to pay.
+A notch at the edge of your Windows or Mac screen that opens on hover, click or **Ctrl + Alt + Space** and holds the tools you reach for all day: about thirty of them, each one on or off as you like. On Windows, Crest can also take the place of the taskbar, with the same tools as widgets beside your apps. Free and open source, no account, nothing to pay.
 
 The video above shows them in under two minutes, and [the demo on the project page](https://crestisland.app/) lets you try every tool in your browser before you install anything.
 
-<p align="center"><img src="docs/media/features/closed-capsule.png" alt="The closed capsule at the top of the screen: the cover of the song playing, a focus timer, the AI quota ring, CPU, RAM and GPU load, the clock and the weather" width="760" /></p>
+<p align="center"><img src="docs/media/features/desktop.png" alt="Crest on a Windows desktop: the notch open on Hardware, with CPU, GPU, RAM, the drive, network, power, battery, ping and the busiest processes, in the Material style with Liquid Glass, and Crest's taskbar along the bottom with its widgets, Start and the apps in the middle, the tray and the clock" width="960" /></p>
 
-Closed, Cupcake is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back.
+Closed, Cupcake is a single row: the song, a running timer, your AI limits, CPU, RAM and GPU, the network, the battery, the clock, the weather, the next meeting. When something happens it turns into a card for a few seconds, then goes back. On Windows the taskbar can stand in for the Windows one: Start and your apps in the middle, live previews of their windows, and the same readings and tools as widgets around them (not in the Microsoft Store version for now).
 
 <p align="center">
   <img src="docs/media/features/notice-code.png" alt="A notice from a bank app in the closed notch with a one-time code and a Copy code button" width="560" /><br />
@@ -60,31 +60,63 @@ Closed, Cupcake is a single row: the song, a running timer, your AI limits, CPU,
   <img src="docs/media/features/caps-lock.png" alt="Caps Lock on, shown for a moment in the closed notch" width="236" />
 </p>
 
-## What's new in 1.2.0
+## What's new in 1.3.2
 
-<p align="center"><img src="docs/media/features/liquid-glass.gif" alt="Liquid Glass: a window dragged under the glass capsule shows through it, the panel opens as glass over it, and a drop of glass follows the pointer along the tool bar and bounces after a click" width="760" /></p>
+<p align="center">
+  <img src="docs/media/features/taskbar-1.3.2.png" alt="Crest's taskbar in 1.3.2: on the left a song with its cover and controls, Screen Time at 3 h 05 min and the CPU and GPU temperatures with their line; in the middle Start, File Explorer, a folder showing the icons of its four apps, Terminal, Notepad and Calculator; on the right the time in Tokyo, a battery ring at 72, the ^ of the notification area, Wi-Fi, volume and battery, the clock and the Crest button" width="960" /><br />
+  <img src="docs/media/features/folder-1.3.2.png" alt="The Creative folder open in a panel over the bar, with Photos, Paint, Music and Video, above its button among the pinned apps" width="340" />
+  <img src="docs/media/features/widgets-more-1.3.2.png" alt="A crowded bar with a button with four squares at its left end, open on a panel with the widgets that did not fit: an exchange rate, the batteries of three Bluetooth devices, the song with its controls and the battery ring" width="439" /><br />
+  <img src="docs/media/features/screen-time.png" alt="Screen Time for today: a day timeline from midnight to midnight with sunrise, sunset and two events, 4 h 58 min in all with a bar per hour, and the time in each of three apps" width="437" />
+  <img src="docs/media/features/wallpapers.png" alt="Wallpapers on its Collection page: a grid of photos from Unsplash, with Picture fit and Change automatically below" width="340" />
+</p>
 
-- **Liquid Glass**: Settings → Themes → Glass turns the open panel into glass. The screen behind it shows through, bent along the sides and blurred in the middle, and four sliders set Transparency, Refraction, Frost and Rim light. On Windows, off by default.
-- **Glass on the closed notch and the capsule** too, over a live copy of the screen just around them, on Windows 11 24H2 and later. While it is on, the notch stays out of screenshots and screen sharing.
-- **A tool bar that follows the pointer**: the highlight slides to the tool you point at, grows under it and bounces back after a click. A drop of glass over the glass, a brighter pill without it and on the Mac.
-- **Themes at sunrise and sunset**: day and night can change with the sun at the place set for the Weather, worked out on your computer.
-- **The date beside the clock** in the closed notch, and a click on a notice there opens its app right away.
-- **Overview** has play/pause and next beside the song, and synced lyrics stay through short pauses.
-- **Fixes** for a browser tooltip that stayed on screen while Cupcake was open, and for the privacy dot during Snipping Tool recordings.
+- **Folders on the taskbar**: hold a pinned app over another for a moment and both go into a folder, which opens in a panel over the bar. Open apps from a folder still show on the bar. Like everything new on the taskbar, on Windows and not in the Microsoft Store version for now.
+- **New widgets and faces** for the bar: top apps by CPU or memory, battery rings and cells, a network graph, Now Playing with cover and controls, the microphone, a stopwatch, the next to-do, the latest note, day, month and year progress, the date, world time, flip and segment clocks, weather details, the next days, sunrise and sunset, currencies, crypto, Screen Time, the day timeline, unread notifications, device batteries, temperatures with a 10-minute line, Keep awake and a wallpaper switcher.
+- **Windows buttons** for light or dark theme, the on-screen keyboard, the notification center, Do not disturb, recent files, a search box, desktop icons, Eject and the mobile hotspot.
+- **A Widget size slider**, and a button that opens the widgets the bar has no room for, while the clock always stays. Pinned tools such as Portfolio, Calc, Clipboard, Ask, the Launcher and the Recorder open in a panel over the bar.
+- **Screen Time**, off until you turn it on: the time you spend in each app, kept only on this PC for 30 days, with a Day timeline of your focus rounds, events, sunrise and sunset.
+- **Wallpapers** from Cupcake's collection or a folder of your own, for each screen, changed on a timer if you like. The collection's pictures are downloaded the first time you use them.
+- **In the notch**, the battery of your Bluetooth devices when it is closed, a Timer that goes up to 24 hours with your last three durations and a stopwatch with laps, and your local IP in Hardware, with the public one only when you ask.
 
-The [1.2.0 release](https://github.com/hamsa0x7/cupcake/releases/tag/v1.2.0) has the downloads and the full notes, with the issue behind each change.
+The [1.3.2 release](https://github.com/hamsa0x7/cupcake/releases/tag/v1.3.2) has the downloads and the full notes, with the issue behind each change.
+
+## What's new in 1.3.0
+
+<p align="center"><img src="docs/media/features/crest-1.3.gif" alt="Cupcake 1.3.0: a window slides under the taskbar's Liquid Glass + and bends through it, holding the pointer on an app shows live previews of its windows, the Cupcake menu opens with Task Manager, a widget is dragged along the bar, and the settings window in the Material style has contour lines moving behind its pages" width="760" /></p>
+
+- **A taskbar of its own**: Settings → Taskbar puts Cupcake's bar in place of the Windows taskbar, in four shapes (Docked, Floating, Capsule and Tiles), with your pinned apps and open windows, the Notification area and a quick panel for Wi-Fi, Bluetooth and the volume. On Windows, off by default, not in the Microsoft Store version for now.
+- **Live previews** of an app's windows above its button, and a Cupcake menu with Task Manager, Add widget and Auto-hide.
+- **Widgets from your tools** on the bar: Weather, Clock, Hardware and Timer, each in the version you pick, and buttons for the other tools. Drag them along the bar to move them.
+- **Liquid Glass +** for the bar, a strong lens along its edge over a live copy of the screen, so the windows moving under it bend through. On Windows 11 24H2 and later on x64, not in the Microsoft Store version for now.
+- **A Material style** for every Cupcake window: Material 3 colours from your theme, Google Sans Flex and Material Symbols, with contour lines moving behind the settings. On Windows and Mac.
+- **Settings in a window of their own**, and focus mode is back: three quick clicks put the notch aside, behind a switch that is off by default.
+- **AI quota rings** show the 5-hour session inside the weekly limit, and volume, brightness and the other indicators can show over full-screen apps too.
+
+The [1.3.0 release](https://github.com/hamsa0x7/cupcake/releases/tag/v1.3.0) has the downloads and the full notes, with the issue behind each change.
 
 ## Features
 
-Every tool below lives in the same notch. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
+Every tool below lives in the same notch, and on Windows the taskbar can carry them too, as widgets and buttons. Pick yours in **Settings → Tools** and drag them into the order you like; the rest stays out of the way. The full guide, with the setup steps of each integration, is in [docs/features.md](docs/features.md).
+
+<p align="center"><img src="docs/media/features/tools.png" alt="Settings, Tools, in the Material style: every tool with its switch: Overview, Now Playing, Timer, To-Dos, Note, Clipboard, Shelf, Ask, Converter, Portfolio, AI Usage, Weather, Hardware, Discord, Vault, Water, Code scratchpad, Terminal, Launcher, GitHub, LeetCode, Calendar, Notices, Capture, Recorder, Camera, Habits, Colour, Clocks, Prompter, Agents and Calc" width="720" /></p>
 
 ### The closed notch
 
 - **Three looks**: a notch that hugs the edge, a capsule you drag to any height, or a thin line with the song's progress. On the top, bottom, left or right edge, in the size you choose.
-- **The row** shows the parts you pick, in your order, rotating when they don't fit: cover, timer, title or the current lyric line, AI quota rings, CPU, RAM, GPU, network, power, battery, temperature, clock, GitHub, weather, the next event, downloads, and parts your own scripts set.
+- **The row** shows the parts you pick, in your order, rotating when they don't fit: cover, timer, title or the current lyric line, AI quota rings, CPU, RAM, GPU, network, power, battery, temperature, clock, GitHub, LeetCode, weather, the next event, downloads, and parts your own scripts set.
 - **Notices** take the row for a moment: a finished timer, a due to-do, a meeting about to start, a download or screenshot just saved, a quota alert, the charger, Bluetooth, the internet, Caps Lock, volume and brightness.
 - **Privacy dots** turn green while the microphone or camera is in use and red while the screen is recorded (on Windows only by its own capture tools and Store apps, since Windows keeps no record for desktop recorders).
 - **A pet** in a nest beside the notch, if you want one: it dances to the music and runs faster the busier the CPU is.
+
+### The taskbar
+
+- **In place of the Windows taskbar** (Settings → Taskbar, off by default, Windows only, not in the Microsoft Store version for now): Windows' Start, your pinned apps and open windows, the Notification area and the Crest menu with Task Manager, on every monitor. Turn it off, or quit Crest, and the Windows taskbar comes back.
+- **Four shapes**: Docked along the whole edge, Floating, a Capsule as wide as its buttons, or Tiles. Height, icon size, background and transparency are yours.
+- **Live previews** of an app's windows when the pointer rests on it, as in Windows 11.
+- **Folders**: hold a pinned app over another for half a second and the two make a folder, which opens in a panel over the bar. Drag apps in and out, rename it, or ungroup it.
+- **Widgets**: Weather, Clock, Hardware and Timer in the version you pick, and the bar's own, from top apps, batteries, temperatures and disk space to world time, currencies, crypto, Screen Time and unread notifications. Buttons for the other tools, most of which open in a panel over the bar, buttons for Windows' own, and Status, with a quick panel for Wi-Fi, Bluetooth, volume and brightness. Drag them along the bar to move them.
+- **Widget size** from 75 to 125%, and when the bar runs out of room, a button with four squares opens the widgets that did not fit. The clock always stays on the bar.
+- **Liquid Glass +**: a strong lens along the bar's edge over a live copy of the screen, on Windows 11 24H2 and later on x64.
 
 ### Music
 
@@ -98,6 +130,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **Timer** with focus and break presets, six alarm sounds, a background sound for focus and a dozen looks, from pixel digits to a flip clock.
 - **Clocks** for up to 12 cities, with a slider that moves the time a day either way, and sunrise, sunset, golden hour and the moon.
 - **Break reminders**: every 20 minutes for the eyes and every hour for a real break, counted from the time you actually spend at the computer. They wait during presentations, full-screen apps and Do Not Disturb.
+- **Screen Time**, off until you turn it on: which apps you use and for how long, hour by hour, kept 30 days on your PC only and never from window titles, with a **Day timeline** of the day's events, focus rounds and daylight.
 - **Habits** with five weeks of dots and a streak that forgives the odd missed day.
 - **Calendar** from ICS links (Google, Outlook, iCloud) or CalDAV, with a notice before each event and a join button for online meetings.
 - **Water** against a daily goal, with reminders between the hours you set.
@@ -112,7 +145,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 ### Everyday tools
 
-- **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone.
+- **Overview**: time, weather, the song playing, focus, keep awake, volume, brightness, and quick switches for Wi-Fi, Bluetooth, the dark theme and the microphone, each with a switch to hide it.
 - **Calc**: a notebook calculator that reads units, dates, percentages, currencies and variables.
 - **Converter** for units, and about 160 currencies at central bank reference rates.
 - **Colour**: pick a colour anywhere on the screen, copy it as HEX, RGB, HSL or OKLCH, check its contrast and see its harmonies.
@@ -126,7 +159,7 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 - **AI usage**: your limits for Claude, ChatGPT, Antigravity, Cursor and more, with a line that says where each one is heading and an optional notice when it resets.
 - **Ask**: a chat with the AI provider you choose, with your own key, or with a model on your PC through LM Studio or Ollama.
 - **Agents**: the Claude Code sessions running on your PC, what each one waits for, and the command to resume it.
-- **GitHub** contribution calendar and streaks, and a **Launcher** for your pinned apps.
+- **GitHub** and **LeetCode** activity calendars and streaks (reads github.com and leetcode.com only), and a **Launcher** for your pinned apps.
 - **crest-notify** lets scripts and builds send notices, ask a question with buttons, or put their own part in the closed row.
 
 ### Capture
@@ -143,7 +176,10 @@ Every tool below lives in the same notch. Pick yours in **Settings → Tools** a
 
 ### Make it yours
 
+<p align="center"><img src="docs/media/features/settings-material.png" alt="The settings window in the Material style on Themes: the Crest and Material styles, contour lines behind the page, the fifteen themes, the font and coloured icons" width="760" /></p>
+
 - **Themes**: fifteen built in, an editor, sixteen fonts, coloured icons, a day and night switch that can follow the sun, and Liquid Glass on Windows.
+- **Wallpapers**, off until you turn it on: 24 pictures (18 from Unsplash, each credited) or your own folder, per screen, changing on their own every 15 minutes, hour or day.
 - **Window rules** for full-screen apps and games, any **monitor** or all of them, and every panel resized to taste.
 - **11 languages**: English, Simplified Chinese, Spanish, Hindi, Arabic right to left, French, Portuguese, Russian, Japanese, German and Italian.
 - **Plugins**: your own tools in HTML, CSS and JavaScript, sandboxed ([docs/plugins.md](docs/plugins.md)).
@@ -152,10 +188,17 @@ What changed in each version is in the [release notes](docs/releases).
 
 ## Install
 
+<<<<<<< HEAD
 - **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store.
 - **Installer:** download `Cupcake_x.y.z_x64-setup.exe` (or `Cupcake_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/hamsa0x7/cupcake/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
 - **Portable:** unzip `Cupcake-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Cupcake.exe`. Nothing is installed.
 - **Mac (preview):** download `Cupcake_x.y.z_aarch64.dmg` for Apple silicon or `Cupcake_x.y.z_x64.dmg` for Intel and drag Cupcake to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera and Plugins are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
+=======
+- **Microsoft Store:** [Crest Island](https://apps.microsoft.com/detail/9N2KXJ2924KS), signed by Microsoft and kept up to date by the Store. The Store version does not have the taskbar and Liquid Glass + for now.
+- **Installer:** download `Crest_x.y.z_x64-setup.exe` (or `Crest_x.y.z_arm64-setup.exe` on a Windows on ARM PC) from the [latest release](https://github.com/andrealo20/crest/releases/latest) and run it. It installs for your user only. The installer is not code-signed yet, so SmartScreen may warn on first launch: click **More info → Run anyway**.
+- **Portable:** unzip `Crest-x.y.z-Portable-x64.zip` (or `-Portable-arm64.zip`) anywhere you can write to and run `Crest.exe`. Nothing is installed.
+- **Mac (preview):** download `Crest_x.y.z_aarch64.dmg` for Apple silicon or `Crest_x.y.z_x64.dmg` for Intel and drag Crest to Applications. The app is not notarized yet, so macOS refuses it on first launch: open **System Settings → Privacy & Security → Open Anyway**. Up to 1.2.1 the app is not signed at all and macOS calls it damaged instead: run `xattr -dr com.apple.quarantine /Applications/Crest.app` once in Terminal. Shelf, Hardware, Discord, Vault, Terminal, Launcher, Notices, Capture, Recorder, Camera, Plugins and the taskbar are Windows-only for now and don't show on a Mac, nor do the Focus, Keep awake and volume tiles in Overview, FPS, the recording dots and the monitor modes Follow the cursor and All monitors. Find on screen has no shortcut there.
+>>>>>>> upstream/main
 
 Every release has a `SHA256SUMS` file with the SHA-256 of each download, to check with `sha256sum -c SHA256SUMS --ignore-missing` or `Get-FileHash`.
 
@@ -163,7 +206,11 @@ Windows 11 or Windows 10, 64-bit (x64 or ARM64), or macOS 12 or later on Apple s
 
 ## Your data stays on your PC
 
+<<<<<<< HEAD
 No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Cupcake goes online by itself only for the weather in Overview, and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+=======
+No account, no analytics, no tracking. Settings and data stay on your machine, keys live in the Windows Credential Manager (the Keychain on a Mac), and Crest goes online by itself only for the weather in Overview (which has its own switch), the update check every 4 hours and the AI usage rings of the services you are signed in to; everything else waits until you set it up. What goes over the network, and when: [PRIVACY.md](PRIVACY.md).
+>>>>>>> upstream/main
 
 ## Support the project
 
@@ -181,20 +228,27 @@ Cupcake is a fork of Crest (by Andrea Loroni), which itself modified [L4-Notchba
 - The panel themes, their readability correction and the day and night switch are translated from BrimDeck too ([docs/themes.md](docs/themes.md)). The One Dark Pro, GitHub, Dracula, Night Owl, Catppuccin, Nord, Rosé Pine, Gruvbox, Solarized and Everforest themes use the colours of those palettes under the MIT License ([licenses/theme-palettes-MIT.txt](licenses/theme-palettes-MIT.txt)).
 - Hiding the Windows volume and brightness indicator follows [Bloom](https://github.com/SehajveerSingh2005/bloom) (GPL-3.0, license text in [licenses/Bloom-LICENSE](licenses/Bloom-LICENSE)).
 - The glass's refraction and rim light are adapted from WinIsland (GPL-3.0, license text in [licenses/WinIsland-LICENSE](licenses/WinIsland-LICENSE)).
+- The taskbar's Liquid Glass +, also drawn on the notch's tool bar, is adapted from [LiquidGlassWindows](https://github.com/pxlkeshi/LiquidGlassWindows) by pxlkeshi: the lens, the colour split, the colour and the rim light of its glass (MIT, [licenses/LiquidGlassWindows-MIT.txt](licenses/LiquidGlassWindows-MIT.txt)).
+- The taskbar's rules for which windows get a button, minimizing, the window in front, and flashing and ghost windows are adapted from [ManagedShell](https://github.com/cairoshell/ManagedShell) (Apache-2.0, license text in [licenses/ManagedShell-LICENSE](licenses/ManagedShell-LICENSE)). So is the tray: the window that receives what apps send to Windows' tray ahead of Explorer and passes every message on, the format of those messages, the icon list and the messages a click sends, and the appbar calls' shared memory. So are the badges: the `TaskbandHWND` property, the taskbar list's messages, the progress and overlay payloads and the `TaskbarButtonCreated` broadcast.
 - The notch proportions were derived from [NotchDrop](https://github.com/Lakr233/NotchDrop) (MIT).
 - The terminal uses [xterm.js](https://github.com/xtermjs/xterm.js) (MIT, [licenses/xterm-MIT.txt](licenses/xterm-MIT.txt)).
 - Pinyin for Chinese lyrics comes from [rust-pinyin](https://github.com/mozillazg/rust-pinyin) (MIT, [licenses/pinyin-MIT.txt](licenses/pinyin-MIT.txt)). Kanji readings use [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0) in the [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) format, downloaded on demand and not shipped with Cupcake.
 - The text is set in [Inter](https://github.com/rsms/inter) (SIL Open Font License 1.1, [licenses/Inter-OFL.txt](licenses/Inter-OFL.txt)), bundled through Fontsource.
 - The icons are [Phosphor](https://github.com/phosphor-icons/react) (MIT, [licenses/Phosphor-MIT.txt](licenses/Phosphor-MIT.txt)).
+- The Material style follows [Stellaria](https://github.com/SMIDR76/stellaria-windows) (GPL-3.0, license text in [licenses/Stellaria-LICENSE](licenses/Stellaria-LICENSE)), itself a port of [Caelestia](https://github.com/caelestia-dots/shell) by the caelestia-dots contributors (GPL-3.0); the contour background and the navigation mark of the settings window and the load shapes of the Hardware tool are adapted from Stellaria's code. The contour shader's hash starts with David Hoskins's integer hash, whose own page could not be read; its license is taken from the MIT notice of his [Hash without Sine](https://www.shadertoy.com/view/4djSRW) (license text in [licenses/HashWithoutSine-MIT.txt](licenses/HashWithoutSine-MIT.txt)).
+- Its colours are computed with [material-color-utilities](https://github.com/material-foundation/material-color-utilities) by Google (Apache-2.0, [licenses/material-color-utilities-Apache-2.0.txt](licenses/material-color-utilities-Apache-2.0.txt)).
+- Its text is set in [Google Sans Flex](https://github.com/googlefonts/googlesans-flex) (SIL Open Font License 1.1, [licenses/GoogleSansFlex-OFL.txt](licenses/GoogleSansFlex-OFL.txt)), an instance of the Fontsource files, rounded at 25, latin and latin-ext only.
+- Its icons are [Material Symbols Rounded](https://github.com/google/material-design-icons) by Google (Apache-2.0, [licenses/MaterialSymbols-Apache-2.0.txt](licenses/MaterialSymbols-Apache-2.0.txt)). Crest ships outlines drawn from the font for the icons it uses.
 - The calendar maps Windows time zone names to IANA names with the table from [jiff](https://github.com/BurntSushi/jiff) (MIT, [licenses/jiff-LICENSE](licenses/jiff-LICENSE)), which also supplies the time zone database.
 - The QR code that sends Shelf files to a phone comes from [qrcodegen](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki (MIT, [licenses/qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt)).
+- The wallpapers are not part of Crest's code and not under its GPL-3.0: 18 photos from [Unsplash](https://unsplash.com) under the Unsplash License, each credited to its photographer, and 6 of unknown source, left out of the Microsoft Store version ([src/assets/wallpapers/CREDITS.md](src/assets/wallpapers/CREDITS.md)). The full-size pictures are downloaded on first use, not shipped with Crest.
 - Weather data is by [Open-Meteo.com](https://open-meteo.com/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the installers, the Store package and the portable zip carry the licence texts in `LICENSE` and `licenses/`.
 - The design follows Apple's Dynamic Island and the macOS app OmniNotch. Cupcake is not affiliated with Apple or OmniNotch.
-- Cupcake is an independent project by hamsa0x7. It is not made, sponsored or endorsed by Microsoft.
+- Cupcake is an independent project by hamsa0x7. It is not made, sponsored or endorsed by Microsoft or Google.
 
 ## License
 
-[GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices.
+[GPL-3.0](LICENSE). You may use, study, change and share this project, also commercially, but any version you distribute must stay open source under the same license and keep the copyright notices. The wallpaper pictures are not covered by it: each keeps its own terms ([src/assets/wallpapers/CREDITS.md](src/assets/wallpapers/CREDITS.md)).
 
 Cupcake is open-source software under GPL-3.0. The source code of every release is in this repository: each release has a version tag that points to the exact code it was built from.
 

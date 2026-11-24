@@ -7,6 +7,11 @@ export interface Size {
   h: number;
 }
 
+/** A tool's default size, and the height its layout needs where that is more than MIN_SHARE of it (the Music tool's controls). */
+export interface ToolSize extends Size {
+  minH?: number;
+}
+
 /** Largest open panel: the window (760 × 560, tauri.conf.json) less a margin for the hit zone. */
 export const PANEL_MAX: Size = { w: 740, h: 540 };
 /** Never smaller than this, whatever the tool's default. */
@@ -30,14 +35,11 @@ export interface Limits {
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 /** `monitorH`: the monitor's height in CSS px; the panel keeps 20 px free below it. */
-export function limits(def: Size, monitorH?: number, customLimits?: { minW?: number; maxH?: number; maxW?: number }): Limits {
-  const capW = customLimits?.maxW ? customLimits.maxW : (customLimits?.minW ? Math.max(PANEL_MAX.w, customLimits.minW) : PANEL_MAX.w);
-  const capH = customLimits?.maxH ?? PANEL_MAX.h;
-  const floorW = customLimits?.minW ?? FLOOR.w;
-  const minW = Math.min(capW, Math.max(floorW, Math.round(def.w * MIN_SHARE)));
-  const minH = Math.min(capH, Math.max(FLOOR.h, Math.round(def.h * MIN_SHARE)));
-  const maxH = finite(monitorH) ? Math.min(capH, Math.round(monitorH - 20)) : capH;
-  return { minW, maxW: capW, minH, maxH: Math.max(minH, maxH) };
+export function limits(def: ToolSize, monitorH?: number): Limits {
+  const minW = Math.min(PANEL_MAX.w, Math.max(FLOOR.w, Math.round(def.w * MIN_SHARE)));
+  const minH = Math.min(PANEL_MAX.h, Math.max(FLOOR.h, def.minH ?? Math.round(def.h * MIN_SHARE)));
+  const maxH = finite(monitorH) ? Math.min(PANEL_MAX.h, Math.round(monitorH - 20)) : PANEL_MAX.h;
+  return { minW, maxW: PANEL_MAX.w, minH, maxH: Math.max(minH, maxH) };
 }
 
 export function clampSize(s: Size, l: Limits): Size {
@@ -46,11 +48,11 @@ export function clampSize(s: Size, l: Limits): Size {
 }
 
 /** The size a tool opens at: its saved size, else its default, within its limits. */
-export function sizeFor(def: Size, saved: Size | undefined, monitorH?: number): Size {
+export function sizeFor(def: ToolSize, saved: Size | undefined, monitorH?: number): Size {
   return clampSize(saved ?? def, limits(def, monitorH));
 }
 
-export function quickSize(def: Size, q: QuickSize, monitorH?: number): Size {
+export function quickSize(def: ToolSize, q: QuickSize, monitorH?: number): Size {
   const f = QUICK_FACTOR[q];
   return clampSize({ w: def.w * f, h: def.h * f }, limits(def, monitorH));
 }
@@ -59,7 +61,7 @@ export function quickSize(def: Size, q: QuickSize, monitorH?: number): Size {
  * The quick size every tool is at, or null when sizes were dragged by hand. No saved sizes = standard. A saved size that
  * is no quick size of its tool's current default (the default changed since) is left out, so an update does not unselect the choice.
  */
-export function currentQuick(defs: Record<string, Size>, saved: Record<string, Size>): QuickSize | null {
+export function currentQuick(defs: Record<string, ToolSize>, saved: Record<string, Size>): QuickSize | null {
   const ids = Object.keys(defs);
   const qs = Object.keys(QUICK_FACTOR) as QuickSize[];
   const is = (id: string, q: QuickSize) => {
@@ -87,6 +89,15 @@ export function stepSize(s: Size, dir: Direction, l: Limits, step = 20): Size {
   const dw = dir === "right" ? step : dir === "left" ? -step : 0;
   const dh = dir === "down" ? step : dir === "up" ? -step : 0;
   return clampSize({ w: s.w + dw, h: s.h + dh }, l);
+}
+
+/**
+ * A drag or a step `next` made from the width on screen, `shownW`, which the tool bar can hold wider than the tool's own size `own`
+ * (notch/geometry.ts openWidth): past it the width is the tool's new one, so the edge follows the pointer; short of it a resize never
+ * widens the tool's own, which a height alone would otherwise save as the bar's.
+ */
+export function fromShown(next: Size, own: Size, shownW: number): Size {
+  return next.w > shownW ? next : { w: Math.min(next.w, own.w), h: next.h };
 }
 
 /** The panel scales the settings step through, in %; display.rs fit_zoom accepts the same list. */
@@ -123,5 +134,25 @@ export function normalizeSizes(v: unknown): Record<string, Size> {
     const { w, h } = (s ?? {}) as Partial<Size>;
     if (finite(w) && finite(h) && w > 0 && h > 0) out[id] = { w: Math.round(w), h: Math.round(h) };
   }
+  return out;
+}
+
+/** Saved text sizes per tool (Notes, Calc): the scale steps other than 100 %, which is left out. */
+export function normalizeTextSizes(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const [id, s] of Object.entries(v as Record<string, unknown>)) {
+    const fit = fitScale(s);
+    if (fit === s && fit !== 100) out[id] = fit;
+  }
+  return out;
+}
+
+/** The text sizes after Ctrl + (1), Ctrl - (-1) or Ctrl 0 (0) in tool `id`, through the scale steps; 100 % is left out. */
+export function stepTextSize(sizes: Record<string, number>, id: string, step: 1 | -1 | 0): Record<string, number> {
+  const out = { ...sizes };
+  const next = step === 0 ? 100 : stepScale(sizes[id] ?? 100, step);
+  if (next === 100) delete out[id];
+  else out[id] = next;
   return out;
 }

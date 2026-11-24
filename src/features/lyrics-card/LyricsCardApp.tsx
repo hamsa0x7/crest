@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { FastForward, MagnifyingGlassMinus, MagnifyingGlassPlus, MicrophoneStage, Pause, Play, Rewind, X } from "@phosphor-icons/react";
+import { FastForward, MagnifyingGlassMinus, MagnifyingGlassPlus, MicrophoneStage, Pause, Play, Rewind, X } from "../../ui/iconset";
 import { media, useNowPlaying } from "../../platform/media";
 import { settings } from "../../settings/store";
 import { linesOf, useLyricIndex, useLyrics, useOfflineTranslation, useRomanized } from "../now-playing/lyrics";

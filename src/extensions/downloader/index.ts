@@ -1,4 +1,4 @@
-import { YoutubeLogo } from "@phosphor-icons/react";
+import { YoutubeLogo } from "../../ui/iconset";
 import { DownloaderView } from "../../features/downloader/DownloaderView";
 import { registerExtension, type NativeExtension } from "../registry";
 

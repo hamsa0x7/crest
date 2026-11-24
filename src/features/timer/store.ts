@@ -1,8 +1,13 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { useEffect, useState } from "react";
 import { createStore } from "../../lib/store";
-import { playAlarm, playPomodoroTransition, playTimerChime, stopAlarm } from "../../lib/sound";
+import { playAlarm, stopAlarm } from "../../lib/sound";
 import { settings } from "../../settings/store";
 import { focusSoundFor, setFocusSound } from "./focusSound";
+import { clampDuration, customsOf, remember } from "./duration";
+import { STOPWATCH_IDLE, lapAt, toggleAt, type Stopwatch } from "./stopwatch";
+import { logRound, roundsOf, roundsWanted, type FocusRound } from "./rounds";
 
 export type TimerMode = "focus" | "break";
 
@@ -16,18 +21,19 @@ interface TimerState {
   remaining: number;
   /** Finished: stays until the user dismisses it (timer view + live activity show it). */
   finished: boolean;
-  /** Last custom duration per mode (seconds), shown as its own chip. */
+  /** Last custom duration started per mode (seconds), kept beside `recent` as a single number, which is what an older Cupcake reads. */
   custom?: Partial<Record<TimerMode, number>>;
+  /** The last custom durations started per mode (seconds), newest first, each shown as its own chip. */
+  recent?: Partial<Record<TimerMode, number[]>>;
 }
-
-/** Limits for custom times (minutes). */
-export const MIN_MINUTES = 1;
-export const MAX_MINUTES = 180;
 
 export const presets: Record<TimerMode, number[]> = {
   focus: [15 * 60, 25 * 60, 45 * 60],
   break: [5 * 60, 10 * 60, 15 * 60],
 };
+
+/** The custom durations remembered for `mode`, newest first; a timer saved by an older Cupcake has its one `custom` number. */
+export const remembered = (s: TimerState, mode: TimerMode) => customsOf(s.recent?.[mode] ?? s.custom?.[mode], presets[mode]);
 
 const initial: TimerState = { mode: "focus", duration: 25 * 60, endsAt: null, remaining: 25 * 60, finished: false };
 
@@ -39,6 +45,29 @@ export const ringing = createStore(false);
 
 /** Focus sound muted from the Timer tool until Cupcake restarts; the setting stays as it is. */
 export const focusMuted = createStore(false);
+
+/** The Timer tool's page in this window: the countdown or the stopwatch; not saved. */
+export const timerTab = createStore<"timer" | "stopwatch">("timer");
+// A timer that ends while the stopwatch shows brings its finished view (and its Stop alarm) back.
+let wasFinished = timer.get().finished;
+timer.subscribe(() => {
+  const { finished } = timer.get();
+  if (finished && !wasFinished) timerTab.set("timer");
+  wasFinished = finished;
+});
+
+/** The stopwatch, saved as when it started rather than as a count: it keeps counting while Cupcake is closed, as the timer does, and every window shows the same one. */
+export const stopwatch = createStore<Stopwatch>(STOPWATCH_IDLE, { persist: "stopwatch" });
+
+/** The focus rounds finished in the last 30 days, for the Day timeline; written only while it or Screen Time is in use (rounds.ts roundsWanted). */
+export const focusLog = createStore<FocusRound[]>([], { persist: "focus-rounds" });
+
+/** Start or pause, a lap, and back to zero for the stopwatch. */
+export const stopwatchActions = {
+  toggle: () => stopwatch.set((s) => toggleAt(s, Date.now())),
+  lap: () => stopwatch.set((s) => lapAt(s, Date.now())),
+  reset: () => stopwatch.set(STOPWATCH_IDLE),
+};
 
 export function remainingOf(s: TimerState, now = Date.now()): number {
   if (s.endsAt === null) return s.remaining;
@@ -58,14 +87,23 @@ export const timerActions = {
     timer.set((s) => {
       if (!s.finished) return s;
       const mode: TimerMode = s.mode === "focus" ? "break" : "focus";
-      playPomodoroTransition(mode === "break");
-      const duration = s.custom?.[mode] ?? (mode === "break" ? presets.break[0] : presets.focus[1]);
+      const duration = remembered(s, mode)[0] ?? (mode === "break" ? presets.break[0] : presets.focus[1]);
       return { ...s, mode, duration, remaining: duration, endsAt: null, finished: false };
     });
   },
+  /** A custom duration is remembered here, when it is started, so typing or wheeling through others never pushes one out. */
   start() {
     timerActions.silence();
-    timer.set((s) => ({ ...s, endsAt: Date.now() + s.remaining * 1000, finished: false }));
+    timer.set((s) => {
+      const own = !presets[s.mode].includes(s.duration);
+      return {
+        ...s,
+        endsAt: Date.now() + s.remaining * 1000,
+        finished: false,
+        recent: { ...s.recent, [s.mode]: remember(remembered(s, s.mode), s.duration, presets[s.mode]) },
+        custom: own ? { ...s.custom, [s.mode]: s.duration } : s.custom,
+      };
+    });
   },
   pause() {
     timer.set((s) => ({ ...s, remaining: remainingOf(s), endsAt: null }));
@@ -77,16 +115,27 @@ export const timerActions = {
     timerActions.silence();
     timer.set((s) => ({ ...s, mode, duration, remaining: duration, endsAt: null, finished: false }));
   },
-  /** Sets a custom duration; values outside the presets are remembered as their own chip. */
-  setMinutes(minutes: number) {
-    const m = Math.round(Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, minutes)));
-    timer.set((s) => {
-      const duration = m * 60;
-      const custom = presets[s.mode].includes(duration) ? s.custom : { ...s.custom, [s.mode]: duration };
-      return { ...s, duration, remaining: duration, endsAt: null, finished: false, custom };
-    });
+  /** Sets a duration in seconds, within the limits; it becomes a chip once it is started. */
+  setDuration(seconds: number) {
+    const duration = clampDuration(seconds);
+    timer.set((s) => ({ ...s, duration, remaining: duration, endsAt: null, finished: false }));
   },
 };
+
+/**
+ * The view's Stop alarm. Only the notch rings, and it stops by itself only once the shared timer is no longer finished, which Stop
+ * keeps; so another window (the bar's panel) asks the notch.
+ */
+export function stopRinging() {
+  if (!isNotchWindow) return askNotch({ kind: "timerSilence" });
+  timerActions.silence();
+}
+
+/** The view's mute. The notch alone plays the focus sound and holds `focusMuted`, so another window asks the notch. */
+export function setFocusMuted(on: boolean) {
+  if (!isNotchWindow) return askNotch({ kind: "focusMute", on });
+  focusMuted.set(on);
+}
 
 // Watch for the end (one place for the whole app): one timeout at `endsAt`, no
 // polling while nothing runs.
@@ -100,11 +149,15 @@ function checkEnd() {
   const s = timer.get();
   if (s.endsAt !== null && remainingOf(s) <= 0) {
     timer.set((t) => ({ ...t, remaining: 0, endsAt: null, finished: true }));
+    // Before the stale return: a round that ended while Cupcake was closed counts too. A round stopped before its end does not.
+    if (s.mode === "focus" && roundsWanted(settings.get())) {
+      const round = { end: s.endsAt, secs: s.duration };
+      focusLog.set((l) => logRound(roundsOf(l), round, Date.now()));
+    }
     // Ended while Cupcake was closed or the PC slept: finished, but no alarm at the next login (as with reminders).
     if (Date.now() - s.endsAt > STALE_MS) return;
     const { sound, volume, duration: ring } = settings.get().alarm;
     playAlarm(sound, volume, ring);
-    playTimerChime();
     ringing.set(true);
     window.clearTimeout(ringTimeout);
     // Same length as in playAlarm ("until stopped" = at most 2 min).
@@ -126,10 +179,8 @@ function scheduleEnd() {
     // At most a minute at a time, so a sleep cannot delay the end by its length.
   }, Math.min(60_000, Math.max(0, endsAt - Date.now())));
 }
-/** The detached timer window (timer.html) shows and controls the timer, but only the notch window rings. */
-export const isTimerWindow = location.pathname.endsWith("/timer.html");
-
-if (!isTimerWindow) {
+// The detached timer and the settings window show and control the timer, but only the notch window rings.
+if (isNotchWindow) {
   timer.subscribe(scheduleEnd);
   scheduleEnd();
   // Dismissed or restarted from the detached window: stop the sound here too.
@@ -146,20 +197,6 @@ if (!isTimerWindow) {
   settings.subscribe(syncFocusSound);
   focusMuted.subscribe(syncFocusSound);
 }
-
-// Both windows share the persisted state: adopt what the other window wrote. Writing the same
-// text back to localStorage fires no new event, so this does not loop.
-window.addEventListener("storage", (e) => {
-  if (e.key !== "notch:timer") return;
-  // Read the current value: several writes can arrive as a burst of events.
-  const raw = localStorage.getItem("notch:timer");
-  if (!raw) return;
-  try {
-    timer.set(JSON.parse(raw) as TimerState);
-  } catch {
-    // Broken entry: keep the current state.
-  }
-});
 
 /**
  * Remaining seconds while the timer runs: once per second, on the boundary where the shown
@@ -200,7 +237,5 @@ export function useSecondTick(active: boolean, phase = 0): number {
   return now;
 }
 
-export function formatClock(seconds: number): string {
-  const s = Math.ceil(seconds);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
+/** The countdown as the bar and the Overview write it: "24:59", from an hour "1:05:00". */
+export { formatClock } from "../teleprompter/model";

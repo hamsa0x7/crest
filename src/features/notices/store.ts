@@ -1,7 +1,10 @@
+import { askNotch } from "../../lib/tauriTransport";
+import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
 import { decodeSound, playNotice } from "../../lib/sound";
 import { holdOpen } from "../../notch/useNotchState";
 import { noticeSource, systemControls, windowShell, type IncomingNotice, type NoticeSourceStatus } from "../../platform/services";
+import { focusMode } from "../../notch/focus";
 import { settings, updateSettings } from "../../settings/store";
 import { presentingNow, privacy } from "../privacy/store";
 import { fullscreen } from "../system/gaming";
@@ -25,6 +28,17 @@ export const history = createStore<Notice[]>([]);
 /** The notice showing in the closed notch now (NoticeLayer). */
 export const popping = createStore<Notice | null>(null);
 export const sourceStatus = createStore<NoticeSourceStatus>({ access: "unspecified", mode: "off", pipe: false, pipeFailed: false });
+/**
+ * The toasts still in Windows' notification centre per lower-case app id, for the bar's Unread widget; null while the Windows source
+ * does not run. In memory only, like the history.
+ */
+export const waiting = createStore<Record<string, number> | null>(null);
+
+/** A status from Rust, with the last counts it holds: a notch that reloaded, or listened late, has them before the next change. */
+function takeStatus(s: NoticeSourceStatus) {
+  sourceStatus.set(s);
+  if (s.counts !== undefined) waiting.set(s.counts);
+}
 
 let popTimer: number | undefined;
 let nextId = 0;
@@ -57,14 +71,14 @@ export const asks = createStore<Ask[]>([]);
 /*
  * An ask is work the user started, so quiet hours, focus and full screen do not hold it back, and it stays until
  * answered. It is not kept in the history. Off for its source, while presenting (its text could be a command on a
- * shared screen), or when nothing can show it (the window hidden by a rule or the shortcut),
+ * shared screen), or when nothing can show it (focus mode as a line, the window hidden by a rule or the shortcut),
  * it is answered "no choice" at once, so the caller falls back to its own prompt without waiting.
  */
 let windowHidden = false;
 
 function receiveAsk(a: Ask) {
   const s = settings.get().notices;
-  const unseen = windowHidden || screen.get() === "hide";
+  const unseen = windowHidden || screen.get() === "hide" || (focusMode.get() && settings.get().display.focusStyle === "line");
   if (!s.enabled || ruleFor(s.rules, a.appId) === "hide" || presentingNow() || unseen) return noticeSource.answer(a.id, null);
   const apps = rememberApp(s.apps, a.appId, a.appName);
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
@@ -94,7 +108,7 @@ function ingest(input: IncomingNotice, focus: boolean) {
   if (apps !== s.apps) updateSettings((cur) => ({ notices: { ...cur.notices, apps } }));
   else if (input.source === "windows") syncWindows(true);
   const d = new Date();
-  const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus });
+  const where = route(input.appId, s, { presenting: presentingNow(), now: d.getHours() * 60 + d.getMinutes(), fullscreen: fullscreen.get(), focus, focusMode: focusMode.get() });
   if (where === "drop") return;
   const n: Notice = { ...input, id: `${Date.now()}-${nextId++}` };
   const inPlace = history.get().some((old) => sameKey(old, n));
@@ -182,12 +196,15 @@ function whenChanged(send: (off: boolean, apps: string[]) => Promise<unknown>) {
   };
 }
 
-settings.subscribe(() => syncWindows());
-sourceStatus.subscribe(() => {
-  statusSeen = true;
+// The notch alone tells Rust which banners and sounds to keep.
+if (isNotchWindow) {
+  settings.subscribe(() => syncWindows());
+  sourceStatus.subscribe(() => {
+    statusSeen = true;
+    syncWindows();
+  });
   syncWindows();
-});
-syncWindows();
+}
 
 function pop(n: Notice) {
   popping.set(n);
@@ -211,7 +228,9 @@ export function dismissPop() {
 /** Ids Windows gave these notices' toasts, for removing them from the notification centre too. */
 const windowsIds = (list: Notice[]) => list.flatMap((n) => (n.source === "windows" && typeof n.windowsId === "number" ? [n.windowsId] : []));
 
+/** The history lives in the notch, which also takes the toast out of the notification centre, so another window asks the notch. */
 export function deleteNotice(id: string) {
+  if (!isNotchWindow) return askNotch({ kind: "noticeDelete", id });
   noticeSource.removeWindows(windowsIds(history.get().filter((n) => n.id === id)));
   history.set((list) => removeNotice(list, id));
   if (popping.get()?.id === id) dismissPop();
@@ -232,18 +251,17 @@ function forgetToasts(ids: number[]) {
     .catch(console.error);
 }
 
+/** Deletes every notice the way `deleteNotice` deletes one, so another window asks the notch here too. */
 export function clearHistory() {
+  if (!isNotchWindow) return askNotch({ kind: "noticesClear" });
   noticeSource.removeWindows(windowsIds(history.get()));
   history.set([]);
   dismissPop();
 }
 
+/** Only writes the rule: the notch drops the notices of an app it hides (startNotices), whichever window set it. */
 export function setAppRule(appId: string, rule: NoticeRule) {
   updateSettings((cur) => ({ notices: { ...cur.notices, rules: setRule(cur.notices.rules, appId, rule) } }));
-  if (rule === "hide") {
-    history.set((list) => removeApp(list, appId));
-    if (popping.get()?.appId.toLowerCase() === appId.toLowerCase()) dismissPop();
-  }
 }
 
 /** Windows refused the access request itself (no prompt); the settings then point to Windows Settings. */
@@ -256,9 +274,14 @@ export async function requestAccess() {
   if (access !== "request-failed") sourceStatus.set((s) => ({ ...s, access }));
 }
 
-/** Reads the sources' state again (the settings page does this when it opens). */
+/**
+ * Reads the sources' state again (the settings page does this when it opens and when its window gets the focus back). The notch
+ * reads it, so it gives Windows' banners and sound back on what it learns and starts a source that waited for access; the
+ * settings window gets the result over the bridge.
+ */
 export function refreshStatus() {
-  void noticeSource.status().then((s) => sourceStatus.set(s));
+  if (!isNotchWindow) return askNotch({ kind: "refresh", what: "notices" });
+  void noticeSource.status().then(takeStatus);
 }
 
 let started = false;
@@ -269,7 +292,8 @@ export function startNotices() {
   started = true;
   noticeSource.onNotice(receive);
   noticeSource.onToastsGone(forgetToasts);
-  noticeSource.onStatus((s) => sourceStatus.set(s));
+  noticeSource.onStatus(takeStatus);
+  noticeSource.onCount(waiting.set);
   noticeSource.onPart(receivePart);
   noticeSource.onAsk(receiveAsk);
   noticeSource.onAskClosed((id) => asks.set((list) => removeAsk(list, id)));
@@ -304,6 +328,20 @@ export function startNotices() {
   };
   apply();
   settings.subscribe(apply);
+
+  // An app hidden here or in the settings window leaves the history and the screen; a newly picked sound file is decoded again.
+  let seen = settings.get().notices;
+  settings.subscribe(() => {
+    const now = settings.get().notices;
+    if (now.soundFile !== seen.soundFile) fileSound = null;
+    if (now.rules !== seen.rules) {
+      for (const app of Object.keys(now.rules).filter((a) => now.rules[a] === "hide" && seen.rules[a] !== "hide")) {
+        history.set((list) => removeApp(list, app));
+        if (popping.get()?.appId.toLowerCase() === app) dismissPop();
+      }
+    }
+    seen = now;
+  });
 }
 
 /** Master switch. Turning it on also shows the history page in the tool bar. */

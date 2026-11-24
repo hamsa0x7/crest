@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { altGrRisk } from "./hotkeys.ts";
-import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey } from "./model.ts";
+import { MAX_APP_RULES, MAX_TOOL_HOTKEYS, WINDOW_DEFAULTS, addRule, cycle, exeName, newRule, normalizeWindow, ruleKey, stripScroll } from "./model.ts";
 
 test("without a saved group the rules follow the old visibility setting", () => {
   assert.deepEqual(normalizeWindow(undefined).rules, WINDOW_DEFAULTS.rules);
@@ -19,6 +19,26 @@ test("broken values fall back, valid ones stay", () => {
   assert.equal(w.closeDelay, "fast");
   assert.equal(w.wheelTools, false);
   assert.equal(w.rightClickSettings, true);
+  // Both on unless turned off (#50): the grips at the panel's edges and a hovered part picking the tool.
+  assert.equal(w.resizeEdges, true);
+  assert.equal(w.hoverParts, true);
+  const off = normalizeWindow({ resizeEdges: false, hoverParts: false });
+  assert.equal(off.resizeEdges, false);
+  assert.equal(off.hoverParts, false);
+  assert.equal(normalizeWindow({ resizeEdges: "no", hoverParts: 0 }).resizeEdges, true);
+});
+
+test("the tool bar stays at the bottom with its background unless saved otherwise (#76)", () => {
+  assert.equal(WINDOW_DEFAULTS.toolBar, "bottom");
+  assert.equal(WINDOW_DEFAULTS.toolBarFill, true);
+  const top = normalizeWindow({ toolBar: "top", toolBarFill: false });
+  assert.equal(top.toolBar, "top");
+  assert.equal(top.toolBarFill, false);
+  const broken = normalizeWindow({ toolBar: "left", toolBarFill: "no" });
+  assert.equal(broken.toolBar, "bottom");
+  assert.equal(broken.toolBarFill, true);
+  assert.equal(normalizeWindow(undefined).toolBar, "bottom");
+  assert.equal(normalizeWindow(undefined).toolBarFill, true);
 });
 
 test("hotkeys: missing open takes the default, an empty one stays unset, invalid ones are dropped", () => {
@@ -67,4 +87,24 @@ test("cycling tools wraps and skips when there is nothing to switch to", () => {
 
 test("no default shortcut is one an AltGr layout would type with", () => {
   for (const kind of ["open", "hide", "resize", "find"] as const) assert.equal(altGrRisk(kind, WINDOW_DEFAULTS.hotkeys[kind]), false, kind);
+});
+
+test("saved text sizes per tool survive a reload; a fresh install has none", () => {
+  assert.deepEqual(WINDOW_DEFAULTS.textSizes, {});
+  assert.deepEqual(normalizeWindow({ textSizes: { notes: 150, calc: 42 } }).textSizes, { notes: 150 });
+  assert.deepEqual(normalizeWindow({}).textSizes, {});
+});
+
+test("a vertical wheel scrolls a strip that overflows sideways, toward its end in either text direction", () => {
+  assert.equal(stripScroll(0, 100, 240, false), 100);
+  assert.equal(stripScroll(0, -100, 240, false), -100);
+  // Right to left, scrollLeft runs from 0 down to negative values.
+  assert.equal(stripScroll(4, 100, 240, true), -100);
+});
+
+test("a strip leaves the wheel alone when nothing is hidden or the wheel already runs sideways", () => {
+  assert.equal(stripScroll(0, 100, 0, false), 0);
+  assert.equal(stripScroll(0, 100, 1, false), 0);
+  assert.equal(stripScroll(120, 30, 240, false), 0);
+  assert.equal(stripScroll(0, 0, 240, false), 0);
 });

@@ -1,7 +1,9 @@
 // Translated from BrimDeck (Apache-2.0, github.com/MoFeng2223/BrimDeck), src/BrimDeck/MainWindow.CompactColumn.cs.
 import { useLayoutEffect, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { AlarmIcon, ArrowFatLineUp, BatteryHigh, BatteryLow, BatteryWarning, Bluetooth, CheckCircle, Coffee, DeviceMobile, GameController, Headphones, Keyboard, Microphone, MicrophoneSlash, Mouse, NumberSquareOne, Pause, Play, Plug, SpeakerHifi, SpeakerHigh, SpeakerLow, SpeakerNone, SpeakerX, Stop, Sun, SunDim, Watch, WifiHigh, WifiSlash, type Icon } from "@phosphor-icons/react";
+import { AlarmIcon, BatteryLow, BatteryWarning, CheckCircle, Coffee, Pause, Play, Stop } from "../../ui/iconset";
+import { STATUS_ICON } from "./statusIcons";
+import { hueVar } from "../../features/themes/hues";
 import { content, pulse } from "../../design/motion";
 import { t } from "../../i18n";
 import { ringing, timerActions, useSecondTick } from "../../features/timer/store";
@@ -31,25 +33,23 @@ import { COLUMN, columnWidth, fitLines, ringLines, stack } from "../column";
 import { useHeld } from "./CompactRow";
 import { NOTICE_BUTTON, NoticeButton, useNoticeHover } from "./NoticeButton";
 import { useRowVisible } from "./visibility";
-import { CAPTION_FONT, fontEpoch, measureText } from "./measure";
-import { RING, Ring, ringLabel, ringProviders, ringValue } from "./parts/Rings";
+import { CAPTION_FONT, fontEpoch, measureTabular } from "./measure";
+import { RING, Ring, ringProps, ringProviders } from "./parts/Rings";
 import { ReadingView, readingWidth, useReadings } from "./parts/Readings";
 import { Clock, clockWidth } from "./parts/Clock";
 import { TimerPart, timerWidth } from "./parts/TimerPart";
 import { DISCORD_WIDTH, DiscordPart } from "./parts/DiscordPart";
 import { GithubPart, githubWidth, useGithubToday } from "./parts/GithubPart";
+import { LeetcodePart, leetcodeWidth, useLeetcodeToday } from "./parts/LeetcodePart";
 import { WeatherPart, useWeatherNow, weatherWidth } from "./parts/WeatherPart";
+import { useBtPart } from "./parts/BtPart";
+import { isMac } from "../../platform/native";
 
 interface Line { id: string; w: number; h: number; draw: () => ReactNode }
 
 const NOTICE_ICON = 17;
 /** The recording line: dot 8, time 14, two buttons, 4 between. */
 const REC_STACK = 8 + 14 + 2 * NOTICE_BUTTON + 3 * 4;
-const STATUS_ICON: Record<StatusAlert["icon"], Icon> = {
-  plug: Plug, battery: BatteryHigh, wifi: WifiHigh, "wifi-off": WifiSlash, headphones: Headphones,
-  "speaker-hifi": SpeakerHifi, mouse: Mouse, keyboard: Keyboard, gamepad: GameController, phone: DeviceMobile, watch: Watch, bluetooth: Bluetooth,
-  "speaker-high": SpeakerHigh, "speaker-low": SpeakerLow, "speaker-none": SpeakerNone, "speaker-x": SpeakerX, sun: Sun, "sun-dim": SunDim, "caps-lock": ArrowFatLineUp, "num-lock": NumberSquareOne, microphone: Microphone, "microphone-slash": MicrophoneSlash,
-};
 /** The HUD's level bar under the icon: 3 high, 4 below the icon. */
 const LEVEL_H = 3, LEVEL_GAP = 4;
 const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)", warning: "var(--color-orange)", critical: "var(--color-red)" };
@@ -57,7 +57,7 @@ const TONE: Record<StatusAlert["tone"], string> = { normal: "var(--color-label)"
 /**
  * The notice as an icon on its own line (the notice text is too wide for a column), by the same priority as NoticeLayer: a finished
  * timer's alarm, which dismisses it (after a running recording: its dot, time, pause and stop); the status alert's icon; a live notice's app logo; a due to-do's alarm, which opens the To-dos.
- * On the idle line it shows the same ones, a live notice included, as on top. Saved, download, quota, track, calendar and water notices stay off the column.
+ * On the idle line and in dimmed focus mode (`urgentOnly`) it shows the same ones as on top, a live notice included. Saved, download, quota, track, calendar and water notices stay off the column.
  */
 function useNoticeLine(): Line | null {
   const finished = timer.use().finished;
@@ -75,7 +75,7 @@ function useNoticeLine(): Line | null {
   if (kind === "recording") {
     // Stacked: dot, time, pause or resume, stop. The width is the time's, measured with zeros so it only changes with a new digit.
     const label = formatElapsed(elapsedAt(rec, Date.now()));
-    const w = Math.max(NOTICE_BUTTON, Math.ceil(measureText(label.replace(/\d/g, "0"), CAPTION_FONT)));
+    const w = Math.max(NOTICE_BUTTON, Math.ceil(measureTabular(label.replace(/\d/g, "0"), CAPTION_FONT)));
     return {
       id: "notice-recording",
       w,
@@ -130,7 +130,7 @@ function useNoticeLine(): Line | null {
         h: NOTICE_ICON + LEVEL_GAP + LEVEL_H,
         draw: () => (
           <span className="flex flex-col items-center" style={{ gap: LEVEL_GAP, color: TONE[status.tone] }}>
-            <I size={NOTICE_ICON} weight="fill" />
+            <I size={NOTICE_ICON} weight="fill" style={status.accent && { color: hueVar(status.accent) }} />
             <span className="overflow-hidden rounded-full bg-fill-3" style={{ width: NOTICE_ICON, height: LEVEL_H }}>
               <span className="block h-full rounded-full" style={{ width: `${level}%`, background: status.icon === "speaker-x" ? "var(--color-label-3)" : "currentColor" }} />
             </span>
@@ -140,7 +140,7 @@ function useNoticeLine(): Line | null {
     }
     // Only the icon fits: the text goes in the tooltip and for screen readers, a key switched off or a device that left is dimmed.
     return line(`notice-${status.kind}-${status.icon}${status.off ? "-off" : ""}`, () => (
-      <span className="flex" role="img" aria-label={status.text} title={status.text} style={{ color: TONE[status.tone], opacity: status.off ? 0.45 : 1 }}>
+      <span className="flex" role="img" aria-label={status.text} title={status.text} style={{ color: status.accent ? hueVar(status.accent) : TONE[status.tone], opacity: status.off ? 0.45 : 1 }}>
         <I size={NOTICE_ICON} weight="fill" />
       </span>
     ));
@@ -164,7 +164,7 @@ function useNoticeLine(): Line | null {
  * The closed notch's content on a side edge: the row's parts one below the other, each centred on its own line, in the row's order with
  * the cover first and the privacy dots last, under the notice line if there is one. The song title is left out: a scrolling title does
  * not fit across a column, and neither does a lyric line, the next event or the downloads, so the title's lyric mode and the lyrics-only notch keep the column as it is.
- * Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line, opened only by
+ * Lines that do not fit in the longest notch are dropped from the end. `parts` false (the idle line or dimmed focus mode, opened only by
  * an urgent notice) shows the notice line alone and keeps the row's polling off. Reports its length and width, and whether a notice line shows; the shape is that plus
  * its insets and pads. Drawn at the content scale like the row (Notch.tsx): `room` is the longest it gets at its designed size.
  */
@@ -173,8 +173,11 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
   fontEpoch.use();
   const notice = useNoticeLine();
   const gh = useGithubToday();
+  const lc = useLeetcodeToday();
   const s = settings.use(), closed = s.closed;
   const weather = useWeatherNow(parts && closed.parts.weather);
+  // Screen Time and the Day timeline stay out of the column: a 144 px strip would widen all of it.
+  const bt = useBtPart(parts && closed.parts.bluetooth && !isMac);
   const np = useNowPlaying();
   const playing = useHeld(!!np?.isPlaying, RELEASE_CAPTURE_MS);
   const running = timer.use().endsAt !== null;
@@ -195,7 +198,9 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
     else if (id === "discord" && call) fixed.push({ id, w: DISCORD_WIDTH, h: 20, draw: () => <DiscordPart call={call} paused={false} /> });
     else if (id === "equalizer" && np && playing) fixed.push({ id, w: 16, h: 16, draw: () => <Equalizer playing={np.isPlaying} /> });
     else if (id === "github" && gh) fixed.push({ id, w: githubWidth(gh.count), h: 16, draw: () => <GithubPart count={gh.count} level={gh.level} /> });
+    else if (id === "leetcode" && lc) fixed.push({ id, w: leetcodeWidth(lc.count), h: 16, draw: () => <LeetcodePart count={lc.count} level={lc.level} /> });
     else if (id === "weather" && weather) fixed.push({ id, w: weatherWidth(), h: 16, draw: () => <WeatherPart now={weather} /> });
+    else if (id === "bluetooth" && bt) fixed.push({ id, w: bt.width, h: 16, draw: bt.draw });
     else if (id === "clock") fixed.push({ id, w: clockWidth(closed.clockSeconds, h12), h: 16, draw: () => <Clock seconds={closed.clockSeconds} h12={h12} paused={false} /> });
     else if (id === "rings" && rings.length) ringsAt = fixed.length;
     else if (id === "readings" && readings.length) {
@@ -217,7 +222,7 @@ export function CompactColumn({ parts, room, onSize }: { parts: boolean; room: n
       h: RING,
       draw: () => (
         <span className="flex items-center" style={{ gap: COLUMN.ringGap }}>
-          {slice.map((r) => <Ring key={r.id} id={r.id} value={ringValue(r)} label={ringLabel(r)} />)}
+          {slice.map((r) => <Ring key={r.id} id={r.id} {...ringProps(r)} />)}
         </span>
       ),
     };

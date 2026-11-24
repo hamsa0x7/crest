@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { glideCycle, marqueeCycle, planTurn, type Cycle } from "./cycles.ts";
+import { glideCycle, marqueeCycle, planTurn, stayCycle, type Cycle } from "./cycles.ts";
 
 const near = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not near ${b}`);
 
@@ -41,6 +41,12 @@ test("marquee", () => {
   assert.equal(m.shift(1), 0); near(m.shift(2.5), -24); assert.equal(m.shift(4), -48); near(m.shift(5 + 2.5), -24);
   assert.equal(m.opacity(2.5), 1);
   assert.deepEqual(m.stretch(2), { moving: true, start: 1.5, end: 3.5 }); assert.equal(m.moving(4.5), false);
+});
+test("a lyric line scrolls once and stays at its end", () => {
+  const s = stayCycle(48);
+  assert.equal(s.period, 5); assert.equal(s.done(4.9), false); assert.equal(s.done(5), true);
+  near(s.shift(2.5), -24); assert.equal(s.shift(s.doneAt!), -48);
+  assert.equal(marqueeCycle(48).doneAt, undefined);   // the title and notices still rest at their start
 });
 test("turn", () => {
   assert.deepEqual(planTurn({ moving: true, start: 2, end: 5 }, { moving: false, start: 5, end: 7 }, 3), { into: 1, wait: 2 });

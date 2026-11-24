@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type WheelEvent } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDownLeft, FastForward, Pause, Play, PictureInPicture, Rewind, X } from "@phosphor-icons/react";
+import { ArrowDownLeft, FastForward, Pause, Play, PictureInPicture, Rewind, X } from "../../ui/iconset";
 import { media, useNowPlaying } from "../../platform/media";
 import {
   YouTubeMirror,

@@ -1,4 +1,4 @@
-import { ChatCircleDots } from "@phosphor-icons/react";
+import { ChatCircleDots } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 
 export const NoticesProExtension: NativeExtension = {

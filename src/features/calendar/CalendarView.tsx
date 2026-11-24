@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, VideoCamera, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, SlidersHorizontal, VideoCamera, WarningCircle } from "../../ui/iconset";
 import { content, spin } from "../../design/motion";
 import { formatAgo, formatTime } from "../../lib/format";
 import { HeaderActions, HeaderButton } from "../../notch/header";
@@ -9,7 +9,7 @@ import type { CalendarEvent } from "../../platform/services";
 import { settings } from "../../settings/store";
 import { Button, Empty, Skeleton } from "../../ui/controls";
 import { locale, t } from "../../i18n";
-import { agenda, dayLabel, meetingLink, monthGrid, startOfDay } from "./model";
+import { agenda, dayLabel, firstWeekday, meetingLink, monthGrid, startOfDay } from "./model";
 import { calendar, joinMeeting, refreshCalendar, useCalendarViewer } from "./store";
 
 const DAYS = 7;
@@ -67,17 +67,24 @@ export function CalendarView() {
     </HeaderActions>
   );
 
+  const from = picked ?? startOfDay(now);
+  const pick = (d: number) => setPicked(d === startOfDay(now) ? null : d);
+
+  // The month shows without a calendar too: the clock on Crest's bar opens here, and people look there for the date.
   if (!sources.length) {
     return (
-      <>
+      <div className="flex h-full gap-5 px-5 pt-1 pb-2">
         {actions}
-        <Empty
-          icon={CalendarBlank}
-          title={t("Kein Kalender verbunden")}
-          text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Cupcake liest nur.")}
-          action={<Button onClick={() => navigate("settings", "calendar")}>{t("Kalender hinzufügen")}</Button>}
-        />
-      </>
+        <Month events={[]} colors={new Map()} now={now} picked={from} onPick={pick} />
+        <div className="min-w-0 flex-1">
+          <Empty
+            icon={CalendarBlank}
+            title={t("Kein Kalender verbunden")}
+            text={t("Füge einen ICS-Link (Google, Outlook, iCloud) oder ein CalDAV-Konto hinzu. Cupcake liest nur.")}
+            action={<Button onClick={() => navigate("settings", "calendar")}>{t("Kalender hinzufügen")}</Button>}
+          />
+        </div>
+      </div>
     );
   }
   if (!data) {
@@ -99,7 +106,6 @@ export function CalendarView() {
 
   const colors = new Map(data.calendars.map((c) => [c.id, c.color]));
   const names = new Map(data.calendars.map((c) => [c.id, c.name]));
-  const from = picked ?? startOfDay(now);
   // The picked day always shows; later days only when something is on.
   const days = agenda(data.events, from, DAYS).filter((d, i) => i === 0 || d.events.length);
   const failing = data.sources.filter((s) => s.error);
@@ -123,7 +129,7 @@ export function CalendarView() {
     >
       {actions}
       <div className="flex min-h-0 flex-1 gap-5">
-        <Month events={data.events} colors={colors} now={now} picked={from} onPick={(d) => setPicked(d === startOfDay(now) ? null : d)} />
+        <Month events={data.events} colors={colors} now={now} picked={from} onPick={pick} />
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:none]" style={{ maskImage: "linear-gradient(180deg, #000 calc(100% - 20px), transparent)" }}>
           {days.map((d) => (
             <section key={d.day} className="pb-2">
@@ -159,17 +165,6 @@ export function CalendarView() {
   );
 }
 
-/** First day of the week for the UI language (Intl week info), Monday when the runtime cannot tell. */
-function firstWeekday(): number {
-  try {
-    const l = new Intl.Locale(locale()) as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
-    const info = l.getWeekInfo?.() ?? l.weekInfo;
-    return info ? info.firstDay % 7 : 1;
-  } catch {
-    return 1;
-  }
-}
-
 /*
  *   ‹  November 2026  ›
  *   M  T  W  T  F  S  S
@@ -184,7 +179,7 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
   anchor.setDate(1);
   anchor.setMonth(anchor.getMonth() + shift);
   const title = anchor.toLocaleDateString(locale(), { month: "long", year: "numeric" });
-  const cells = monthGrid(p.events, anchor.getTime(), firstWeekday());
+  const cells = monthGrid(p.events, anchor.getTime(), firstWeekday(locale()));
   const step = (by: number) => setShift((s) => Math.min(2, Math.max(-1, s + by)));
   const arrow = "pressable rounded-full p-1 text-label-3 hover:text-label-2 disabled:opacity-30";
   return (
@@ -224,11 +219,11 @@ function Month(p: { events: CalendarEvent[]; colors: Map<string, string>; now: n
               onClick={() => p.onPick(c.day)}
               aria-label={new Date(c.day).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" })}
               aria-pressed={isPicked}
-              className={`pressable flex h-[26px] flex-col items-center justify-center rounded-[8px] ${isPicked ? "bg-fill-3" : "hover:bg-fill-1"}`}
+              className={`pressable flex h-[26px] flex-col items-center justify-center rounded-[8px] ${isPicked ? "bg-secondary-container" : "hover:bg-fill-1"}`}
             >
               <span
                 className={`tabular flex size-[17px] items-center justify-center rounded-full text-caption leading-none ${
-                  isToday ? "bg-label font-semibold text-black" : c.inMonth ? "text-label" : "text-label-4"
+                  isToday ? "bg-primary font-semibold text-on-primary" : c.inMonth ? "text-label" : "text-label-4"
                 }`}
               >
                 {new Date(c.day).getDate()}

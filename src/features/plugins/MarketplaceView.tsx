@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowSquareOut, Check, DownloadSimple, MagnifyingGlass, PuzzlePiece, SpinnerGap } from "@phosphor-icons/react";
+import { ArrowSquareOut, Check, DownloadSimple, MagnifyingGlass, PuzzlePiece, SpinnerGap } from "../../ui/iconset";
 import { Button, Row, TextField } from "../../ui/controls";
 import { t } from "../../i18n";
 import { iconFor } from "./icons";

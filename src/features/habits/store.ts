@@ -1,3 +1,4 @@
+import { isNotchWindow } from "../../lib/windowKind";
 import { createStore } from "../../lib/store";
 import { settings } from "../../settings/store";
 import { todayTotal } from "../water/water";
@@ -60,6 +61,9 @@ function syncWater() {
   if (next !== habits.get().habits) habits.set({ habits: next });
 }
 
-water.subscribe(syncWater);
-settings.subscribe(syncWater);
-syncWater();
+// The notch alone ticks the water habit; the other windows follow its write.
+if (isNotchWindow) {
+  water.subscribe(syncWater);
+  settings.subscribe(syncWater);
+  syncWater();
+}

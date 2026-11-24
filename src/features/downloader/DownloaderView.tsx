@@ -11,7 +11,7 @@ import {
   Trash,
   X,
   YoutubeLogo,
-} from "@phosphor-icons/react";
+} from "../../ui/iconset";
 import { HeaderActions, HeaderButton } from "../../notch/header";
 import { Button } from "../../ui/controls";
 import { createStore } from "../../lib/store";
@@ -197,7 +197,7 @@ export function DownloaderView() {
               onClick={() => setFormat("video")}
               className={`pressable flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-caption font-medium transition-colors ${
                 format === "video"
-                  ? "bg-fill-3 text-label shadow-sm"
+                  ? "bg-secondary-container text-on-secondary-container shadow-sm"
                   : "bg-fill-1 text-label-3 hover:text-label-2"
               }`}
             >
@@ -208,7 +208,7 @@ export function DownloaderView() {
               onClick={() => setFormat("audio")}
               className={`pressable flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-caption font-medium transition-colors ${
                 format === "audio"
-                  ? "bg-fill-3 text-label shadow-sm"
+                  ? "bg-secondary-container text-on-secondary-container shadow-sm"
                   : "bg-fill-1 text-label-3 hover:text-label-2"
               }`}
             >

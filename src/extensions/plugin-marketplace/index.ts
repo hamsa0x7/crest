@@ -1,4 +1,4 @@
-import { Storefront } from "@phosphor-icons/react";
+import { Storefront } from "../../ui/iconset";
 import { registerExtension, type NativeExtension } from "../registry";
 import { MarketplaceView } from "../../features/plugins/MarketplaceView";
 

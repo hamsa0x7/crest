@@ -22,11 +22,13 @@ import { calendar, calendarDue } from "../features/calendar/store";
 import { usage } from "../features/usage/store";
 import { recording, startRecording, stopRecording, takeShot } from "../features/capture/store";
 import { checkForUpdate, update } from "../lib/update";
+import { setFocusMode } from "../notch/focus";
 import { QUOTA } from "../notch/row/notices";
 import { PART_IDS, PET_IDS } from "../notch/row/parts";
 import { viewZoom } from "../notch/viewZoom";
 import { PANEL_SCALES } from "../features/window/panelSize";
 import { normalizeSearch } from "../features/overview/search";
+import { demoBarOffered } from "../features/taskbar/store";
 import { TIMER_LOOKS } from "../features/timer/looks";
 
 /*
@@ -54,7 +56,7 @@ import { TIMER_LOOKS } from "../features/timer/looks";
  *   { cmd: "cover", on }         the Music tool's cover behind the whole panel
  *   { cmd: "search", engine }    Overview's web search line: google | bing | duckduckgo | brave | off
  *   { cmd: "look", look }        the timer's look, one of TIMER_LOOKS
- * Every command first undoes what would hide its result: presentation mode, quiet hours, and notices still showing.
+ * Every command first undoes what would hide its result: focus mode, presentation mode, quiet hours, and notices still showing.
  *
  * Demo -> host (postMessage on the parent):
  *   { event: "ready", tools: [{ id, label, hue }] }   the tools in the dock (sent again when the language changes)
@@ -69,7 +71,7 @@ const params = new URLSearchParams(location.search);
 /** The dock, in an order that shows the best first. Every tool is on, the Windows-only ones included. */
 const DEMO_TOOLS = [
   "overview", "media", "timer", "todos", "notes", "clipboard", "shelf", "ask", "convert", "weather", "usage", "trading", "system",
-  "calendar", "github", "discord", "notices", "capture", "recorder", "camera", "launcher", "vault", "terminal", "water", "scratchpad",
+  "calendar", "github", "leetcode", "discord", "notices", "capture", "recorder", "camera", "launcher", "vault", "terminal", "water", "scratchpad",
 ];
 
 /** A finger has no hover: the notch opens on a tap, and an open one stays until a tap outside. */
@@ -102,6 +104,7 @@ export function startDemo() {
     ask: { provider: "anthropic", configs: { ...s.ask.configs, anthropic: { model: "claude-opus-5-5", effort: "high", baseUrl: "" } } },
     usage: { ...s.usage, cursor: true },
     github: { user: "andrealo20" },
+    leetcode: { user: "coder" },
     privacyDots: true,
     // Every tool in its own colour, the way the website shows them, and the timer in its pixel look.
     themes: { ...s.themes, iconColors: true },
@@ -137,6 +140,14 @@ export function startDemo() {
   timerActions.start();
   seedNotices();
   navigate(params.get("tool") ?? "overview");
+  // The demo on its own page, with a mouse and the room of a desktop: Crest's bar too (src/dev/demoBar.tsx). Not on the site's stage.
+  // Behind build constants the bundler folds, so the app's build carries no import of the demo's bar, nor the chunks it would split.
+  if (import.meta.env.MODE === "demo" || import.meta.env.DEV) {
+    if (!bare && !coarse && innerWidth >= 1000) {
+      demoBarOffered.set(true);
+      void import("./demoBar").then((m) => m.mountDemoBar());
+    }
+  }
 
   // The sample plugin is installed (src/platform/services.ts); its tool is on once the list has been read.
   const offPlugins = plugins.subscribe(() => {
@@ -365,8 +376,9 @@ function notice(kind: string) {
   }
 }
 
-/** Presentation mode and quiet hours keep notices away; a visitor who tried them would see nothing happen. */
+/** Focus mode, presentation mode and quiet hours keep notices and clicks away; a visitor who tried them would see nothing happen. */
 function undoStates() {
+  setFocusMode(false);
   const { presentation, notices } = settings.get();
   if (presentation.manual || notices.quiet.on) {
     updateSettings((s) => ({ presentation: { ...s.presentation, manual: false }, notices: { ...s.notices, quiet: { ...s.notices.quiet, on: false } } }));

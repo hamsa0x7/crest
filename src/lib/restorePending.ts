@@ -1,3 +1,4 @@
+import { isNotchWindow } from "./windowKind";
 import { applyPendingRestore, type RestoreResult } from "./backup";
 
 /*
@@ -6,7 +7,8 @@ import { applyPendingRestore, type RestoreResult } from "./backup";
  */
 
 /** What this start did with a pending restore, for the settings to say. */
-export const restoreResult: RestoreResult = (() => {
+/** The notch alone applies a pending restore, at its start; another window opened later must not apply it under the running notch. */
+export const restoreResult: RestoreResult = !isNotchWindow ? null : (() => {
   try {
     return applyPendingRestore(localStorage);
   } catch {
