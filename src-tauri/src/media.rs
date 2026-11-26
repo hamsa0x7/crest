@@ -103,10 +103,23 @@ pub async fn media_control(state: State<'_, MediaState>, action: String, positio
         let info = describe(&all);
         let session = match shown_session(&candidates(&info, None), &shown_app, &shown_title) {
             Some(i) => all[i].clone(),
-            None => manager.GetCurrentSession()?,
+            None => manager.GetCurrentSession().ok().or_else(|| all.into_iter().next()).ok_or_else(|| windows::core::Error::empty())?,
         };
         match action.as_str() {
-            "toggle" => session.TryTogglePlayPauseAsync()?.join()?,
+            "toggle" => {
+                if !session.TryTogglePlayPauseAsync()?.join()? {
+                    if let Ok(info) = session.GetPlaybackInfo() {
+                        if let Ok(status) = info.PlaybackStatus() {
+                            if status == windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+                                let _ = session.TryPauseAsync()?.join();
+                            } else {
+                                let _ = session.TryPlayAsync()?.join();
+                            }
+                        }
+                    }
+                }
+                true
+            }
             "next" => session.TrySkipNextAsync()?.join()?,
             "previous" => session.TrySkipPreviousAsync()?.join()?,
             "seek" => {

@@ -10,6 +10,7 @@ import { iconFor } from "./icons";
 import { toolId, type PluginManifest } from "./model";
 import { cancelInstall, confirmInstall, install, pickPlugin, plugins, refreshPlugins, removePlugin, setPluginEnabled } from "./store";
 import { MarketplaceView } from "./MarketplaceView";
+import { isExtensionEnabled } from "../../extensions";
 
 /** Install errors from Rust (plugins.rs), some with the file name after a colon. */
 const errors: Record<string, string> = {
@@ -71,26 +72,31 @@ export function PluginSettings() {
     );
   }
 
+  const canMarketplace = isExtensionEnabled("plugin-marketplace");
+  const currentTab = canMarketplace ? tab : "installed";
+
   return (
     <>
       <Group title={t("Plugins")} id="settings-plugins">
-        <Row icon="apps" label={t("Ansicht")}>
-          <Segmented
-            id="plugins-tab"
-            label={t("Ansicht")}
-            value={tab}
-            options={[
-              { value: "installed", label: `${t("Installiert")} (${list.length})` },
-              { value: "marketplace", label: t("Marketplace") },
-            ]}
-            onChange={setTab}
-            size="sm"
-          />
-        </Row>
+        {canMarketplace && (
+          <Row icon="apps" label={t("Ansicht")}>
+            <Segmented
+              id="plugins-tab"
+              label={t("Ansicht")}
+              value={currentTab}
+              options={[
+                { value: "installed", label: `${t("Installiert")} (${list.length})` },
+                { value: "marketplace", label: t("Marketplace") },
+              ]}
+              onChange={setTab}
+              size="sm"
+            />
+          </Row>
+        )}
 
         {state.phase === "confirm" && state.staged ? (
           <Confirm staged={state.staged} error={state.error} />
-        ) : tab === "marketplace" ? (
+        ) : canMarketplace && currentTab === "marketplace" ? (
           <MarketplaceView />
         ) : (
           <>

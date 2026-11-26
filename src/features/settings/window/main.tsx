@@ -9,7 +9,8 @@ import { startCrashLog } from "../../window/store";
 import { nav } from "../../../notch/nav";
 import { settingsWindow } from "../../../platform/native";
 import { followStores } from "../../../lib/bridge";
-import { tauriTransport } from "../../../lib/tauriTransport";
+import { askNotch, tauriTransport } from "../../../lib/tauriTransport";
+import { setExtensionBridge } from "../../../extensions/registry";
 import { sharedStores } from "./shared";
 import { SettingsWindow } from "./SettingsWindow";
 
@@ -22,6 +23,7 @@ import { SettingsWindow } from "./SettingsWindow";
 // The colours and the font come from the theme variables.
 startThemes();
 startCrashLog();
+setExtensionBridge(askNotch);
 
 // A window, not a web page: no browser menu, except in text fields (to paste a key), and no reload or print.
 window.addEventListener("contextmenu", (e) => {

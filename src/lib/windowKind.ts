@@ -4,13 +4,15 @@
  * owns the in-memory state; the other windows read and ask (src/lib/bridge.ts).
  */
 
-export type WindowKind = "notch" | "timer" | "mirror" | "settings" | "taskbar";
+export type WindowKind = "notch" | "timer" | "mirror" | "settings" | "taskbar" | "pip" | "lyrics";
 
 export function kindOf(pathname: string): WindowKind {
   if (pathname.endsWith("/timer.html")) return "timer";
   if (pathname.endsWith("/mirror.html")) return "mirror";
   if (pathname.endsWith("/settings.html")) return "settings";
   if (pathname.endsWith("/taskbar.html")) return "taskbar";
+  if (pathname.endsWith("/pip.html")) return "pip";
+  if (pathname.endsWith("/lyrics.html")) return "lyrics";
   return "notch";
 }
 
@@ -18,3 +20,5 @@ export const windowKind: WindowKind = typeof location === "undefined" ? "notch" 
 export const isNotchWindow = windowKind === "notch";
 export const isTimerWindow = windowKind === "timer";
 export const isTaskbarWindow = windowKind === "taskbar";
+export const isPipWindow = windowKind === "pip";
+export const isLyricsWindow = windowKind === "lyrics";

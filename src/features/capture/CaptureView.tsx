@@ -17,6 +17,7 @@ import { deletePendingShot, keepPendingShot, pendingShots, remainingTime } from 
 import { activeAnnotation, openAnnotation } from "./annotationStore";
 import { AnnotationCanvas } from "./AnnotationCanvas";
 import { addToShelf } from "../shelf/ShelfView";
+import { isExtensionEnabled } from "../../extensions";
 
 /*
  * Capture: screenshots (all screens, one monitor, or a region) and screen recordings
@@ -70,7 +71,7 @@ export function CaptureView() {
   // A sound-only recording is the Recorder's: here it only says why Record waits.
   const warning = error ?? (rec.audio ? (idle ? null : t("Es läuft schon eine Aufnahme")) : failureText(rec.failed));
 
-  if (annotating) {
+  if (annotating && isExtensionEnabled("capture-annotation")) {
     return <AnnotationCanvas />;
   }
 
@@ -439,11 +440,13 @@ function PendingStagingSection({ onDeleted }: { onDeleted: () => void }) {
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <IconBtn
-                  label={t("Bearbeiten")}
-                  icon={PencilSimple}
-                  onClick={() => openAnnotation(p)}
-                />
+                {isExtensionEnabled("capture-annotation") && (
+                  <IconBtn
+                    label={t("Bearbeiten")}
+                    icon={PencilSimple}
+                    onClick={() => openAnnotation(p)}
+                  />
+                )}
                 <IconBtn
                   label={t("Behalten")}
                   icon={Check}

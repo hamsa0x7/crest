@@ -478,7 +478,10 @@ test("the tool bar's ink: white or black, the best worst case over its veil and 
     const bar = parseColor(r.vars["--glass-tint-edge"])!.a;
     const inks = glassInk(r, true), ink = inks["--color-link"];
     assert.equal(Object.keys(inks).length, 20, t.id);
-    assert.ok(Object.values(inks).every((v) => v === ink), t.id);
+    for (const hue of Object.keys(HUE_PALETTE)) assert.equal(inks[`--hue-${hue}`], r.vars[`--hue-${hue}`], t.id);
+    assert.equal(inks["--color-label"], ink, t.id);
+    assert.equal(inks["--color-label-2"], ink, t.id);
+    assert.equal(inks["--color-link"], ink, t.id);
     assert.deepEqual(Object.keys(glassInk(r, false)), ["--color-label", "--color-label-2", "--color-link"], t.id);
     assert.equal(ink, r.dark ? "#ffffff" : "#000000", t.id);
     const bare = (c: Rgba) => worst(c, bar, bg), drop = (c: Rgba) => worst(c, bar, bg, fill3);
@@ -499,7 +502,7 @@ test("the tool bar's ink over Liquid Glass +: the closed notch's label for the l
   assert.equal(on["--accent"], dark["--theme-accent"]);
   assert.equal(on["--color-link"], label);
   assert.equal(on["--color-label-2"], dark["--color-label-2"]);
-  assert.ok(hues.every((h) => on[h] === label));
+  assert.ok(hues.every((h) => on[h] === dark[h]));
   assert.ok(hues.every((h) => off[h] === dark[h]));
   assert.equal(off["--color-link"], label);
 });

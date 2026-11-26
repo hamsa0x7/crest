@@ -1,4 +1,4 @@
-import { isNotchWindow, isTaskbarWindow } from "../../lib/windowKind";
+import { isNotchWindow, isTaskbarWindow, isPipWindow, isLyricsWindow } from "../../lib/windowKind";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { accentFrom } from "../../lib/accent";
@@ -82,7 +82,7 @@ export function createNativeMedia(): MediaSource {
 
   // The notch and the bar, whose panel shows Now playing, follow the playing song from Rust (and work out its colours); the controls
   // below work from any window.
-  if (isNotchWindow || isTaskbarWindow) {
+  if (isNotchWindow || isTaskbarWindow || isPipWindow || isLyricsWindow) {
     void invoke<NativeNowPlaying | null>("media_get").then(apply);
     void listen<NativeNowPlaying | null>("media://update", (e) => apply(e.payload));
   }

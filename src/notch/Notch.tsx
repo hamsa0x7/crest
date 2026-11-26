@@ -74,6 +74,7 @@ import { useHue, useIconColors, type Hue } from "../features/themes/hues";
 import { HUE_PILL, plusInk } from "../features/themes/themes";
 import { recording } from "../features/capture/store";
 import { plugins } from "../features/plugins/store";
+import { ExtensionOverlays, extensionStore, isExtensionEnabled, resolveTabs } from "../extensions";
 import { viewMetrics, viewZoom } from "./viewZoom";
 import { CoverBackdrop, coverBackdrop } from "../features/now-playing/CoverBackdrop";
 import { NotchContextMenu } from "./NotchContextMenu";
@@ -126,7 +127,7 @@ export function Notch() {
 
   // Audio frequency equalizer spikes subscription
   useEffect(() => {
-    if (!displaySettings.ferrofluidSpikes || status === "open" || !np?.isPlaying) {
+    if (!isExtensionEnabled("ferrofluid") || !displaySettings.ferrofluidSpikes || status === "open" || !np?.isPlaying) {
       setSpikes([]);
       return;
     }
@@ -225,7 +226,9 @@ export function Notch() {
   const alert = idleLine && (urgent || statusOn || popped);
   // Plugin tools exist once their list has been read.
   plugins.use();
-  const visible = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
+  extensionStore.use();
+  const enabledTools = toolSettings.filter((t) => t.enabled).map((t) => findTab(t.id)).filter((t): t is NotchTab => !!t);
+  const visible = resolveTabs(enabledTools);
   const { tabId } = nav.use();
   // Hidden tool active (e.g. just disabled) → first visible one.
   const tab = pageTabs.find((t) => t.id === tabId) ?? visible.find((t) => t.id === tabId) ?? visible[0] ?? tabs[0];
@@ -294,7 +297,8 @@ export function Notch() {
   const maxH = limits(tab.size, monitorMetrics().height).maxH;
   const own = overridden ? { w: override.w, h: Math.min(override.h, maxH) } : extraH ? { w: toolSize.w, h: Math.min(toolSize.h + extraH, maxH) } : toolSize;
   // Never narrower than the tool bar at full size, where the monitor holds it (#82).
-  const rawSize = { w: openWidth(own.w, visible.length, monitorMetrics().width), h: own.h };
+  const isCustomSize = Boolean(settings.get().behavior.sizes[tab.id]);
+  const rawSize = { w: isCustomSize ? own.w : openWidth(own.w, visible.length, monitorMetrics().width), h: own.h };
   // The idle line never passes through the small notch: line → slightly bigger line on
   // hover → open, and straight back to the line on close.
   const lineIdle = idleLine && !alert;
@@ -408,9 +412,7 @@ export function Notch() {
   monitor.use(); // the span, windowY and the bridge read the monitor's size and work area
   monitors.use(); // with "All monitors" the span is the narrowest one's
   const area = dragArea(), span = sharedSpan(side ? area.height : area.width, side);
-  const sidePanelH = Math.min(640, Math.max(500, span - 100));
-  const sidePanelW = overridden ? Math.min(500, Math.max(380, override.w)) : 440;
-  const size = side ? { w: sidePanelW, h: sidePanelH } : rawSize;
+  const size = rawSize;
   const closedH = surface === "capsule" ? sizes.capsuleHeight : sizes.notchHeight, scale = contentScale(closedH);
   // A card brings its own padding (NoticeCard.tsx), so the shape keeps a narrow margin; the privacy dots, when on, keep the row's beside it.
   const dotsOn = usePrivacyDots().length > 0;
@@ -455,6 +457,7 @@ export function Notch() {
 
   const secondaryActivity = activities[1] ?? null;
   const splitActive =
+    isExtensionEnabled("satellite-bubble") &&
     displaySettings.satelliteBubble !== false &&
     activities.length >= 2 &&
     status !== "open" &&
@@ -843,7 +846,7 @@ export function Notch() {
           sticky.onPointerMove(e);
           if (status !== "open") {
             pointed.current = { tool: partTarget(e), at: Date.now() };
-            if (displaySettings.ferrofluidStretch && edge === "top") {
+            if (isExtensionEnabled("ferrofluid") && displaySettings.ferrofluidStretch && edge === "top") {
               const rect = e.currentTarget.getBoundingClientRect();
               const px = e.clientX - rect.left;
               const py = e.clientY - rect.top;
@@ -910,13 +913,13 @@ export function Notch() {
           refractiveHighlight={displaySettings.refractiveHighlight}
           shaking={shaking}
           lockFeedback={lockFeedbackVal}
-          ferrofluidStretch={displaySettings.ferrofluidStretch}
+          ferrofluidStretch={isExtensionEnabled("ferrofluid") && displaySettings.ferrofluidStretch}
           stretchOffset={stretchOffset}
           stretchX={stretchX}
           sagOffset={sagOffset}
-          spikes={spikes}
-          dropletBead={displaySettings.dropletBead}
-          weatherDrips={displaySettings.weatherDrips}
+          spikes={isExtensionEnabled("ferrofluid") ? spikes : []}
+          dropletBead={isExtensionEnabled("ferrofluid") && displaySettings.dropletBead}
+          weatherDrips={isExtensionEnabled("ferrofluid") && displaySettings.weatherDrips}
           isPrecipitating={isPrecipitating}
           precipType={precipType}
         >
@@ -968,7 +971,7 @@ export function Notch() {
                 key="open"
                 data-open-panel
                 // Anchored at the edge it hangs from, so it stays put while the shape grows from there.
-                className={`absolute isolate flex ${side ? (edge === "left" ? "flex-row" : "flex-row-reverse") : "flex-col"} ${PANEL_ANCHOR[edge]}`}
+                className={`absolute isolate flex flex-col ${PANEL_ANCHOR[edge]}`}
                 style={{
                   width: size.w,
                   height: size.h,
@@ -1030,6 +1033,8 @@ export function Notch() {
             />
           )}
         </AnimatePresence>
+
+        <ExtensionOverlays />
 
         {editing && status !== "open" && <ClosedResizeBar style={style} edge={edge} />}
       </motion.div>

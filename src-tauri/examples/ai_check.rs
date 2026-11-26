@@ -27,7 +27,7 @@ fn main() {
 
     if args.iter().any(|a| a == "--store") {
         let name = format!("ai.{provider}");
-        crest_lib::secrets::secret_set(name.clone(), key.clone()).expect("saving failed");
-        println!("stored as Notch/{name}, read back ok: {}", crest_lib::secrets::read(&name).as_deref() == Some(key.as_str()));
+        cupcake_lib::secrets::secret_set(name.clone(), key.clone()).expect("saving failed");
+        println!("stored as Notch/{name}, read back ok: {}", cupcake_lib::secrets::read(&name).as_deref() == Some(key.as_str()));
     }
 }

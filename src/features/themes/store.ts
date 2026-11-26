@@ -97,11 +97,6 @@ function apply() {
   lastKey = key;
   const contrast = more ? 1 : 0;
   const resolved = style === "material" ? resolveMaterial(file, { contrast }) : resolveTheme(file);
-  const st = settings.get();
-  if (st.themes?.materialYou && st.themes?.materialYouAccent) {
-    resolved.vars["--theme-accent"] = st.themes.materialYouAccent;
-    resolved.vars["--theme-accent-bright"] = st.themes.materialYouAccent;
-  }
   const root = document.documentElement;
   const write = () => {
     // A crossfade's callback waits for a frame; a newer apply() in between has already drawn what is due.
@@ -132,19 +127,6 @@ function apply() {
   }
 }
 
-export async function syncWallpaperAccent() {
-  try {
-    const src = await themeFiles.wallpaper();
-    if (!src) return;
-    const { accentFrom } = await import("../../lib/accent");
-    const accent = src.startsWith("#") ? src : await accentFrom(src);
-    updateSettings((cur) => ({
-      themes: { ...cur.themes, materialYouAccent: accent },
-    }));
-    document.documentElement.style.setProperty("--theme-accent", accent);
-    document.documentElement.style.setProperty("--theme-accent-bright", accent);
-  } catch {}
-}
 
 let timer = 0;
 let lastSchedule = "";
@@ -196,9 +178,6 @@ export function startThemes() {
   apply();
   applyFont();
   scheduleNext();
-  if (settings.get().themes?.materialYou) {
-    void syncWallpaperAccent();
-  }
   settings.subscribe(() => {
     apply();
     applyFont();

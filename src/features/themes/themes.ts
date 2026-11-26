@@ -59,9 +59,6 @@ export interface ThemeSettings {
   contours: boolean;
   /** The whole app's font (FONTS, or "auto" for the style's own: fontStack), set as --font-sans; the terminal and the timer looks keep their monospace. */
   font: FontId;
-  /** Material You dynamic color palette extracted from desktop wallpaper. */
-  materialYou?: boolean;
-  materialYouAccent?: string;
 }
 
 /** Inter ships with Cupcake, the others with Windows itself (not Office); the second name is a Mac font of the same kind. Fonts whose digits differ in width
@@ -480,7 +477,7 @@ export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, st
   const needs = [BLACK, WHITE].flatMap((x) => [over(veil, x), over(fill, over(veil, x))]).map((background) => ({ background, minimum: GRAPHIC }));
   const ink = formatColor(contrastScore(WHITE, needs) >= contrastScore(BLACK, needs) ? WHITE : BLACK);
   const out: Record<string, string> = { "--color-label": ink, "--color-label-2": ink, "--color-link": ink };
-  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = ink;
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = theme.vars[`--hue-${hue}`];
   return out;
 }
 
@@ -492,7 +489,7 @@ export function glassInk(theme: ResolvedTheme, hues: boolean): Record<string, st
 export function plusInk(vars: Record<string, string>, hues: boolean): Record<string, string> {
   const label = vars["--color-label"];
   const out: Record<string, string> = { ...vars, "--accent": vars["--theme-accent"], "--color-link": label };
-  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = label;
+  if (hues) for (const hue of Object.keys(HUE_PALETTE)) out[`--hue-${hue}`] = vars[`--hue-${hue}`];
   return out;
 }
 
@@ -686,7 +683,6 @@ export const THEME_DEFAULTS: ThemeSettings = {
   design: "crest",
   contours: true,
   font: "auto",
-  materialYou: false,
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -745,6 +741,5 @@ export function normalizeThemeSettings(raw: unknown, legacyIconColors = false): 
     // Saved before the Style setting (no `design`), "inter" was the default nobody picked: it becomes the style's font. Saved beside a
     // style, it was picked, and stays.
     font: font === "inter" && s.design === undefined ? "auto" : font,
-    materialYou: s.materialYou === true,
   };
 }

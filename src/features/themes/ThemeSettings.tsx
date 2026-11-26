@@ -2,12 +2,11 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "
 import { ArrowCounterClockwise, WarningCircle } from "../../ui/iconset";
 import { Button, Group, Row, Select, Slider, StyleCards, Switch, TextField } from "../../ui/controls";
 import { RIM_PRESETS, RIM_EFFECTS, type RimPreset, type RimEffect } from "../../notch/rim";
-import { accentFrom } from "../../lib/accent";
 import type { RowSymbol } from "../../ui/materialNames";
 import { formatTime } from "../../lib/format";
 import { isMac } from "../../platform/native";
 import { windowKind } from "../../lib/windowKind";
-import { openFile, revealFile, themeFiles } from "../../platform/services";
+import { openFile, revealFile } from "../../platform/services";
 import { demo } from "../../dev/showcase-data";
 import { glassShape } from "../../notch/glass/params";
 import { liveSupport } from "../../notch/glass/live";
@@ -70,7 +69,7 @@ export function ThemeSettings() {
       {!demo && <StyleChoice />}
       <ThemeChoice />
       <DayNight />
-      <MaterialYouSettings />
+
       <RimSettings />
       <ThemeEditor />
       <ThemeFiles />
@@ -688,60 +687,6 @@ function ThemeFiles() {
   );
 }
 
-function MaterialYouSettings() {
-  const s = settings.use();
-  const my = Boolean(s.themes.materialYou);
-  const [busy, setBusy] = useState(false);
-  const [statusText, setStatusText] = useState<string | null>(null);
-
-  const refresh = async () => {
-    setBusy(true);
-    setStatusText(null);
-    try {
-      const path = await themeFiles.wallpaper();
-      if (path) {
-        const url = path.startsWith("http") ? path : `asset://localhost/${encodeURIComponent(path.replace(/\\/g, "/"))}`;
-        const accent = await accentFrom(url);
-        document.documentElement.style.setProperty("--theme-accent", accent);
-        document.documentElement.style.setProperty("--theme-accent-bright", accent);
-        setStatusText(t("Farbe aus Hintergrundbild übernommen"));
-      } else {
-        setStatusText(t("Kein Hintergrundbild gefunden"));
-      }
-    } catch {
-      setStatusText(t("Fehler beim Lesen des Hintergrundbilds"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Group title={t("Material You & Dynamische Farben")} id="settings-material-you">
-      <Row
-        icon="palette"
-        label={t("Material You Palette")}
-        hint={t("Farben dynamisch aus dem Windows-Desktop-Hintergrundbild ableiten")}
-      >
-        <Switch
-          label={t("Material You Palette")}
-          checked={my}
-          onChange={(materialYou) => {
-            updateSettings((cur) => ({ themes: { ...cur.themes, materialYou } }));
-            if (materialYou) void refresh();
-          }}
-        />
-      </Row>
-      {my && (
-        <Row icon="wallpaper" label={t("Hintergrundbild aktualisieren")} hint={statusText ?? t("Liest das aktuelle Desktop-Hintergrundbild erneut aus")}>
-          <Button disabled={busy} onClick={() => void refresh()}>
-            {t("Jetzt synchronisieren")}
-          </Button>
-        </Row>
-      )}
-    </Group>
-  );
-}
-
 function RimSettings() {
   const s = settings.use();
   const d = s.display;
@@ -788,8 +733,8 @@ function RimSettings() {
             <div className="flex w-52 items-center gap-2">
               <Slider
                 min={0.5}
-                max={2.5}
-                step={0.05}
+                max={6.0}
+                step={0.1}
                 value={d.rimThickness}
                 onChange={(rimThickness) => updateDisplay({ rimThickness })}
                 label={t("Rand-Dicke")}

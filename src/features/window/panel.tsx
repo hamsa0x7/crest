@@ -5,10 +5,10 @@ import { holdOpen } from "../../notch/useNotchState";
 import { monitor, monitorMetrics } from "../../notch/monitor";
 import { viewZoom } from "../../notch/viewZoom";
 import { isMac } from "../../platform/native";
-import { settings } from "../../settings/store";
+import { settings, updateSettings } from "../../settings/store";
 import { t } from "../../i18n";
 import { textStep } from "./hotkeys";
-import { dragSize, fromShown, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
+import { dragSize, limits, sizeFor, stepSize, stepTextSize, type Direction, type Edge, type Size } from "./panelSize";
 import { stripScroll } from "./model";
 import { updateBehavior } from "./store";
 
@@ -48,18 +48,26 @@ export function useToolText(id: string): number {
 }
 
 function save(id: string, size: Size | null) {
-  updateBehavior((b) => {
-    const sizes = { ...b.sizes };
+  updateSettings((cur) => {
+    const behavior = cur.behavior;
+    const sizes = { ...behavior.sizes };
     if (size) sizes[id] = size;
     else delete sizes[id];
-    return { sizes };
+    return {
+      behavior: { ...behavior, sizes },
+      display: {
+        ...cur.display,
+        panelWidth: size ? Math.max(520, size.w) : cur.display.panelWidth,
+        panelHeight: size ? Math.max(200, size.h) : cur.display.panelHeight,
+      },
+    };
   });
 }
 
 /** One press of the resize shortcut on the open tool, from the width on screen (`shownW`, which the tool bar can hold wider: fromShown). */
 export function stepToolSize(id: string, def: Size, dir: Direction, shownW: number) {
   const own = sizeFor(def, settings.get().behavior.sizes[id], monitorMetrics().height);
-  save(id, fromShown(stepSize({ ...own, w: shownW }, dir, limits(def, monitorMetrics().height)), own, shownW));
+  save(id, stepSize({ ...own, w: shownW }, dir, limits(def, monitorMetrics().height)));
 }
 
 const GRIPS: { edge: Edge; className: string; cursor: string }[] = [
@@ -104,7 +112,10 @@ export function ResizeHandles({ id, def, size, shownW }: { id: string; def: Size
       el.removeEventListener("pointercancel", onUp);
       el.removeEventListener("lostpointercapture", onUp);
       holdOpen(false);
-      if (current !== start) save(id, fromShown(current, own, shownW));
+      if (current !== start) {
+        const savedSize = edge === "bottom" ? { w: own.w, h: current.h } : current;
+        save(id, savedSize);
+      }
       live.set(null);
     };
     el.addEventListener("pointermove", onMove);

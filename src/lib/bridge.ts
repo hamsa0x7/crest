@@ -109,7 +109,8 @@ export type BridgeAction =
   | { kind: "noticeDelete"; id: string }
   | { kind: "noticesClear" }
   | { kind: "timerSilence" }
-  | { kind: "focusMute"; on: boolean };
+  | { kind: "focusMute"; on: boolean }
+  | { kind: "extensionToggle"; id: string; enabled: boolean };
 
 export function sendAction(t: Transport, action: BridgeAction) {
   t.emit(ACTION, action, "notch");
@@ -149,6 +150,10 @@ function asAction(payload: unknown): BridgeAction | null {
         : null;
     case "noticeDelete":
       return typeof a.id === "string" && a.id.length >= 1 && a.id.length <= 128 ? { kind: "noticeDelete", id: a.id } : null;
+    case "extensionToggle":
+      return typeof a.id === "string" && a.id.length >= 1 && a.id.length <= 64 && typeof a.enabled === "boolean"
+        ? { kind: "extensionToggle", id: a.id, enabled: a.enabled }
+        : null;
     case "refresh": {
       const what = REFRESH.find((w) => w === a.what);
       if (!what || (a.force !== undefined && typeof a.force !== "boolean")) return null;

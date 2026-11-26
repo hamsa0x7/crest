@@ -1,6 +1,7 @@
 import type { Icon } from "../../ui/iconset";
 import { Group, Row, Switch } from "../../ui/controls";
 import { t } from "../../i18n";
+import { settings } from "../../settings/store";
 import {
   getAllExtensions,
   isExtensionEnabled,
@@ -10,6 +11,7 @@ import {
 
 export function ExtensionsSettings() {
   // Re-render when any extension toggle changes
+  settings.use();
   extensionStore.use();
   const allExtensions = getAllExtensions();
 

@@ -1,6 +1,7 @@
 import { createStore, setAside } from "../lib/store";
 import { setAcousticsProvider } from "../lib/sound";
 import { isMac } from "../platform/native";
+import { bindSettingsSync } from "../extensions/registry.ts";
 import { isLanguage, type LanguageSetting } from "../i18n/core";
 import type { AlarmDuration, AlarmSound } from "../lib/sound";
 import { CLOSED_DEFAULTS, normalizeClosed, type ClosedSettings } from "../notch/row/parts";
@@ -225,6 +226,28 @@ export interface Settings {
   screenTime: { on: boolean };
   /** The Wallpapers tool: its source, its folder, the fit and the automatic change (src/features/wallpapers). */
   wallpapers: WallpaperSettings;
+  /** Native extensions toggles: independent enablement state per extension ID. */
+  extensions: Record<string, boolean>;
+}
+
+export const EXTENSION_DEFAULTS: Record<string, boolean> = {
+  downloader: true,
+  ferrofluid: true,
+  "capture-annotation": true,
+  "acoustic-feedback": true,
+  "notices-pro": true,
+  "satellite-bubble": true,
+  "privacy-inspector": true,
+  "plugin-marketplace": true,
+};
+
+export function normalizeExtensions(raw: unknown): Record<string, boolean> {
+  if (!raw || typeof raw !== "object") return { ...EXTENSION_DEFAULTS };
+  const out: Record<string, boolean> = { ...EXTENSION_DEFAULTS };
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === "boolean") out[k] = v;
+  }
+  return out;
 }
 
 const defaults: Settings = {
@@ -312,6 +335,7 @@ const defaults: Settings = {
   taskbar: TASKBAR_DEFAULTS,
   screenTime: { on: false },
   wallpapers: WALLPAPER_DEFAULTS,
+  extensions: EXTENSION_DEFAULTS,
 };
 
 /** °F and 12 h where the Windows region uses them (US & co.), otherwise °C and 24 h. */
@@ -348,6 +372,17 @@ export const settings = createStore<Settings>(defaults, { persist: "settings" })
 try {
   settings.set(migrate);
   setAcousticsProvider(() => settings.get().acoustics);
+  bindSettingsSync({
+    get: () => settings.get().extensions,
+    set: (id, enabled) => {
+      updateSettings((cur) => ({
+        extensions: {
+          ...(cur.extensions ?? EXTENSION_DEFAULTS),
+          [id]: enabled,
+        },
+      }));
+    },
+  });
 } catch {
   // A saved value of the wrong shape must not stop the app from loading: keep it aside and start from the defaults.
   setAside("notch:settings", localStorage.getItem("notch:settings"));
@@ -409,7 +444,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
         : ((s.display?.rimPreset as unknown as string) === "frosted" ? "silver" : defaults.display.rimPreset),
       rimThickness:
         typeof s.display?.rimThickness === "number" && Number.isFinite(s.display.rimThickness)
-          ? Math.max(0.5, Math.min(2.5, s.display.rimThickness))
+          ? Math.max(0.5, Math.min(6.0, s.display.rimThickness))
           : defaults.display.rimThickness,
       rimGlow:
         typeof s.display?.rimGlow === "number" && Number.isFinite(s.display.rimGlow)
@@ -536,6 +571,7 @@ function migrate({ language: _old, ...s }: Settings & { language?: unknown }): S
     // Only an explicit true records: the switch is the consent.
     screenTime: { on: s.screenTime?.on === true },
     wallpapers: normalizeWallpapers(s.wallpapers),
+    extensions: normalizeExtensions(s.extensions),
   });
 }
 

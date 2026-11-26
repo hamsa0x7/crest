@@ -606,7 +606,8 @@ function Empty() {
       return;
     }
     const timer = setTimeout(() => {
-      fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`)
+      invoke<string[]>("search_suggestions", { query: q })
+        .then((items) => (Array.isArray(items) && items.length > 0 ? (["", items] as [string, string[]]) : fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`).then((r) => r.json())))
         .then((res) => res.json())
         .then((data: [string, string[]]) => {
           if (Array.isArray(data) && Array.isArray(data[1])) {
@@ -625,11 +626,14 @@ function Empty() {
       const id = extractYouTubeId(target);
       if (id) {
         customVideo.set(id);
+        void openFile(`https://www.youtube.com/watch?v=${id}`);
       } else {
         void openFile(`https://www.youtube.com/results?search_query=${encodeURIComponent(target)}`);
       }
     } else {
-      void openFile(`spotify:search:${encodeURIComponent(target)}`);
+      void openFile(`spotify:search:${encodeURIComponent(target)}`).catch(() => {
+        void openFile(`https://open.spotify.com/search/${encodeURIComponent(target)}`);
+      });
     }
     setQuery("");
     setShowSuggest(false);

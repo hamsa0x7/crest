@@ -23,6 +23,7 @@ import { clearHistory, deleteNotice, refreshStatus, sourceStatus } from "../../n
 import { syncOfflineStatus } from "../../now-playing/offlineEngine";
 import { startAwake, stopAwake } from "../../overview/store";
 import { plugins, refreshPlugins } from "../../plugins/store";
+import { extensionStore, setExtensionEnabled } from "../../../extensions/registry";
 import { privacy, snoozed, togglePresentation } from "../../privacy/store";
 import { system } from "../../system/store";
 import { runInTerminal } from "../../terminal/session";
@@ -59,6 +60,7 @@ export const sharedStores: Record<string, Shared> = {
   monitors,
   restored,
   sourceStatus,
+  extensionStore,
 };
 
 /** A request from the settings window or the bar, carried out here in the notch by the function the window called. */
@@ -98,6 +100,8 @@ function run(action: BridgeAction) {
       return timerActions.silence();
     case "focusMute":
       return focusMuted.set(action.on);
+    case "extensionToggle":
+      return void setExtensionEnabled(action.id, action.enabled);
   }
 }
 

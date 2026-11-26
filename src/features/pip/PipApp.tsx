@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type WheelEvent } from "react";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowDownLeft, FastForward, Pause, Play, PictureInPicture, Rewind, X } from "../../ui/iconset";
 import { media, useNowPlaying } from "../../platform/media";
@@ -21,11 +21,11 @@ const SNAP_AFTER_MS = 220;
 export function PipApp() {
   const np = useNowPlaying();
   const customId = customVideo.use();
-  const isCustom = !!customId;
+  const video = useMirrorVideo(np?.videoId);
+  const isCustom = Boolean(customId && (!np?.appId || customId === np?.videoId));
   const customPlaying = customVideoPlaying.use();
   const customProgress = customVideoProgress.use();
 
-  const video = useMirrorVideo(np?.videoId);
   const playing = isCustom ? customPlaying : !!np?.isPlaying;
   const positionMs = isCustom ? customProgress.time * 1000 : (np?.position ?? 0) * 1000;
   const durationMs = isCustom ? customProgress.duration * 1000 : (np?.duration ?? 0) * 1000;
@@ -37,7 +37,7 @@ export function PipApp() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     try {
-      const win = getCurrentWebviewWindow();
+      const win = getCurrentWindow();
       win.onMoved(() => {
         window.clearTimeout(snapTimer.current);
         snapTimer.current = window.setTimeout(() => void invoke("pip_snap"), SNAP_AFTER_MS);
@@ -51,9 +51,9 @@ export function PipApp() {
   const closePip = () => void invoke("close_pip");
 
   const startDrag = (e: MouseEvent) => {
-    if (e.button !== 0 || (e.target as Element).closest("button, input")) return;
+    if (e.button !== 0 || (e.target as Element).closest("button, input, form, a, [data-no-drag], .cursor-pointer")) return;
     try {
-      getCurrentWebviewWindow().startDragging();
+      void getCurrentWindow().startDragging();
     } catch {
       // not in Tauri
     }
@@ -67,7 +67,6 @@ export function PipApp() {
 
   return (
     <div
-      data-tauri-drag-region
       onMouseDown={startDrag}
       onWheel={onWheel}
       onMouseEnter={() => setHovered(true)}
@@ -77,7 +76,12 @@ export function PipApp() {
       {video ? (
         <YouTubeMirror videoId={video} positionMs={positionMs} playing={playing} live={!durationMs} className="size-full" />
       ) : np?.artwork ? (
-        <img src={np.artwork} alt="" className="size-full object-cover opacity-60" />
+        <img
+          src={np.artwork}
+          alt=""
+          draggable={false}
+          className="size-full object-cover opacity-60 pointer-events-none select-none"
+        />
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 bg-fill-1 p-3 text-label-3">
           <PictureInPicture size={22} weight="bold" className="text-label-3" />
@@ -113,25 +117,41 @@ export function PipApp() {
 
       {/* Hover Controls Overlay */}
       <div
+        onMouseDown={startDrag}
         className={`pointer-events-none absolute inset-0 z-30 flex flex-col justify-between bg-black/60 p-2.5 transition-opacity duration-200 ${
           hovered ? "pointer-events-auto opacity-100" : "opacity-0"
         }`}
       >
         {/* Top Header */}
-        <div data-tauri-drag-region className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <Marquee text={np?.title || (isCustom ? t("YouTube Video") : t("Cupcake Video"))} textWidth={180} width={180} paused={!playing} />
+            <Marquee
+              text={
+                np ? (np.artist ? `${np.artist} – ${np.title}` : np.title)
+                : isCustom ? t("YouTube Video")
+                : t("Cupcake Video")
+              }
+              textWidth={180}
+              width={180}
+              paused={!playing}
+            />
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
-              onClick={closePip}
+              onClick={(e) => {
+                e.stopPropagation();
+                closePip();
+              }}
               title={t("Zurück zur Notch")}
               className="pressable flex size-6 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
             >
               <ArrowDownLeft size={13} weight="bold" />
             </button>
             <button
-              onClick={closePip}
+              onClick={(e) => {
+                e.stopPropagation();
+                closePip();
+              }}
               title={t("Schließen")}
               className="pressable flex size-6 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
             >
@@ -145,6 +165,7 @@ export function PipApp() {
           {/* Progress bar */}
           <div
             onClick={(e) => {
+              e.stopPropagation();
               const totalSec = isCustom ? customProgress.duration : np?.duration;
               if (!totalSec) return;
               const rect = e.currentTarget.getBoundingClientRect();
@@ -157,13 +178,14 @@ export function PipApp() {
             }}
             className="group/bar relative h-1.5 w-full cursor-pointer rounded-full bg-white/20 overflow-hidden"
           >
-            <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${progress * 100}%` }} />
+            <div className="h-full bg-accent rounded-full transition-all pointer-events-none" style={{ width: `${progress * 100}%` }} />
           </div>
 
           {/* Transport buttons */}
           <div className="flex items-center justify-center gap-3">
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (isCustom) {
                   seekCustomVideo(Math.max(0, customProgress.time - 10));
                 } else {
@@ -176,7 +198,8 @@ export function PipApp() {
               <Rewind size={18} weight="fill" />
             </button>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (isCustom) {
                   toggleCustomVideo();
                 } else {
@@ -189,7 +212,8 @@ export function PipApp() {
               {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" className="ml-0.5" />}
             </button>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (isCustom) {
                   seekCustomVideo(customProgress.time + 10);
                 } else {

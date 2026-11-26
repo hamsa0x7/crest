@@ -1161,6 +1161,32 @@ function Display() {
       )}
       <ClosedStyle />
       <SizeSettings />
+      <Row icon="arrow_range" label={t("Panel-Breite")} hint={t("Feste Breite aller Werkzeugfenster")}>
+        <div className="flex w-52 items-center gap-2">
+          <Slider
+            label={t("Panel-Breite")}
+            value={d.panelWidth ?? 640}
+            min={520}
+            max={740}
+            step={5}
+            onChange={(panelWidth) => updateSettings((cur) => ({ display: { ...cur.display, panelWidth, panelMinWidth: panelWidth } }))}
+          />
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelWidth ?? 640} px</span>
+        </div>
+      </Row>
+      <Row icon="height" label={t("Panel-Höhe")} hint={t("Feste Höhe aller Werkzeugfenster")}>
+        <div className="flex w-52 items-center gap-2">
+          <Slider
+            label={t("Panel-Höhe")}
+            value={d.panelHeight ?? 350}
+            min={240}
+            max={540}
+            step={5}
+            onChange={(panelHeight) => updateSettings((cur) => ({ display: { ...cur.display, panelHeight, panelMaxHeight: panelHeight } }))}
+          />
+          <span className="tabular w-14 shrink-0 text-end text-caption text-label-2">{d.panelHeight ?? 350} px</span>
+        </div>
+      </Row>
       <ClosedParts />
       <PetSettingsRows />
       <Row icon="linear_scale" label={t("Fortschritt auf der Linie")} hint={t("Zeigt, wie weit das Lied ist, solange Musik läuft")}>

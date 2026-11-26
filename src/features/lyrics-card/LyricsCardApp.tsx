@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { FastForward, MagnifyingGlassMinus, MagnifyingGlassPlus, MicrophoneStage, Pause, Play, Rewind, X } from "../../ui/iconset";
 import { media, useNowPlaying } from "../../platform/media";
@@ -31,9 +31,9 @@ export function LyricsCardApp() {
   const closeWindow = () => void invoke("lyrics_window_close");
 
   const startDrag = (e: MouseEvent) => {
-    if (e.button !== 0 || (e.target as Element).closest("button")) return;
+    if (e.button !== 0 || (e.target as Element).closest("button, a")) return;
     try {
-      getCurrentWebviewWindow().startDragging();
+      void getCurrentWindow().startDragging();
     } catch {
       // not in Tauri
     }
@@ -53,7 +53,6 @@ export function LyricsCardApp() {
 
   return (
     <div
-      data-tauri-drag-region
       onMouseDown={startDrag}
       className="relative flex h-screen w-screen flex-col select-none overflow-hidden rounded-[18px] bg-elevated/95 backdrop-blur-2xl border border-separator shadow-2xl p-4 text-label"
     >

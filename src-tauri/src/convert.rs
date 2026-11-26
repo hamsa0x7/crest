@@ -55,7 +55,12 @@ pub fn convert_probe(paths: Vec<String>) -> Probe {
 #[tauri::command]
 pub async fn open_path(path: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        if !Path::new(&path).exists() {
+        let is_uri = path.starts_with("https://")
+            || path.starts_with("http://")
+            || path.starts_with("spotify:")
+            || path.starts_with("ms-settings:")
+            || path.starts_with("mailto:");
+        if !is_uri && !Path::new(&path).exists() {
             return Err("Datei nicht mehr vorhanden".into());
         }
         // The associated app; not through `explorer <file>`, which splits a name with a comma. On an STA thread, as the main

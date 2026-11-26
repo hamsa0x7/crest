@@ -324,6 +324,7 @@ export function openFile(path: string): Promise<void> {
   // Demo: a file the visitor dropped opens from their own browser memory; the sample files have nothing to open.
   const file = demoFiles.get(path);
   if (file && /^(image|text|application\/pdf)/.test(file.type)) window.open(URL.createObjectURL(file), "_blank", "noopener");
+  else if (/^(https?:\/\/|spotify:)/.test(path)) window.open(path, "_blank", "noopener");
   return Promise.resolve();
 }
 

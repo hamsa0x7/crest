@@ -518,6 +518,7 @@ pub fn run() {
             open_sponsors,
             open_store_review,
             web_search,
+            search_suggestions,
             open_bug_report,
             #[cfg(windows)]
             brightness::brightness_get,
@@ -1170,6 +1171,43 @@ fn search_url(engine: &str, query: &str) -> Option<String> {
 #[tauri::command]
 fn web_search(engine: String, query: String) -> Result<(), String> {
     open_url(&search_url(&engine, &query).ok_or("bad-search")?)
+}
+
+/// Query suggestions for search in YouTube / media.
+#[tauri::command]
+async fn search_suggestions(query: String) -> Result<Vec<String>, String> {
+    let q = query.trim();
+    if q.len() < 2 {
+        return Ok(Vec::new());
+    }
+    let Ok(url) = reqwest::Url::parse_with_params(
+        "https://suggestqueries.google.com/complete/search",
+        &[("client", "firefox"), ("ds", "yt"), ("q", q)],
+    ) else {
+        return Ok(Vec::new());
+    };
+
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(1500))
+        .build() else {
+        return Ok(Vec::new());
+    };
+
+    let Ok(res) = client.get(url).send().await else {
+        return Ok(Vec::new());
+    };
+    let Ok(json) = res.json::<serde_json::Value>().await else {
+        return Ok(Vec::new());
+    };
+    if let Some(arr) = json.get(1).and_then(|v| v.as_array()) {
+        Ok(arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .take(5)
+            .collect())
+    } else {
+        Ok(Vec::new())
+    }
 }
 
 /// Enables autostart on the very first launch; after that the tray check and settings decide.

@@ -150,7 +150,7 @@ export function NotchShape({
       const sOff = Number(sOffVal);
       const sX = Number(sXVal);
       const sag = Number(sagVal);
-      if (!elevated && ferrofluidStretch && (sOff > 0.1 || sag > 0.1 || (spikes && spikes.length > 0))) {
+      if (!elevated && isExtensionEnabled("ferrofluid") && ferrofluidStretch && (sOff > 0.1 || sag > 0.1 || (spikes && spikes.length > 0))) {
         return computeFerrofluidPerimeterPath(
           Number(wVal),
           Number(hVal),
@@ -362,6 +362,7 @@ export function NotchShape({
             fill="none"
             stroke="url(#notch-rim-grad)"
             strokeWidth={rimThickness}
+            style={rimEffect === "zoom" ? undefined : { strokeWidth: `${rimThickness}px` }}
             strokeLinecap="round"
             filter={rimGlow > 0 ? "url(#notch-rim-glow)" : undefined}
             strokeDasharray={rimEffect === "wave" ? "120 40" : undefined}
@@ -461,7 +462,7 @@ export function NotchShape({
       </motion.div>
 
       {/* Ferrofluid Liquid SVG Base Path: ensures continuous liquid belly, spikes, and sag fill */}
-      {!elevated && (
+      {!elevated && isExtensionEnabled("ferrofluid") && (
         <motion.svg
           aria-hidden
           className="absolute inset-0 pointer-events-none overflow-visible -z-1"

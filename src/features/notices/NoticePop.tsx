@@ -12,6 +12,7 @@ import { noticeCode } from "./otp";
 import { InlineReplyButton, REPLY_COLLAPSED_WIDTH } from "./InlineReply";
 import { isMessagingApp } from "./chat";
 import { dismissPop } from "./store";
+import { isExtensionEnabled } from "../../extensions";
 
 const LOGO = ICON_BOX, RING = 18;
 
@@ -54,7 +55,7 @@ export function noticePop(n: Notice, max: number) {
   const ring = n.progress !== null && n.progress !== undefined;
   // The pop is dismissed when presentation mode starts, so the code is never offered while the text is hidden.
   const code = !ring && !isMac && settings.get().notices.copyCodes ? noticeCode(n) : null;
-  const isChat = !ring && !code && isMessagingApp(n.appName, n.appId);
+  const isChat = !ring && !code && isExtensionEnabled("notices-pro") && isMessagingApp(n.appName, n.appId);
   const actions = ring ? (
     <ProgressRing value={n.progress ?? 0} size={RING} />
   ) : code ? (

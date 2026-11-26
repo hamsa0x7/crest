@@ -9,6 +9,8 @@ test("each page is its window", () => {
   assert.equal(kindOf("/mirror.html"), "mirror");
   assert.equal(kindOf("/settings.html"), "settings");
   assert.equal(kindOf("/taskbar.html"), "taskbar");
+  assert.equal(kindOf("/pip.html"), "pip");
+  assert.equal(kindOf("/lyrics.html"), "lyrics");
   // Anything else is the notch's page, as today.
   assert.equal(kindOf("/somewhere/else.html"), "notch");
 });

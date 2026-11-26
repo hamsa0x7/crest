@@ -1,3 +1,5 @@
+import { makeStore, type Store } from "../lib/storeCore.ts";
+import { isNotchWindow } from "../lib/windowKind.ts";
 export type ExtensionKind = "tool" | "overlay" | "service";
 
 export interface ExtensionTab {
@@ -25,41 +27,23 @@ export interface NativeExtension {
   enabledByDefault?: boolean;
 }
 
-const STORAGE_KEY = "notch:native_extensions";
-
-let state: Record<string, boolean> = {};
-try {
-  if (typeof localStorage !== "undefined") {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = JSON.parse(raw);
+function createExtensionStore(): Store<Record<string, boolean>> {
+  const key = "notch:native_extensions";
+  let storage: Storage | null = null;
+  let target: Window | undefined;
+  try {
+    if (typeof localStorage !== "undefined") storage = localStorage;
+    if (typeof window !== "undefined") target = window;
+  } catch {
+    // Non-browser or test environment
   }
-} catch {
-  // Fall back to default
+  return makeStore<Record<string, boolean>>(
+    {},
+    storage ? { key, storage, target } : null,
+  );
 }
 
-const listeners = new Set<() => void>();
-
-export const extensionStore = {
-  get: () => state,
-  set: (next: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => {
-    state = typeof next === "function" ? next(state) : next;
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-    } catch {
-      // Quota or unavailable
-    }
-    listeners.forEach((l) => l());
-  },
-  subscribe: (listener: () => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  },
-  use: (): Record<string, boolean> => {
-    return state;
-  },
-};
+export const extensionStore = createExtensionStore();
 
 const registry: NativeExtension[] = [];
 
@@ -76,7 +60,27 @@ export function getAllExtensions(): readonly NativeExtension[] {
   return registry;
 }
 
+export interface SettingsSync {
+  get: () => Record<string, boolean> | undefined;
+  set: (id: string, enabled: boolean) => void;
+}
+
+let sync: SettingsSync | null = null;
+let bridgeActionFn: ((action: { kind: "extensionToggle"; id: string; enabled: boolean }) => void) | null = null;
+
+export function bindSettingsSync(s: SettingsSync) {
+  sync = s;
+}
+
+export function setExtensionBridge(fn: (action: { kind: "extensionToggle"; id: string; enabled: boolean }) => void) {
+  bridgeActionFn = fn;
+}
+
 export function isExtensionEnabled(id: string): boolean {
+  if (sync) {
+    const fromSettings = sync.get();
+    if (fromSettings && fromSettings[id] !== undefined) return fromSettings[id];
+  }
   const s = extensionStore.get();
   if (s[id] !== undefined) return s[id];
   const ext = registry.find((e) => e.id === id);
@@ -85,6 +89,12 @@ export function isExtensionEnabled(id: string): boolean {
 
 export function setExtensionEnabled(id: string, enabled: boolean) {
   extensionStore.set((prev) => ({ ...prev, [id]: enabled }));
+  if (sync) {
+    sync.set(id, enabled);
+  }
+  if (!isNotchWindow && bridgeActionFn) {
+    bridgeActionFn({ kind: "extensionToggle", id, enabled });
+  }
 }
 
 /** Returns all currently active tool extensions as tab instances */

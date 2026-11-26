@@ -8,6 +8,7 @@ import {
   getOverriddenToolIds,
   resolveTabs,
   resolveToolIds,
+  bindSettingsSync,
   type NativeExtension,
 } from "./registry.ts";
 
@@ -74,4 +75,23 @@ test("resolveToolIds filters out overridden ids", () => {
   setExtensionEnabled("test-tool", false);
   const fallback = resolveToolIds(upstreamIds);
   assert.deepEqual(fallback, ["upstream-calc", "upstream-weather"]);
+});
+
+test("bindSettingsSync synchronizes settings store with extension status", () => {
+  const mockSettings: Record<string, boolean> = { "sync-test": true };
+  bindSettingsSync({
+    get: () => mockSettings,
+    set: (id, enabled) => {
+      mockSettings[id] = enabled;
+    },
+  });
+
+  assert.equal(isExtensionEnabled("sync-test"), true);
+
+  setExtensionEnabled("sync-test", false);
+  assert.equal(mockSettings["sync-test"], false);
+  assert.equal(isExtensionEnabled("sync-test"), false);
+
+  mockSettings["sync-test"] = true;
+  assert.equal(isExtensionEnabled("sync-test"), true);
 });
